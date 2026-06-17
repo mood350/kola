@@ -1,0 +1,33 @@
+name: CI/CD Frontend Next.js
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'frontend-admin/**'
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Récupérer le code
+      uses: actions/checkout@v4
+
+    - name: Configurer Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'frontend-admin/package-lock.json'
+
+    - name: Installer les dépendances
+      run: |
+        cd frontend-admin
+        npm ci
+
+    - name: Vérifier le linter et build
+      run: |
+        cd frontend-admin
+        npm run lint
+        npm run build
