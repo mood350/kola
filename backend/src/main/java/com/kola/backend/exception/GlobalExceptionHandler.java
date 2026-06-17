@@ -1,13 +1,21 @@
 package com.kola.backend.exception;
 
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -16,40 +24,12 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║              GlobalExceptionHandler.java                    ║
- * ║       Gestion centralisée de toutes les exceptions          ║
- * ╚══════════════════════════════════════════════════════════════╝
- *
- * @RestControllerAdvice intercepte toutes les exceptions lancées
- * par n'importe quel Controller et retourne une réponse JSON propre.
- *
- * SANS ce handler :
- *  → Spring retourne une page HTML d'erreur ou un JSON générique
- *  → Le frontend ne sait pas quoi afficher
- *
- * Avec handler :
- *  → Chaque erreur retourne un JSON structuré et cohérent ✅
- */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /**
-     * ┌─────────────────────────────────────────────────────────┐
-     * │  DTO — Format de réponse d'erreur                       │
-     * └─────────────────────────────────────────────────────────┘
-     *
-     * C'est ce que le frontend reçoit pour CHAQUE erreur :
-     * {
-     *   "code"      : "BAD_CREDENTIALS",
-     *   "message"   : "Email ou mot de passe incorrect",
-     *   "details"   : {},
-     *   "path"      : "/api/auth/login",
-     *   "timestamp" : "2024-01-15T10:30:00"
-     * }
-     */
+    // ─── DTO réponse d'erreur ─────────────────────────────────────────────────
+
     public record ErrorResponse(
             String code,
             String message,
@@ -57,12 +37,10 @@ public class GlobalExceptionHandler {
             String path,
             LocalDateTime timestamp
     ) {
-        // Constructeur simplifié sans details (pour les erreurs simples)
         public ErrorResponse(String code, String message, String path) {
             this(code, message, new HashMap<>(), path, LocalDateTime.now());
         }
 
-        // Constructeur complet avec details (pour les erreurs de validation)
         public ErrorResponse(String code, String message,
                              Map<String, String> details, String path) {
             this(code, message, details, path, LocalDateTime.now());
@@ -73,20 +51,11 @@ public class GlobalExceptionHandler {
     //  SÉCURITÉ
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * 401 UNAUTHORIZED — Mauvais email ou mot de passe
-     *
-     * Déclenché par : authenticationManager.authenticate() dans AuthenticationService
-     * quand les credentials sont incorrects.
-     */
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(
-            BadCredentialsException ex,
-            HttpServletRequest request) {
-        log.error("ERREUR INTERNE : {}", ex.getMessage(), ex);
-
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
+            BadCredentialsException ex, HttpServletRequest request) {
+        log.warn("Tentative de connexion échouée - {}", request.getRemoteAddr());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse(
                         "BAD_CREDENTIALS",
                         "Email ou mot de passe incorrect",
@@ -94,19 +63,10 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * 404 NOT_FOUND — Utilisateur introuvable
-     *
-     * Déclenché par : UserDetailsServiceImpl.loadUserByUsername()
-     * quand l'email n'existe pas en BDD.
-     */
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleUsernameNotFound(
-            UsernameNotFoundException ex,
-            HttpServletRequest request) {
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
+            UsernameNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(
                         "USER_NOT_FOUND",
                         ex.getMessage(),
@@ -114,25 +74,91 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * 403 FORBIDDEN — Accès refusé (pas les droits)
-     *
-     * Déclenché par : @PreAuthorize("hasRole('ADMIN')") quand
-     * l'utilisateur n'a pas le rôle requis.
-     *
-     * ⚠️ Pour que ce handler soit appelé au lieu de Spring Security,
-     * il faut configurer un AccessDeniedHandler dans SecurityConfig.
-     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(
-            AccessDeniedException ex,
-            HttpServletRequest request) {
-
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
+            AccessDeniedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse(
                         "ACCESS_DENIED",
                         "Vous n'avez pas les droits pour accéder à cette ressource",
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Compte désactivé (email non confirmé).
+     * Déclenché par Spring Security avant même d'arriver dans AuthController.
+     */
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(
+            DisabledException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        "ACCOUNT_DISABLED",
+                        "Votre compte n'est pas encore activé. Vérifiez vos emails.",
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Compte verrouillé (trop de tentatives ou gel admin).
+     */
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ErrorResponse> handleLocked(
+            LockedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.LOCKED)
+                .body(new ErrorResponse(
+                        "ACCOUNT_LOCKED",
+                        "Votre compte est temporairement verrouillé. Contactez le support.",
+                        request.getRequestURI()
+                ));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  JWT
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Token JWT expiré → 401.
+     * Déclenché par JwtAuthFilter quand le token dépasse sa date d'expiration.
+     */
+    @ExceptionHandler(ExpiredJwtException.class)
+    public ResponseEntity<ErrorResponse> handleExpiredJwt(
+            ExpiredJwtException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(
+                        "TOKEN_EXPIRED",
+                        "Votre session a expiré. Veuillez vous reconnecter.",
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Token JWT malformé (corrompu ou falsifié) → 401.
+     */
+    @ExceptionHandler(MalformedJwtException.class)
+    public ResponseEntity<ErrorResponse> handleMalformedJwt(
+            MalformedJwtException ex, HttpServletRequest request) {
+        log.warn("Token JWT malformé reçu depuis {}", request.getRemoteAddr());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(
+                        "TOKEN_INVALID",
+                        "Token d'authentification invalide.",
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Signature JWT incorrecte (clé secrète différente) → 401.
+     */
+    @ExceptionHandler(SignatureException.class)
+    public ResponseEntity<ErrorResponse> handleJwtSignature(
+            SignatureException ex, HttpServletRequest request) {
+        log.warn("Signature JWT invalide depuis {}", request.getRemoteAddr());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(
+                        "TOKEN_SIGNATURE_INVALID",
+                        "Token d'authentification invalide.",
                         request.getRequestURI()
                 ));
     }
@@ -141,26 +167,9 @@ public class GlobalExceptionHandler {
     //  VALIDATION
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * 400 BAD_REQUEST — Erreurs de validation (@NotBlank, @Email, @Size...)
-     *
-     * Déclenché par : @Valid dans AuthController quand les données
-     * envoyées ne respectent pas les contraintes du DTO.
-     *
-     * Retourne le détail de CHAQUE champ invalide :
-     * {
-     *   "details": {
-     *     "email"    : "Email invalide",
-     *     "password" : "Le mot de passe doit contenir au moins 8 caractères"
-     *   }
-     * }
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
-            MethodArgumentNotValidException ex,
-            HttpServletRequest request) {
-
-        // On collecte tous les champs invalides et leurs messages
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> details = new HashMap<>();
         ex.getBindingResult()
                 .getAllErrors()
@@ -170,8 +179,7 @@ public class GlobalExceptionHandler {
                     details.put(fieldName, errorMessage);
                 });
 
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(
                         "VALIDATION_ERROR",
                         "Les données envoyées sont invalides",
@@ -180,25 +188,36 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(
+                        "INVALID_ARGUMENT",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(
+            IllegalStateException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(
+                        "INVALID_STATE",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  RESSOURCES
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * 404 NOT_FOUND — Ressource introuvable
-     *
-     * Déclenché par : repository.findById().orElseThrow(EntityNotFoundException::new)
-     * dans n'importe quel Service quand une entité n'existe pas en BDD.
-     *
-     * Exemple : GET /api/books/999 → livre introuvable
-     */
     @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFound(
-            jakarta.persistence.EntityNotFoundException ex,
-            HttpServletRequest request) {
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
+            jakarta.persistence.EntityNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(
                         "ENTITY_NOT_FOUND",
                         ex.getMessage() != null ? ex.getMessage() : "Ressource introuvable",
@@ -206,33 +225,144 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    /**
+     * Email ou numéro de téléphone déjà utilisé lors de l'inscription → 409.
+     * Déclenché par la contrainte @Column(unique = true) en BDD.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Violation de contrainte BDD : {}", ex.getMostSpecificCause().getMessage());
+
+        String message = "Cette valeur est déjà utilisée.";
+
+        // On affine le message selon la contrainte violée
+        String cause = ex.getMostSpecificCause().getMessage().toLowerCase();
+        if (cause.contains("email")) {
+            message = "Cette adresse email est déjà associée à un compte.";
+        } else if (cause.contains("phone") || cause.contains("phone_number")) {
+            message = "Ce numéro de téléphone est déjà associé à un compte.";
+        }
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(
+                        "DUPLICATE_ENTRY",
+                        message,
+                        request.getRequestURI()
+                ));
+    }
+
     // ═══════════════════════════════════════════════════════════════
-    //  FALLBACK — Toutes les autres exceptions
+    //  MÉTIER FINANCIER
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * 500 INTERNAL_SERVER_ERROR — Toute exception non gérée
-     *
-     * C'est le filet de sécurité — si aucun handler ci-dessus
-     * ne correspond, on retourne une erreur 500 générique.
-     *
-     * ⚠️ On ne retourne JAMAIS les détails techniques en production
-     *    (stack trace, message d'erreur interne) pour des raisons
-     *    de sécurité.
+     * Solde insuffisant pour effectuer un transfert → 422.
      */
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientFunds(
+            InsufficientFundsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ErrorResponse(
+                        "INSUFFICIENT_FUNDS",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Coffre-fort verrouillé → 423.
+     */
+    @ExceptionHandler(VaultLockedException.class)
+    public ResponseEntity<ErrorResponse> handleVaultLocked(
+            VaultLockedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.LOCKED)
+                .body(new ErrorResponse(
+                        "VAULT_LOCKED",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Wallet suspendu par l'admin → 403.
+     */
+    @ExceptionHandler(WalletInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleWalletInactive(
+            WalletInactiveException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        "WALLET_INACTIVE",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  RATE LIMITING
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Trop de requêtes → 429.
+     * Déclenché par RateLimitingService.
+     */
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyRequests(
+            TooManyRequestsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(new ErrorResponse(
+                        "TOO_MANY_REQUESTS",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HTTP
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Mauvaise méthode HTTP (ex : GET sur un endpoint POST) → 405.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotAllowed(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(new ErrorResponse(
+                        "METHOD_NOT_ALLOWED",
+                        "Méthode HTTP non autorisée : " + ex.getMethod(),
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Échec d'envoi d'email → 503.
+     */
+    @ExceptionHandler(MessagingException.class)
+    public ResponseEntity<ErrorResponse> handleMessaging(
+            MessagingException ex, HttpServletRequest request) {
+        log.error("Échec d'envoi d'email : {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse(
+                        "EMAIL_SERVICE_ERROR",
+                        "Le service d'email est temporairement indisponible. Réessayez plus tard.",
+                        request.getRequestURI()
+                ));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  FALLBACK
+    // ═══════════════════════════════════════════════════════════════
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(
-            Exception ex,
-            HttpServletRequest request) {
-
-        // Log l'erreur en interne (important pour le debugging)
-        ex.printStackTrace();
-
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            Exception ex, HttpServletRequest request) {
+        // log.error() au lieu de printStackTrace() — bonne pratique prod
+        log.error("ERREUR INTERNE non gérée : {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(
                         "INTERNAL_ERROR",
-                        "Une erreur interne est survenue",
+                        "Une erreur interne est survenue. Veuillez réessayer.",
                         request.getRequestURI()
                 ));
     }
