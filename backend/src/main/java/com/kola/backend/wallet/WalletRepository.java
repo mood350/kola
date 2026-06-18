@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,4 +42,12 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
 
     // Vérifier si l'utilisateur a déjà un wallet pour cette devise
     boolean existsByOwnerIdAndCurrency(Long ownerId, String currency);
+
+    long countByActiveTrue();
+
+    @Query("SELECT w.currency, COALESCE(SUM(w.balance), 0), COALESCE(SUM(w.lockedBalance), 0), COUNT(w) FROM Wallet w GROUP BY w.currency ORDER BY SUM(w.balance) DESC")
+    List<Object[]> summarizeByCurrency();
+
+    @Query("SELECT COALESCE(SUM(w.balance), 0) FROM Wallet w WHERE w.active = true")
+    BigDecimal sumActiveBalances();
 }
