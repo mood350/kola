@@ -57,8 +57,8 @@ public class AuthenticationService {
 
         rateLimitingService.consume(RateLimitPolicy.REGISTER, ipAddress);
 
-        Role userRole = roleRepository.findByRoleName("Client")
-                .orElseThrow(() -> new RuntimeException("Rôle Client introuvable en BDD"));
+        Role userRole = roleRepository.findByRoleName("CLIENT")
+                .orElseThrow(() -> new RuntimeException("Rôle CLIENT introuvable en BDD"));
 
         var user = User.builder()
                 .firstName(request.getFirstname())
