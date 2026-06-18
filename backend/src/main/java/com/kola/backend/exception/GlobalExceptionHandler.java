@@ -298,6 +298,34 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    /**
+     * Devise non supportée par la plateforme → 400.
+     */
+    @ExceptionHandler(UnsupportedCurrencyException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedCurrency(
+            UnsupportedCurrencyException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(
+                        "UNSUPPORTED_CURRENCY",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Limite KYC dépassée → 403 (l'utilisateur doit upgrader son niveau de vérification).
+     */
+    @ExceptionHandler(KycLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleKycLimitExceeded(
+            KycLimitExceededException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        "KYC_LIMIT_EXCEEDED",
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  RATE LIMITING
     // ═══════════════════════════════════════════════════════════════
