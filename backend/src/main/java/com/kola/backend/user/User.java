@@ -13,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -54,6 +55,14 @@ public class User extends Listeners implements Principal, UserDetails {
     private String password;
     private boolean enabled;
     private boolean accountLocked;
+
+    // Compteur de tentatives de connexion échouées consécutives.
+    // Remis à zéro à chaque connexion réussie.
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
+    // Horodatage du dernier verrouillage (utile pour un déverrouillage automatique après X minutes)
+    private LocalDateTime lockedAt;
 
     // Pour la détection d'un nouvel appareil/IP (comme Google)
     private String lastKnownIp;
