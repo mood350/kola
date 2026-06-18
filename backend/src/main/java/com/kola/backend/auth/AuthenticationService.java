@@ -2,6 +2,8 @@ package com.kola.backend.auth;
 
 import com.kola.backend.email.EmailService;
 import com.kola.backend.email.EmailTemplateName;
+import com.kola.backend.ratelimit.RateLimitPolicy;
+import com.kola.backend.ratelimit.RateLimitingService;
 import com.kola.backend.role.RoleRepository;
 import com.kola.backend.security.JwtService;
 import com.kola.backend.role.Role;
@@ -39,6 +41,7 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
+    private final RateLimitingService rateLimitingService;
 
     @Value("${application.mail.from}")
     private String from;
@@ -50,7 +53,9 @@ public class AuthenticationService {
     //  INSCRIPTION
     // ═══════════════════════════════════════════════════════════════
 
-    public void register(RegistrationRequest request) throws MessagingException {
+    public void register(RegistrationRequest request, String ipAddress) throws MessagingException {
+
+        rateLimitingService.consume(RateLimitPolicy.REGISTER, ipAddress);
 
         Role userRole = roleRepository.findByRoleName("Client")
                 .orElseThrow(() -> new RuntimeException("Rôle Client introuvable en BDD"));
@@ -59,10 +64,16 @@ public class AuthenticationService {
                 .firstName(request.getFirstname())
                 .lastName(request.getLastname())
                 .email(request.getEmail())
+                // BUG CORRIGÉ : phoneNumber et countryCode n'étaient jamais
+                // renseignés alors que phoneNumber est nullable=false en BDD
+                // → l'inscription levait systématiquement une exception.
+                .phoneNumber(request.getPhoneNumber())
+                .countryCode(request.getCountryCode())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .roles(List.of(userRole))
                 .enabled(false) // ← désactivé jusqu'à confirmation email
                 .accountLocked(false)
+                .failedLoginAttempts(0)
                 .build();
 
         userRepository.save(user);
@@ -100,7 +111,9 @@ public class AuthenticationService {
      * Valide le compte utilisateur avec le code OTP reçu par email.
      */
     @Transactional
-    public void confirmAccount(String tokenValue) throws MessagingException {
+    public void confirmAccount(String tokenValue, String ipAddress) throws MessagingException {
+        rateLimitingService.consume(RateLimitPolicy.CONFIRM_ACCOUNT, ipAddress);
+
         Token token = tokenRepository.findByToken(tokenValue)
                 .orElseThrow(() -> new RuntimeException("Token invalide"));
 
@@ -128,21 +141,52 @@ public class AuthenticationService {
     //  CONNEXION
     // ═══════════════════════════════════════════════════════════════
 
+    // Nombre de tentatives échouées consécutives avant verrouillage du compte
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    // Durée du verrouillage automatique avant déblocage
+    private static final long LOCK_DURATION_MINUTES = 30;
+
     public AuthenticationResponse authenticate(
             AuthenticationRequest request,
             String ipAddress,
             String userAgent
     ) throws MessagingException {
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        rateLimitingService.consume(RateLimitPolicy.LOGIN, ipAddress + ":" + request.getEmail());
 
         var user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow();
+                .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException(
+                        "Aucun compte associé à cet email"
+                ));
+
+        // BUG CORRIGÉ : accountLocked était présent dans User mais jamais
+        // mis à jour ni vérifié ici → un compte ne pouvait jamais être
+        // verrouillé suite à des tentatives de connexion répétées
+        // (brute-force illimité possible sur le mot de passe).
+        checkAndAutoUnlockIfExpired(user);
+
+        if (user.isAccountLocked()) {
+            throw new org.springframework.security.authentication.LockedException(
+                    "Compte verrouillé suite à trop de tentatives échouées. Réessayez plus tard."
+            );
+        }
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+        } catch (org.springframework.security.authentication.BadCredentialsException ex) {
+            registerFailedAttempt(user);
+            throw ex;
+        }
+
+        // Connexion réussie → on remet le compteur à zéro
+        if (user.getFailedLoginAttempts() > 0) {
+            user.setFailedLoginAttempts(0);
+        }
 
         // Détection nouveau appareil/IP (comme Google)
         if (isNewDevice(user, ipAddress, userAgent)) {
@@ -163,11 +207,50 @@ public class AuthenticationService {
                 .build();
     }
 
+    /**
+     * Incrémente le compteur de tentatives échouées et verrouille le
+     * compte si le seuil est atteint. Sauvegarde systématiquement, même
+     * si la levée de l'exception interrompt le flux normal — c'est
+     * volontaire : on veut persister l'échec avant de propager l'erreur.
+     */
+    private void registerFailedAttempt(User user) {
+        user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+
+        if (user.getFailedLoginAttempts() >= MAX_FAILED_ATTEMPTS) {
+            user.setAccountLocked(true);
+            user.setLockedAt(LocalDateTime.now());
+        }
+
+        userRepository.save(user);
+    }
+
+    /**
+     * Déverrouille automatiquement un compte si le délai de verrouillage
+     * est écoulé. Évite qu'un utilisateur reste bloqué indéfiniment sans
+     * intervention d'un administrateur.
+     */
+    private void checkAndAutoUnlockIfExpired(User user) {
+        if (user.isAccountLocked() && user.getLockedAt() != null) {
+            boolean lockExpired = user.getLockedAt()
+                    .plusMinutes(LOCK_DURATION_MINUTES)
+                    .isBefore(LocalDateTime.now());
+
+            if (lockExpired) {
+                user.setAccountLocked(false);
+                user.setFailedLoginAttempts(0);
+                user.setLockedAt(null);
+                userRepository.save(user);
+            }
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  RESET PASSWORD
     // ═══════════════════════════════════════════════════════════════
 
     public void requestPasswordReset(String email) throws MessagingException {
+        rateLimitingService.consume(RateLimitPolicy.FORGOT_PASSWORD, email);
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email introuvable"));
 
@@ -187,7 +270,9 @@ public class AuthenticationService {
     }
 
     @Transactional
-    public void resetPassword(String tokenValue, String newPassword) {
+    public void resetPassword(String tokenValue, String newPassword, String ipAddress) {
+        rateLimitingService.consume(RateLimitPolicy.RESET_PASSWORD, ipAddress);
+
         Token token = tokenRepository.findByToken(tokenValue)
                 .orElseThrow(() -> new RuntimeException("Token invalide"));
 
@@ -246,7 +331,9 @@ public class AuthenticationService {
      *    son expiration (7 jours). On ne le régénère que si l'user
      *    se reconnecte ou si on implémente le "refresh token rotation".
      */
-    public AuthenticationResponse refreshToken(String refreshToken) {
+    public AuthenticationResponse refreshToken(String refreshToken, String ipAddress) {
+        rateLimitingService.consume(RateLimitPolicy.REFRESH_TOKEN, ipAddress);
+
         // Extrait l'email depuis le refresh token
         final String userEmail = jwtService.extractUsername(refreshToken);
 
