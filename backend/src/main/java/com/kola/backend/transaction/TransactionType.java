@@ -18,5 +18,7 @@ public enum TransactionType {
     TRANSFER_IN,
     VAULT_LOCK,
     VAULT_UNLOCK,
-    FEE
+    FEE,
+    LOAN_DISBURSEMENT,
+    LOAN_REPAYMENT
 }
