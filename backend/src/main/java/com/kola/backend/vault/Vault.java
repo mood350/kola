@@ -2,6 +2,7 @@ package com.kola.backend.vault;
 
 import com.kola.backend.user.User;
 import com.kola.backend.utils.Listeners;
+import com.kola.backend.wallet.Wallet;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -72,4 +73,13 @@ public class Vault extends Listeners {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
+
+    // BUG CORRIGÉ : champ manquant alors que le commentaire ci-dessus
+    // ("doit correspondre à la devise du wallet source") prouve qu'une
+    // relation vers le wallet d'origine était prévue. Sans ce champ,
+    // impossible de savoir d'où débiter les fonds au verrouillage ou
+    // où les recréditer au déverrouillage.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "wallet_id", nullable = false)
+    private Wallet wallet;
 }
