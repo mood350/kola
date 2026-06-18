@@ -379,6 +379,24 @@ public class GlobalExceptionHandler {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  CRÉDIT & PRÊTS
+    // ═══════════════════════════════════════════════════════════════
+
+    @ExceptionHandler(InsufficientCreditScoreException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientCreditScore(
+            InsufficientCreditScoreException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse("INSUFFICIENT_CREDIT_SCORE", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(ActiveLoanExistsException.class)
+    public ResponseEntity<ErrorResponse> handleActiveLoanExists(
+            ActiveLoanExistsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("ACTIVE_LOAN_EXISTS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  FALLBACK
     // ═══════════════════════════════════════════════════════════════
 
