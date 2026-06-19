@@ -17,12 +17,10 @@ import java.math.BigDecimal;
 // OPTIMISATION : Ajout d'index pour accélérer les requêtes du Dashboard Admin
 @Entity
 @Table(name = "transactions", indexes = {
-        // Index pour l'analytique par statut et par date
         @Index(name = "idx_tx_status_created", columnList = "status, createdAt"),
-        // Index pour l'analytique par type et par devise
         @Index(name = "idx_tx_type_currency", columnList = "type, currency"),
-        // Index pour récupérer l'historique d'un wallet
-        @Index(name = "idx_tx_wallet_created", columnList = "wallet_id, createdAt")
+        @Index(name = "idx_tx_wallet_created", columnList = "wallet_id, createdAt"),
+        @Index(name = "idx_tx_idempotency_key", columnList = "idempotencyKey")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class Transaction extends Listeners {
@@ -79,4 +77,7 @@ public class Transaction extends Listeners {
     private String description;
 
     private String externalReference;
+
+    @Column(unique = true)
+    private String idempotencyKey;
 }

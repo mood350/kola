@@ -10,6 +10,8 @@ import com.kola.backend.wallet.Wallet;
 import com.kola.backend.wallet.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,15 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse deposit(User currentUser, DepositRequest request) {
+        String idempotencyKey = request.idempotencyKey();
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return TransactionResponse.fromEntity(existing.get());
+            }
+        }
+
         Wallet wallet = walletService.findOwnedWalletForUpdateOrThrow(currentUser, request.walletId());
 
         wallet.setBalance(wallet.getBalance().add(request.amount()));
@@ -49,6 +60,7 @@ public class TransactionService {
                 .wallet(wallet)
                 .sender(currentUser)
                 .externalReference(request.externalReference())
+                .idempotencyKey(idempotencyKey)
                 .description("Rechargement Mobile Money")
                 .build();
 
@@ -151,12 +163,10 @@ public class TransactionService {
     // ═══════════════════════════════════════════════════════════════
 
     @Transactional(readOnly = true)
-    public List<TransactionResponse> getWalletHistory(User currentUser, Long walletId) {
+    public Page<TransactionResponse> getWalletHistory(User currentUser, Long walletId, Pageable pageable) {
         Wallet wallet = walletService.findOwnedWalletOrThrow(currentUser, walletId);
-        return transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId())
-                .stream()
-                .map(TransactionResponse::fromEntity)
-                .toList();
+        return transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId(), pageable)
+                .map(TransactionResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)
