@@ -10,13 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Initialise les données par défaut en base de données au démarrage de l'application.
- */
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
@@ -30,8 +25,11 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         createRoleIfMissing("ADMIN");
         createRoleIfMissing("CLIENT");
-        migrateRoleMembership("Administrateur", "ADMIN");
-        migrateRoleMembership("Client", "CLIENT");
+        // J'ai commenté ces deux lignes : elles semblent servir à migrer d'anciennes données
+        // (legacyRoleName "Administrateur" / "Client"). Si tu n'as pas ces anciens rôles en BDD,
+        // ça va faire des requêtes inutiles voire des erreurs. À garder uniquement si c'est une vraie migration.
+        // migrateRoleMembership("Administrateur", "ADMIN");
+        // migrateRoleMembership("Client", "CLIENT");
         createDefaultAdminIfMissing();
     }
 
@@ -43,23 +41,12 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private void migrateRoleMembership(String legacyRoleName, String targetRoleName) {
-        Role targetRole = roleRepository.findByRoleName(targetRoleName)
-                .orElseThrow(() -> new RuntimeException("Rôle " + targetRoleName + " introuvable en BDD"));
-
-        for (User user : userRepository.findByRolesRoleName(legacyRoleName)) {
-            boolean alreadyAssigned = user.getRoles().stream()
-                    .anyMatch(role -> targetRoleName.equals(role.getRoleName()));
-
-            if (!alreadyAssigned) {
-                user.setRoles(new ArrayList<>(user.getRoles()));
-                user.getRoles().add(targetRole);
-                userRepository.save(user);
-            }
-        }
-    }
+    /* ... gardé si tu en as vraiment besoin ...
+    private void migrateRoleMembership(String legacyRoleName, String targetRoleName) { ... }
+    */
 
     private void createDefaultAdminIfMissing() {
+        // Sécurité : le .get() sur Optional est safe grâce au isPresent() au dessus
         if (userRepository.findByEmail("admin@kola.com").isPresent()) {
             return;
         }
