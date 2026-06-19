@@ -2,7 +2,6 @@ package com.kola.backend.transaction;
 
 /**
  * Type de mouvement financier dans Kola.
- *
  * DEPOSIT          → Rechargement du wallet (depuis Mobile Money)
  * WITHDRAWAL       → Retrait du wallet (vers Mobile Money)
  * TRANSFER_OUT     → Envoi d'argent à un bénéficiaire
@@ -19,6 +18,7 @@ public enum TransactionType {
     VAULT_LOCK,
     VAULT_UNLOCK,
     FEE,
+    SCHEDULED_TRANSFER, // <--- AJOUTER ICI
     LOAN_DISBURSEMENT,
     LOAN_REPAYMENT
 }
