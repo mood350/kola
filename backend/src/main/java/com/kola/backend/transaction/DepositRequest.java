@@ -18,6 +18,8 @@ public record DepositRequest(
         @DecimalMin(value = "1", message = "Le montant doit être supérieur à 0")
         BigDecimal amount,
 
-        String externalReference
+        String externalReference,
+
+        String idempotencyKey
 ) {
 }

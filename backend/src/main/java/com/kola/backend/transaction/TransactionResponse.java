@@ -17,6 +17,7 @@ public record TransactionResponse(
         String receiverPhoneNumber,
         String receiverCountryCode,
         String description,
+        String idempotencyKey,
         LocalDateTime createdAt
 ) {
     public static TransactionResponse fromEntity(Transaction tx) {
@@ -34,6 +35,7 @@ public record TransactionResponse(
                 tx.getReceiverPhoneNumber(),
                 tx.getReceiverCountryCode(),
                 tx.getDescription(),
+                tx.getIdempotencyKey(),
                 tx.getCreatedAt()
         );
     }
