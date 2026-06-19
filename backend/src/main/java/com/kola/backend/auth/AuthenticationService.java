@@ -116,9 +116,7 @@ public class AuthenticationService {
     public void confirmAccount(String tokenValue, String ipAddress) throws MessagingException {
         rateLimitingService.consume(RateLimitPolicy.CONFIRM_ACCOUNT, ipAddress);
 
-        // CORRECTION SECURITE : Utilisation de findValidToken pour ignorer
-        // les tokens expirés ou déjà utilisés directement au niveau SQL
-        Token token = tokenRepository.findValidToken(tokenValue, LocalDateTime.now())
+        Token token = tokenRepository.findValidToken(tokenValue, TokenType.ACTIVATION, LocalDateTime.now())
                 .orElseThrow(() -> new RuntimeException("Token invalide ou expiré"));
 
         // Active le compte
@@ -259,8 +257,7 @@ public class AuthenticationService {
     public void resetPassword(String tokenValue, String newPassword, String ipAddress) {
         rateLimitingService.consume(RateLimitPolicy.RESET_PASSWORD, ipAddress);
 
-        // CORRECTION SECURITE : Idem que pour confirmAccount
-        Token token = tokenRepository.findValidToken(tokenValue, LocalDateTime.now())
+        Token token = tokenRepository.findValidToken(tokenValue, TokenType.PASSWORD_RESET, LocalDateTime.now())
                 .orElseThrow(() -> new RuntimeException("Token invalide ou expiré"));
 
         User user = token.getUser();
