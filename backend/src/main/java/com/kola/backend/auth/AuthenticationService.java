@@ -49,6 +49,11 @@ public class AuthenticationService {
     @Value("${application.mailing.frontend.activation-url}")
     private String activationUrl;
 
+    // Nombre de tentatives échouées consécutives avant verrouillage du compte
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    // Durée du verrouillage automatique avant déblocage
+    private static final long LOCK_DURATION_MINUTES = 30;
+
     // ═══════════════════════════════════════════════════════════════
     //  INSCRIPTION
     // ═══════════════════════════════════════════════════════════════
@@ -64,9 +69,6 @@ public class AuthenticationService {
                 .firstName(request.getFirstname())
                 .lastName(request.getLastname())
                 .email(request.getEmail())
-                // BUG CORRIGÉ : phoneNumber et countryCode n'étaient jamais
-                // renseignés alors que phoneNumber est nullable=false en BDD
-                // → l'inscription levait systématiquement une exception.
                 .phoneNumber(request.getPhoneNumber())
                 .countryCode(request.getCountryCode())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -114,15 +116,8 @@ public class AuthenticationService {
     public void confirmAccount(String tokenValue, String ipAddress) throws MessagingException {
         rateLimitingService.consume(RateLimitPolicy.CONFIRM_ACCOUNT, ipAddress);
 
-        Token token = tokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new RuntimeException("Token invalide"));
-
-        // Vérifie que le token n'est pas expiré
-        if (LocalDateTime.now().isAfter(token.getExpiresAt())) {
-            // Token expiré → on renvoie un nouveau code
-            sendConfirmationEmail(token.getUser());
-            throw new RuntimeException("Token expiré. Un nouveau code vous a été envoyé.");
-        }
+        Token token = tokenRepository.findValidToken(tokenValue, TokenType.ACTIVATION, LocalDateTime.now())
+                .orElseThrow(() -> new RuntimeException("Token invalide ou expiré"));
 
         // Active le compte
         User user = token.getUser();
@@ -141,11 +136,6 @@ public class AuthenticationService {
     //  CONNEXION
     // ═══════════════════════════════════════════════════════════════
 
-    // Nombre de tentatives échouées consécutives avant verrouillage du compte
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    // Durée du verrouillage automatique avant déblocage
-    private static final long LOCK_DURATION_MINUTES = 30;
-
     public AuthenticationResponse authenticate(
             AuthenticationRequest request,
             String ipAddress,
@@ -159,10 +149,7 @@ public class AuthenticationService {
                         "Aucun compte associé à cet email"
                 ));
 
-        // BUG CORRIGÉ : accountLocked était présent dans User mais jamais
-        // mis à jour ni vérifié ici → un compte ne pouvait jamais être
-        // verrouillé suite à des tentatives de connexion répétées
-        // (brute-force illimité possible sur le mot de passe).
+        // Vérifie si le compte était verrouillé et si le délai est écoulé
         checkAndAutoUnlockIfExpired(user);
 
         if (user.isAccountLocked()) {
@@ -209,9 +196,7 @@ public class AuthenticationService {
 
     /**
      * Incrémente le compteur de tentatives échouées et verrouille le
-     * compte si le seuil est atteint. Sauvegarde systématiquement, même
-     * si la levée de l'exception interrompt le flux normal — c'est
-     * volontaire : on veut persister l'échec avant de propager l'erreur.
+     * compte si le seuil est atteint.
      */
     private void registerFailedAttempt(User user) {
         user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
@@ -226,8 +211,7 @@ public class AuthenticationService {
 
     /**
      * Déverrouille automatiquement un compte si le délai de verrouillage
-     * est écoulé. Évite qu'un utilisateur reste bloqué indéfiniment sans
-     * intervention d'un administrateur.
+     * est écoulé.
      */
     private void checkAndAutoUnlockIfExpired(User user) {
         if (user.isAccountLocked() && user.getLockedAt() != null) {
@@ -273,12 +257,8 @@ public class AuthenticationService {
     public void resetPassword(String tokenValue, String newPassword, String ipAddress) {
         rateLimitingService.consume(RateLimitPolicy.RESET_PASSWORD, ipAddress);
 
-        Token token = tokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new RuntimeException("Token invalide"));
-
-        if (LocalDateTime.now().isAfter(token.getExpiresAt())) {
-            throw new RuntimeException("Token expiré");
-        }
+        Token token = tokenRepository.findValidToken(tokenValue, TokenType.PASSWORD_RESET, LocalDateTime.now())
+                .orElseThrow(() -> new RuntimeException("Token invalide ou expiré"));
 
         User user = token.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));
@@ -289,17 +269,64 @@ public class AuthenticationService {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  REFRESH TOKEN
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Génère un nouvel access token à partir du refresh token.
+     */
+    public AuthenticationResponse refreshToken(String refreshToken, String ipAddress) {
+        rateLimitingService.consume(RateLimitPolicy.REFRESH_TOKEN, ipAddress);
+
+        final String userEmail = jwtService.extractUsername(refreshToken);
+
+        if (userEmail == null) {
+            throw new RuntimeException("Refresh token invalide");
+        }
+
+        var user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+
+        if (!jwtService.isRefreshTokenValid(refreshToken, user)) {
+            throw new RuntimeException("Refresh token expiré ou invalide");
+        }
+
+        var newAccessToken = jwtService.generateToken(user);
+
+        return AuthenticationResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshToken) // ← même refresh token
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LOGOUT
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Déconnecte l'utilisateur.
+     * (Stateless : le token reste valide côté serveur jusqu'à expiration.
+     *  La vraie déconnexion se fait via le nettoyage du SecurityContext).
+     */
+    public void logout(HttpServletRequest request, HttpServletResponse response) {
+        final String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return;
+        }
+
+        SecurityContextHolder.clearContext();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  UTILITAIRES PRIVÉS
     // ═══════════════════════════════════════════════════════════════
 
     /**
      * Génère un OTP à 6 chiffres sécurisé et le sauvegarde en BDD.
-     * Expire dans 15 minutes.
      */
     private String generateAndSaveToken(User user, TokenType type) {
-        // SecureRandom → cryptographiquement sûr (pas Math.random() !)
-        String otp = String.format("%06d",
-                new SecureRandom().nextInt(999999));
+        String otp = String.format("%06d", new SecureRandom().nextInt(999999));
 
         Token token = Token.builder()
                 .token(otp)
@@ -312,90 +339,8 @@ public class AuthenticationService {
         return otp;
     }
 
-    // ═══════════════════════════════════════════════════════════════
-//  REFRESH TOKEN
-// ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Génère un nouvel access token à partir du refresh token.
-     *
-     * FLUX :
-     *  1. Extrait l'email depuis le refresh token
-     *  2. Charge l'user depuis la BDD
-     *  3. Vérifie que le refresh token est valide
-     *  4. Génère un nouvel access token
-     *  5. Retourne le nouvel access token + le même refresh token
-     *
-     * POURQUOI on ne régénère pas le refresh token ?
-     *  → Standard entreprise : le refresh token reste valide jusqu'à
-     *    son expiration (7 jours). On ne le régénère que si l'user
-     *    se reconnecte ou si on implémente le "refresh token rotation".
-     */
-    public AuthenticationResponse refreshToken(String refreshToken, String ipAddress) {
-        rateLimitingService.consume(RateLimitPolicy.REFRESH_TOKEN, ipAddress);
-
-        // Extrait l'email depuis le refresh token
-        final String userEmail = jwtService.extractUsername(refreshToken);
-
-        if (userEmail == null) {
-            throw new RuntimeException("Refresh token invalide");
-        }
-
-        // Charge l'user depuis la BDD
-        var user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
-
-        // Vérifie que le refresh token est valide et non expiré
-        if (!jwtService.isRefreshTokenValid(refreshToken, user)) {
-            throw new RuntimeException("Refresh token expiré ou invalide");
-        }
-
-        // Génère un nouvel access token uniquement
-        var newAccessToken = jwtService.generateToken(user);
-
-        return AuthenticationResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshToken) // ← même refresh token
-                .build();
-    }
-
-// ═══════════════════════════════════════════════════════════════
-//  LOGOUT
-// ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Déconnecte l'utilisateur.
-     *
-     * POURQUOI c'est complexe avec JWT ?
-     *  Les JWT sont STATELESS — le serveur ne garde pas de liste
-     *  des tokens actifs. Un token valide reste valide jusqu'à
-     *  son expiration même après logout.
-     *
-     * SOLUTION standard entreprise :
-     *  → Blacklist : on stocke les tokens invalidés en BDD/Redis
-     *  → Ici on utilise la BDD (simple) — en prod on utilise Redis
-     *    car c'est beaucoup plus rapide pour les lookups.
-     *
-     * FLUX :
-     *  1. Extrait le JWT du header Authorization
-     *  2. Efface le SecurityContext (déconnexion immédiate)
-     *  → Le token sera rejeté par JwtAuthFilter à la prochaine requête
-     *     car on peut ajouter une vérification blacklist.
-     */
-    public void logout(HttpServletRequest request, HttpServletResponse response) {
-        final String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return;
-        }
-
-        // Efface l'authentification du SecurityContext
-        SecurityContextHolder.clearContext();
-    }
-
     /**
      * Détecte si la connexion vient d'un nouvel appareil/IP.
-     * Comparaison IP + UserAgent comme Google.
      */
     private boolean isNewDevice(User user, String ipAddress, String userAgent) {
         if (user.getLastKnownIp() == null) return false;
@@ -416,8 +361,7 @@ public class AuthenticationService {
         );
     }
 
-    private void sendNewDeviceEmail(User user, String ip,
-                                    String userAgent) throws MessagingException {
+    private void sendNewDeviceEmail(User user, String ip, String userAgent) throws MessagingException {
         Map<String, Object> properties = new HashMap<>();
         properties.put("username", user.fullName());
         properties.put("ip", ip);

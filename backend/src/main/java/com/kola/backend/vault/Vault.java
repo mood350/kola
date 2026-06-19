@@ -10,22 +10,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║                    Vault.java                               ║
- * ║   Coffre-fort numérique (épargne programmée)                ║
- * ╚══════════════════════════════════════════════════════════════╝
- *
- * Permet à l'utilisateur de BLOQUER volontairement une partie
- * de ses fonds jusqu'à une date cible ou un objectif défini.
- *
- * Ex : "Scolarité 2025" → bloquer 50 000 XOF jusqu'au 01/09/2025
- *
- * RÈGLES MÉTIER :
- *  - L'argent bloqué ne peut PAS être transféré ou retiré avant unlockDate.
- *  - Le status passe automatiquement à UNLOCKED quand unlockDate est atteinte.
- *  - L'utilisateur peut ajouter des fonds à un coffre actif.
- */
 @Getter
 @Setter
 @Builder
@@ -40,45 +24,32 @@ public class Vault extends Listeners {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Nom du coffre (ex: "Scolarité", "iPhone", "Voyage Paris")
     @Column(nullable = false)
     private String name;
 
-    // Description / objectif du coffre
     private String purpose;
 
-    // Montant objectif (optionnel — l'user peut ne pas fixer d'objectif)
     @Column(precision = 19, scale = 4)
     private BigDecimal targetAmount;
 
-    // Montant actuellement bloqué dans le coffre
     @Column(nullable = false, precision = 19, scale = 4)
     @Builder.Default
     private BigDecimal currentAmount = BigDecimal.ZERO;
 
-    // Devise du coffre (doit correspondre à la devise du wallet source)
     @Column(nullable = false, length = 3)
     private String currency;
 
-    // Date de déblocage prévue (null = pas de date limite)
     private LocalDate unlockDate;
 
-    // Statut du coffre
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private VaultStatus status = VaultStatus.ACTIVE;
 
-    // Propriétaire du coffre
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    // BUG CORRIGÉ : champ manquant alors que le commentaire ci-dessus
-    // ("doit correspondre à la devise du wallet source") prouve qu'une
-    // relation vers le wallet d'origine était prévue. Sans ce champ,
-    // impossible de savoir d'où débiter les fonds au verrouillage ou
-    // où les recréditer au déverrouillage.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
     private Wallet wallet;

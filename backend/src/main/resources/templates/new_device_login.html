@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerte de sécurité</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #111111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        .container { max-width: 480px; margin: 40px auto; background-color: #1E1E1E; border-radius: 16px; overflow: hidden; border: 1px solid #333333; }
+        .header { background-color: #7F1D1D; padding: 30px; text-align: center; border-bottom: 4px solid #EF4444; } /* Rouge pour le danger */
+        .header h1 { margin: 10px 0 0 0; color: #ffffff; font-size: 22px; font-weight: 800; }
+        .header-icon { font-size: 40px; }
+        .content { padding: 40px 30px; text-align: left; color: #E5E7EB; }
+        .content p { font-size: 16px; line-height: 1.6; margin-bottom: 20px; }
+        .info-grid { background-color: #111111; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; border-bottom: 1px solid #333333; padding-bottom: 8px; }
+        .info-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .info-label { color: #9CA3AF; }
+        .info-value { color: #ffffff; font-weight: 600; text-align: right; max-width: 60%; word-break: break-all; }
+        .actions { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #333333; }
+        .footer { padding: 20px 30px; text-align: center; font-size: 12px; color: #6B7280; border-top: 1px solid #333333; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="header-icon">🛡️</div>
+        <h1>NOUVELLE CONNEXION DÉTECTÉE</h1>
+    </div>
+    <div class="content">
+        <p>Bonjour <strong th:text="${username}">Utilisateur</strong>,</p>
+        <p>Nous avons détecté une connexion à votre compte Kola depuis un nouvel appareil ou une nouvelle localisation.</p>
+
+        <div class="info-grid">
+            <div class="info-row">
+                <span class="info-label">📍 Adresse IP</span>
+                <span class="info-value" th:text="${ip}">192.168.1.1</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">📱 Appareil / Navigateur</span>
+                <span class="info-value" th:text="${device}">Chrome / Windows</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">🕐 Date et heure</span>
+                <span class="info-value" th:text="${time}">2026-06-19T10:00:00</span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <p style="font-size: 14px; color: #9CA3AF;">
+                Si c'est vous, vous pouvez ignorer cet email.<br><br>
+                <strong style="color: #EF4444;">Si ce n'est PAS vous :</strong> Votre compte a pu être compromis. Veuillez changer votre mot de passe immédiatement et contacter notre support.
+            </p>
+        </div>
+    </div>
+    <div class="footer">
+        &copy; 2026 Kola Financial Technologies. Équipe de sécurité.<br>
+        Ceci est un email automatique, merci de ne pas y répondre.
+    </div>
+</div>
+</body>
+</html>

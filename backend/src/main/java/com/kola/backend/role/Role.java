@@ -19,14 +19,15 @@ import java.util.List;
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 public class Role extends Listeners {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
     @Column(unique = true)
     private String roleName;
 
     @ManyToMany(mappedBy = "roles")
     @JsonIgnore
     private List<User> users;
-
 }

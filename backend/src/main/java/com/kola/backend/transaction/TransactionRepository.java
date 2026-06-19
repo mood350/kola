@@ -51,4 +51,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT YEAR(t.createdAt), MONTH(t.createdAt), COUNT(t), COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.createdAt >= :start GROUP BY YEAR(t.createdAt), MONTH(t.createdAt) ORDER BY YEAR(t.createdAt), MONTH(t.createdAt)")
     List<Object[]> summarizeMonthlySince(@Param("start") LocalDateTime start);
+
+    // Ajoute cette méthode dans TransactionRepository.java
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+            "WHERE t.sender.id = :senderId " +
+            "AND t.status = com.kola.backend.transaction.TransactionStatus.SUCCESS " +
+            "AND t.type IN (" +
+            "  com.kola.backend.transaction.TransactionType.TRANSFER_OUT, " +
+            "  com.kola.backend.transaction.TransactionType.WITHDRAWAL" +
+            ") " +
+            "AND t.createdAt >= :startOfDay")
+    BigDecimal sumSpentTodayBySender(@Param("senderId") Long senderId, @Param("startOfDay") LocalDateTime startOfDay);
 }

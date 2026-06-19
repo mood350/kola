@@ -5,6 +5,7 @@ import com.kola.backend.beneficiary.BeneficiaryRepository;
 import com.kola.backend.exception.InsufficientFundsException;
 import com.kola.backend.exception.KycLimitExceededException;
 import com.kola.backend.user.User;
+import com.kola.backend.user.UserRepository;
 import com.kola.backend.wallet.Wallet;
 import com.kola.backend.wallet.WalletService;
 import jakarta.persistence.EntityNotFoundException;
@@ -18,25 +19,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║                TransactionService.java                      ║
- * ╚══════════════════════════════════════════════════════════════╝
- *
- * RÈGLE D'OR (rappel de Transaction.java) : on ne modifie JAMAIS une
- * transaction déjà créée. Toute correction passe par une nouvelle
- * transaction (REFUNDED, etc.). Ce service ne fait donc que des
- * INSERT, jamais d'UPDATE sur une transaction existante (sauf le
- * passage PENDING → SUCCESS/FAILED qui a lieu de façon synchrone ici
- * faute d'intégration réelle avec un opérateur Mobile Money).
- *
- * VERROUILLAGE : chaque opération qui modifie un solde de wallet passe
- * par WalletService.findOwnedWalletForUpdateOrThrow, qui prend un verrou
- * PESSIMISTIC_WRITE en base. Ça garantit qu'on ne peut pas avoir deux
- * débits concurrents qui passeraient tous les deux la vérification de
- * solde avant que l'un des deux ait écrit son résultat (race condition
- * classique sur les soldes).
- */
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
@@ -44,6 +26,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
     private final BeneficiaryRepository beneficiaryRepository;
+    private final UserRepository userRepository;
     private final TransactionReferenceGenerator referenceGenerator;
 
     // ═══════════════════════════════════════════════════════════════
@@ -144,7 +127,7 @@ public class TransactionService {
                 .build();
         transactionRepository.save(outTx);
 
-        // FEE : trace séparée du prélèvement de frais (cf. règle d'or dans Transaction.java)
+        // FEE : trace séparée du prélèvement de frais
         if (fee.compareTo(BigDecimal.ZERO) > 0) {
             Transaction feeTx = Transaction.builder()
                     .reference(referenceGenerator.generate())
@@ -169,7 +152,6 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public List<TransactionResponse> getWalletHistory(User currentUser, Long walletId) {
-        // findOwnedWalletOrThrow vérifie déjà l'appartenance → pas d'IDOR possible
         Wallet wallet = walletService.findOwnedWalletOrThrow(currentUser, walletId);
         return transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId())
                 .stream()
@@ -205,37 +187,23 @@ public class TransactionService {
         }
     }
 
-    /**
-     * Vérifie que le cumul des sorties du jour (transferts + retraits) ne
-     * dépasse pas la limite KYC de l'utilisateur. Calculé à la volée sur
-     * les transactions du jour plutôt que stocké, pour rester toujours
-     * cohérent avec l'historique réel (source de vérité unique).
-     */
     private void checkDailyLimit(User currentUser, BigDecimal amount) {
         BigDecimal limit = TransactionPolicy.getDailyLimit(currentUser.getKycLevel());
+
+        User lockedUser = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
 
         LocalDateTime startOfDay = LocalDateTime.of(LocalDateTime.now().toLocalDate(), LocalTime.MIDNIGHT);
 
         BigDecimal alreadySpentToday = transactionRepository
-                .findBySenderIdOrderByCreatedAtDesc(currentUser.getId())
-                .stream()
-                .filter(t -> t.getCreatedAt() != null && t.getCreatedAt().isAfter(startOfDay))
-                .filter(t -> t.getType() == TransactionType.TRANSFER_OUT || t.getType() == TransactionType.WITHDRAWAL)
-                .filter(t -> t.getStatus() == TransactionStatus.SUCCESS)
-                .map(Transaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .sumSpentTodayBySender(lockedUser.getId(), startOfDay);
 
         if (alreadySpentToday.add(amount).compareTo(limit) > 0) {
             throw new KycLimitExceededException(
                     "Limite journalière dépassée pour votre niveau de vérification ("
-                            + currentUser.getKycLevel() + " : " + limit + " XOF/jour). "
+                            + lockedUser.getKycLevel() + " : " + limit + " XOF/jour). "
                             + "Soumettez une pièce d'identité pour augmenter votre limite."
             );
         }
     }
-
-    /**
-     * Génération de référence déléguée à TransactionReferenceGenerator
-     * (composant partagé avec VaultService, cf. ce fichier).
-     */
 }

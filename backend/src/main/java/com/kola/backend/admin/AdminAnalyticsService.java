@@ -42,10 +42,11 @@ public class AdminAnalyticsService {
                 userRepository.countByRoleName("ADMIN"),
                 walletRepository.countByActiveTrue(),
                 vaultRepository.countByStatus(VaultStatus.ACTIVE),
-                transactionRepository.sumTotalAmount(),
-                transactionRepository.sumTotalFees(),
-                walletRepository.sumActiveBalances(),
-                vaultRepository.sumActiveLockedAmount(),
+                // Sécurité null au cas où la BDD retourne null
+                transactionRepository.sumTotalAmount() != null ? transactionRepository.sumTotalAmount() : BigDecimal.ZERO,
+                transactionRepository.sumTotalFees() != null ? transactionRepository.sumTotalFees() : BigDecimal.ZERO,
+                walletRepository.sumActiveBalances() != null ? walletRepository.sumActiveBalances() : BigDecimal.ZERO,
+                vaultRepository.sumActiveLockedAmount() != null ? vaultRepository.sumActiveLockedAmount() : BigDecimal.ZERO,
                 growthRate(BigDecimal.valueOf(currentUsers), BigDecimal.valueOf(previousUsers)),
                 growthRate(currentVolume, previousVolume),
                 metrics(userRepository.countUsersByCountry(), false),
@@ -60,41 +61,57 @@ public class AdminAnalyticsService {
     }
 
     private double growthRate(BigDecimal current, BigDecimal previous) {
-        if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
-            return current != null && current.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
+        // Sécurité : on traite le cas où les montants seraient nulls
+        BigDecimal safeCurrent = current != null ? current : BigDecimal.ZERO;
+        BigDecimal safePrevious = previous != null ? previous : BigDecimal.ZERO;
+
+        if (safePrevious.compareTo(BigDecimal.ZERO) == 0) {
+            return safeCurrent.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
         }
-        return current.subtract(previous)
+        return safeCurrent.subtract(safePrevious)
                 .multiply(BigDecimal.valueOf(100))
-                .divide(previous, 2, RoundingMode.HALF_UP)
+                .divide(safePrevious, 2, RoundingMode.HALF_UP)
                 .doubleValue();
     }
 
     private List<AdminMetric> metrics(List<Object[]> rows, boolean hasAmount) {
+        if (rows == null || rows.isEmpty()) return List.of();
+
         return rows.stream()
                 .map(row -> new AdminMetric(
                         String.valueOf(row[0]),
-                        ((Number) row[1]).longValue(),
-                        hasAmount ? (BigDecimal) row[2] : BigDecimal.ZERO
+                        row[1] != null ? ((Number) row[1]).longValue() : 0L,
+                        hasAmount && row.length > 2 && row[2] != null ? (BigDecimal) row[2] : BigDecimal.ZERO
                 ))
                 .toList();
     }
 
     private List<AdminMetric> walletMetrics(List<Object[]> rows) {
+        if (rows == null || rows.isEmpty()) return List.of();
+
         return rows.stream()
-                .map(row -> new AdminMetric(
-                        String.valueOf(row[0]),
-                        ((Number) row[3]).longValue(),
-                        ((BigDecimal) row[1]).add((BigDecimal) row[2])
-                ))
+                .map(row -> {
+                    BigDecimal balance = row.length > 1 && row[1] != null ? (BigDecimal) row[1] : BigDecimal.ZERO;
+                    BigDecimal locked = row.length > 2 && row[2] != null ? (BigDecimal) row[2] : BigDecimal.ZERO;
+                    long count = row.length > 3 && row[3] != null ? ((Number) row[3]).longValue() : 0L;
+
+                    return new AdminMetric(
+                            String.valueOf(row[0]),
+                            count,
+                            balance.add(locked)
+                    );
+                })
                 .toList();
     }
 
     private List<AdminMetric> monthlyMetrics(List<Object[]> rows) {
+        if (rows == null || rows.isEmpty()) return List.of();
+
         return rows.stream()
                 .map(row -> new AdminMetric(
                         "%04d-%02d".formatted(((Number) row[0]).intValue(), ((Number) row[1]).intValue()),
-                        ((Number) row[2]).longValue(),
-                        (BigDecimal) row[3]
+                        row[2] != null ? ((Number) row[2]).longValue() : 0L,
+                        row.length > 3 && row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO
                 ))
                 .toList();
     }
