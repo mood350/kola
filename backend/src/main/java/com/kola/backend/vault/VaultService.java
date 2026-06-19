@@ -20,22 +20,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║                  VaultService.java                          ║
- * ╚══════════════════════════════════════════════════════════════╝
- *
- * RÈGLES MÉTIER (cf. commentaires de Vault.java) :
- *  - Verrouiller des fonds = débiter Wallet.balance ET créditer
- *    Wallet.lockedBalance du même montant (le solde total ne change pas,
- *    seule la part "disponible" diminue : balance - lockedBalance).
- *  - Débloquer (UNLOCKED ou CLOSED) = l'inverse : créditer balance et
- *    débiter lockedBalance.
- *  - Impossible de retirer les fonds d'un coffre ACTIVE avant unlockDate.
- *  - Le passage à UNLOCKED est vérifié paresseusement (à chaque lecture/
- *    action sur le vault) plutôt que par un job planifié, pour rester
- *    simple ; un vrai système de production ajouterait un scheduler.
- */
 @Service
 @RequiredArgsConstructor
 public class VaultService {
@@ -51,6 +35,7 @@ public class VaultService {
 
     @Transactional
     public VaultResponse createVault(User currentUser, CreateVaultRequest request) {
+        // 1. Verrouiller le wallet EN PREMIER pour éviter les deadlocks
         Wallet wallet = walletService.findOwnedWalletForUpdateOrThrow(currentUser, request.walletId());
 
         BigDecimal initialAmount = request.initialAmount();
@@ -62,7 +47,8 @@ public class VaultService {
             );
         }
 
-        // Verrouillage des fonds : balance reste identique, lockedBalance augmente
+        // CORRECTION FINANCIÈRE : L'argent quitte le solde disponible et va dans le coffre.
+        wallet.setBalance(wallet.getBalance().subtract(initialAmount));
         wallet.setLockedBalance(wallet.getLockedBalance().add(initialAmount));
 
         Vault vault = Vault.builder()
@@ -93,6 +79,7 @@ public class VaultService {
 
     @Transactional
     public VaultResponse addFunds(User currentUser, Long vaultId, AddFundsRequest request) {
+        // 1. Récupérer le vault (non verrouillé, juste pour les contrôles)
         Vault vault = findOwnedVaultOrThrow(currentUser, vaultId);
         refreshStatusIfDue(vault);
 
@@ -102,6 +89,7 @@ public class VaultService {
             );
         }
 
+        // 2. Verrouiller le wallet EN SECOND (ordre cohérent : Wallet puis Vault)
         Wallet wallet = walletService.findOwnedWalletForUpdateOrThrow(currentUser, vault.getWallet().getId());
 
         BigDecimal available = wallet.getBalance().subtract(wallet.getLockedBalance());
@@ -111,7 +99,10 @@ public class VaultService {
             );
         }
 
+        // CORRECTION FINANCIÈRE
+        wallet.setBalance(wallet.getBalance().subtract(request.amount()));
         wallet.setLockedBalance(wallet.getLockedBalance().add(request.amount()));
+
         vault.setCurrentAmount(vault.getCurrentAmount().add(request.amount()));
 
         recordVaultTransaction(currentUser, wallet, vault, TransactionType.VAULT_LOCK, request.amount(),
@@ -143,13 +134,6 @@ public class VaultService {
         return VaultResponse.fromEntity(vault);
     }
 
-    /**
-     * Fermeture anticipée volontaire d'un coffre ACTIVE, avant l'unlockDate.
-     * Choix métier : autorisée mais explicite (l'utilisateur reste maître
-     * de son épargne) — contrairement à /unlock qui exige que la date soit
-     * atteinte. Si vous voulez pénaliser la sortie anticipée (frais), c'est
-     * ici qu'il faudrait l'ajouter.
-     */
     @Transactional
     public VaultResponse closeEarly(User currentUser, Long vaultId) {
         Vault vault = findOwnedVaultOrThrow(currentUser, vaultId);
@@ -159,8 +143,6 @@ public class VaultService {
             throw new VaultLockedException("Ce coffre a déjà été fermé.");
         }
         if (vault.getStatus() == VaultStatus.UNLOCKED) {
-            // Déjà déverrouillé par échéance : on ferme simplement sans
-            // mouvement de fonds supplémentaire (déjà reversés par unlock()).
             vault.setStatus(VaultStatus.CLOSED);
             return VaultResponse.fromEntity(vault);
         }
@@ -174,14 +156,14 @@ public class VaultService {
     //  CONSULTATION
     // ═══════════════════════════════════════════════════════════════
 
-    @Transactional
+    @Transactional(readOnly = true) // Optimisation : pas besoin d'une transaction ouverte pour lire
     public List<VaultResponse> getMyVaults(User currentUser) {
         List<Vault> vaults = vaultRepository.findByOwnerId(currentUser.getId());
         vaults.forEach(this::refreshStatusIfDue);
         return vaults.stream().map(VaultResponse::fromEntity).toList();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public VaultResponse getVaultById(User currentUser, Long vaultId) {
         Vault vault = findOwnedVaultOrThrow(currentUser, vaultId);
         refreshStatusIfDue(vault);
@@ -202,11 +184,6 @@ public class VaultService {
         return vault;
     }
 
-    /**
-     * Transition automatique ACTIVE → UNLOCKED si la date cible est
-     * atteinte. Appelé avant toute lecture/action pour garder le statut
-     * cohérent sans dépendre d'un job planifié.
-     */
     private void refreshStatusIfDue(Vault vault) {
         if (vault.getStatus() == VaultStatus.ACTIVE
                 && vault.getUnlockDate() != null
@@ -215,19 +192,15 @@ public class VaultService {
         }
     }
 
-    /**
-     * Recrédite le wallet source et remet à zéro les fonds bloqués du
-     * coffre. Utilisé par unlock() et closeEarly().
-     */
     private void releaseFundsToWallet(User currentUser, Vault vault, String description) {
+        // 1. Verrouiller le wallet EN PREMIER
         Wallet wallet = walletService.findOwnedWalletForUpdateOrThrow(currentUser, vault.getWallet().getId());
 
         BigDecimal amountToRelease = vault.getCurrentAmount();
 
+        // CORRECTION FINANCIÈRE : L'argent revient dans le solde disponible.
+        wallet.setBalance(wallet.getBalance().add(amountToRelease));
         wallet.setLockedBalance(wallet.getLockedBalance().subtract(amountToRelease));
-        // balance ne change pas : l'argent était déjà compté dans balance,
-        // seul lockedBalance le "réservait". Le libérer le rend disponible
-        // sans toucher au solde total.
 
         recordVaultTransaction(currentUser, wallet, vault, TransactionType.VAULT_UNLOCK, amountToRelease, description);
 
@@ -238,7 +211,7 @@ public class VaultService {
     }
 
     private void recordVaultTransaction(User currentUser, Wallet wallet, Vault vault,
-                                         TransactionType type, BigDecimal amount, String description) {
+                                        TransactionType type, BigDecimal amount, String description) {
         Transaction tx = Transaction.builder()
                 .reference(referenceGenerator.generate())
                 .type(type)

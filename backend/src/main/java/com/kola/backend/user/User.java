@@ -39,15 +39,12 @@ public class User extends Listeners implements Principal, UserDetails {
     @Column(unique = true)
     private String email;
 
-    // Clé de voûte de l'application : numéro de téléphone (ex: +22890000000)
     @Column(unique = true, nullable = false)
     private String phoneNumber;
 
-    // Code pays ISO 3166-1 alpha-2 (ex: "TG", "SN", "CI", "GH")
     @Column(length = 2)
     private String countryCode;
 
-    // Niveau de vérification KYC (débloque les fonctionnalités progressivement)
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private KycLevel kycLevel = KycLevel.TIER_0;
@@ -56,19 +53,17 @@ public class User extends Listeners implements Principal, UserDetails {
     private boolean enabled;
     private boolean accountLocked;
 
-    // Compteur de tentatives de connexion échouées consécutives.
-    // Remis à zéro à chaque connexion réussie.
     @Builder.Default
     private int failedLoginAttempts = 0;
 
-    // Horodatage du dernier verrouillage (utile pour un déverrouillage automatique après X minutes)
+    // CORRECTION : Ce champ est bien distinct de "lastModifiedDate" de la classe parente
     private LocalDateTime lockedAt;
 
-    // Pour la détection d'un nouvel appareil/IP (comme Google)
     private String lastKnownIp;
     private String lastKnownUserAgent;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    // CORRECTION 1 : Passage en LAZY pour éviter de charger les rôles à chaque requête
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -76,18 +71,19 @@ public class User extends Listeners implements Principal, UserDetails {
     )
     private List<Role> roles;
 
-    // Portefeuille(s) de l'utilisateur (XOF, USD, etc.)
-    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    // CORRECTION 2 : Suppression de orphanRemoval et cascade.
+    // En Fintech, ON NE SUPPRIME JAMAIS UN WALLET DE LA BASE, on le désactive (active = false)
+    @OneToMany(mappedBy = "owner")
     @Builder.Default
     private List<Wallet> wallets = new ArrayList<>();
 
-    // Coffres-forts (épargne programmée)
-    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    // CORRECTION 2 : Idem pour les coffres-forts
+    @OneToMany(mappedBy = "owner")
     @Builder.Default
     private List<Vault> vaults = new ArrayList<>();
 
-    // Bénéficiaires enregistrés (proches fréquemment payés)
-    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+    // CORRECTION 2 : Idem pour les bénéficiaires
+    @OneToMany(mappedBy = "owner")
     @Builder.Default
     private List<Beneficiary> beneficiaries = new ArrayList<>();
 
@@ -138,4 +134,3 @@ public class User extends Listeners implements Principal, UserDetails {
         return enabled;
     }
 }
-

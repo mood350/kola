@@ -9,7 +9,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User,Long> {
-    Optional<User> findByEmail(String email);
+
+    // CORRECTION : Ajout de @Query explicite pour éviter tout bug d'inférence Spring Data
+    @Query("SELECT u FROM User u WHERE u.email = :email")
+    Optional<User> findByEmail(@Param("email") String email);
 
     List<User> findByRolesRoleName(String roleName);
 
