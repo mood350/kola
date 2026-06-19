@@ -3,7 +3,6 @@ package com.kola.backend.exception;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
-import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -85,10 +84,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Compte désactivé (email non confirmé).
-     * Déclenché par Spring Security avant même d'arriver dans AuthController.
-     */
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ErrorResponse> handleDisabled(
             DisabledException ex, HttpServletRequest request) {
@@ -100,9 +95,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Compte verrouillé (trop de tentatives ou gel admin).
-     */
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ErrorResponse> handleLocked(
             LockedException ex, HttpServletRequest request) {
@@ -118,10 +110,6 @@ public class GlobalExceptionHandler {
     //  JWT
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Token JWT expiré → 401.
-     * Déclenché par JwtAuthFilter quand le token dépasse sa date d'expiration.
-     */
     @ExceptionHandler(ExpiredJwtException.class)
     public ResponseEntity<ErrorResponse> handleExpiredJwt(
             ExpiredJwtException ex, HttpServletRequest request) {
@@ -133,9 +121,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Token JWT malformé (corrompu ou falsifié) → 401.
-     */
     @ExceptionHandler(MalformedJwtException.class)
     public ResponseEntity<ErrorResponse> handleMalformedJwt(
             MalformedJwtException ex, HttpServletRequest request) {
@@ -148,9 +133,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Signature JWT incorrecte (clé secrète différente) → 401.
-     */
     @ExceptionHandler(SignatureException.class)
     public ResponseEntity<ErrorResponse> handleJwtSignature(
             SignatureException ex, HttpServletRequest request) {
@@ -225,10 +207,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Email ou numéro de téléphone déjà utilisé lors de l'inscription → 409.
-     * Déclenché par la contrainte @Column(unique = true) en BDD.
-     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException ex, HttpServletRequest request) {
@@ -236,7 +214,6 @@ public class GlobalExceptionHandler {
 
         String message = "Cette valeur est déjà utilisée.";
 
-        // On affine le message selon la contrainte violée
         String cause = ex.getMostSpecificCause().getMessage().toLowerCase();
         if (cause.contains("email")) {
             message = "Cette adresse email est déjà associée à un compte.";
@@ -256,9 +233,6 @@ public class GlobalExceptionHandler {
     //  MÉTIER FINANCIER
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Solde insuffisant pour effectuer un transfert → 422.
-     */
     @ExceptionHandler(InsufficientFundsException.class)
     public ResponseEntity<ErrorResponse> handleInsufficientFunds(
             InsufficientFundsException ex, HttpServletRequest request) {
@@ -270,9 +244,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Coffre-fort verrouillé → 423.
-     */
     @ExceptionHandler(VaultLockedException.class)
     public ResponseEntity<ErrorResponse> handleVaultLocked(
             VaultLockedException ex, HttpServletRequest request) {
@@ -284,9 +255,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Wallet suspendu par l'admin → 403.
-     */
     @ExceptionHandler(WalletInactiveException.class)
     public ResponseEntity<ErrorResponse> handleWalletInactive(
             WalletInactiveException ex, HttpServletRequest request) {
@@ -298,9 +266,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Devise non supportée par la plateforme → 400.
-     */
     @ExceptionHandler(UnsupportedCurrencyException.class)
     public ResponseEntity<ErrorResponse> handleUnsupportedCurrency(
             UnsupportedCurrencyException ex, HttpServletRequest request) {
@@ -312,9 +277,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    /**
-     * Limite KYC dépassée → 403 (l'utilisateur doit upgrader son niveau de vérification).
-     */
     @ExceptionHandler(KycLimitExceededException.class)
     public ResponseEntity<ErrorResponse> handleKycLimitExceeded(
             KycLimitExceededException ex, HttpServletRequest request) {
@@ -330,10 +292,6 @@ public class GlobalExceptionHandler {
     //  RATE LIMITING
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Trop de requêtes → 429.
-     * Déclenché par RateLimitingService.
-     */
     @ExceptionHandler(TooManyRequestsException.class)
     public ResponseEntity<ErrorResponse> handleTooManyRequests(
             TooManyRequestsException ex, HttpServletRequest request) {
@@ -349,9 +307,6 @@ public class GlobalExceptionHandler {
     //  HTTP
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Mauvaise méthode HTTP (ex : GET sur un endpoint POST) → 405.
-     */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMethodNotAllowed(
             HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
@@ -359,21 +314,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(
                         "METHOD_NOT_ALLOWED",
                         "Méthode HTTP non autorisée : " + ex.getMethod(),
-                        request.getRequestURI()
-                ));
-    }
-
-    /**
-     * Échec d'envoi d'email → 503.
-     */
-    @ExceptionHandler(MessagingException.class)
-    public ResponseEntity<ErrorResponse> handleMessaging(
-            MessagingException ex, HttpServletRequest request) {
-        log.error("Échec d'envoi d'email : {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(new ErrorResponse(
-                        "EMAIL_SERVICE_ERROR",
-                        "Le service d'email est temporairement indisponible. Réessayez plus tard.",
                         request.getRequestURI()
                 ));
     }
@@ -403,7 +343,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(
             Exception ex, HttpServletRequest request) {
-        // log.error() au lieu de printStackTrace() — bonne pratique prod
         log.error("ERREUR INTERNE non gérée : {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(

@@ -48,28 +48,35 @@ public class EmailService {
             EmailTemplateName template,
             Map<String, Object> properties,
             String from
-    ) throws MessagingException {
+    ) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    mimeMessage,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED,
+                    StandardCharsets.UTF_8.name()
+            );
 
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(
-                mimeMessage,
-                MimeMessageHelper.MULTIPART_MODE_MIXED,
-                StandardCharsets.UTF_8.name()
-        );
+            // Injection des variables dans le template Thymeleaf
+            Context context = new Context();
+            context.setVariables(properties);
 
-        // Injection des variables dans le template Thymeleaf
-        Context context = new Context();
-        context.setVariables(properties);
+            // Rendu du template HTML
+            String htmlContent = templateEngine.process(template.getName(), context);
 
-        // Rendu du template HTML
-        String htmlContent = templateEngine.process(template.getName(), context);
+            helper.setFrom(from);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true); // true = HTML
 
-        helper.setFrom(from);
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(htmlContent, true); // true = HTML
+            mailSender.send(mimeMessage);
+            log.info("Email envoyé à {} — sujet : {}", to, subject);
 
-        mailSender.send(mimeMessage);
-        log.info("Email envoyé à {} — sujet : {}", to, subject);
+        } catch (MessagingException e) {
+            // SÉCURITÉ : On attrape l'erreur dans le thread asymchrone pour ne pas
+            // tuer le thread silencieusement et pour avoir une trace dans les logs.
+            log.error("ÉCHEC de l'envoi de l'email à {} pour le template {} : {}",
+                    to, template.getName(), e.getMessage());
+        }
     }
 }
