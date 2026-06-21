@@ -6,6 +6,7 @@ import com.kola.backend.transaction.TransactionReferenceGenerator;
 import com.kola.backend.transaction.TransactionRepository;
 import com.kola.backend.transaction.TransactionStatus;
 import com.kola.backend.transaction.TransactionType;
+import com.kola.backend.vault.VaultStatus;
 import com.kola.backend.wallet.Wallet;
 import com.kola.backend.wallet.WalletRepository;
 import jakarta.transaction.Transactional;
@@ -29,10 +30,12 @@ public class ScheduledTransferService {
     private final TransactionRepository transactionRepository;
     private final TransactionReferenceGenerator referenceGenerator;
 
-    @Transactional
+    // CORRECTION 1 : On enlève @Transactional d'ici !
     public void processScheduledTransfers() {
         LocalDateTime currentDate = LocalDateTime.now();
-        List<ScheduledTransfer> dueTransfers = scheduledRepository.findDueTransfers(currentDate);
+
+        // CORRECTION REPO : On passe le vrai enum maintenant
+        List<ScheduledTransfer> dueTransfers = scheduledRepository.findDueTransfers(ScheduledTransfer.ScheduledStatus.ACTIVE, currentDate);
 
         log.info("Execution des virements programmes : {} trouves", dueTransfers.size());
 
@@ -47,26 +50,33 @@ public class ScheduledTransferService {
         }
     }
 
-    private void executeTransfer(ScheduledTransfer st, LocalDateTime executionDate) {
-        // 1. Verrouiller le wallet (Pessimistic Write)
+    // CORRECTION 1 : On met @Transactional ICI. Ainsi, si le virement de B échoue, seul B est annulé, A est préservé.
+    @Transactional
+    public void executeTransfer(ScheduledTransfer st, LocalDateTime executionDate) {
+        // 1. Verrouiller le wallet
         Wallet wallet = walletRepository.findByIdForUpdate(st.getWallet().getId())
                 .orElseThrow(() -> new RuntimeException("Wallet introuvable"));
 
-        // 2. Verifier les fonds (On ne prend pas l'argent bloque dans les vaults)
+        // 2. Verifier les fonds
         BigDecimal available = wallet.getBalance().subtract(wallet.getLockedBalance());
         if (available.compareTo(st.getAmount()) < 0) {
-            log.warn("Fonds insuffisants pour le virement programme de {} pour le user {}",
-                    st.getAmount(), st.getOwner().getEmail());
             throw new InsufficientFundsException("Solde insuffisant pour le virement programme");
         }
 
-        // 3. Executer le mouvement (Ici on suppose qu'on alimente un Vault)
+        // 3. Débiter le wallet
+        wallet.setBalance(wallet.getBalance().subtract(st.getAmount()));
+
+        // CORRECTION 2 : Créditer le Vault si spécifié (L'argent ne doit pas disparaître !)
         if (st.getTargetVault() != null) {
-            // logique simplifiee : on debite le wallet
-            wallet.setBalance(wallet.getBalance().subtract(st.getAmount()));
+            if (st.getTargetVault().getStatus() == VaultStatus.ACTIVE) {
+                st.getTargetVault().setCurrentAmount(st.getTargetVault().getCurrentAmount().add(st.getAmount()));
+                // Pas besoin de sauvegarder le vault, Hibernate le fait automatiquement car il est chargé dans la transaction
+            } else {
+                throw new IllegalStateException("Impossible d'alimenter un vault qui n'est plus actif.");
+            }
         }
 
-        // 4. Creer la trace transactionnelle
+        // 4. Créer la trace transactionnelle
         Transaction tx = Transaction.builder()
                 .reference(referenceGenerator.generate())
                 .type(TransactionType.SCHEDULED_TRANSFER)
@@ -80,7 +90,7 @@ public class ScheduledTransferService {
                 .build();
         transactionRepository.save(tx);
 
-        // 5. Mettre a jour la date de derniere execution
+        // 5. Mettre à jour la date
         st.setLastExecutedAt(executionDate);
         scheduledRepository.save(st);
     }
@@ -90,25 +100,29 @@ public class ScheduledTransferService {
         LocalDate nextDate;
 
         if (st.getFrequency() == ScheduledTransfer.Frequency.MONTHLY) {
-            // Construire la date cible (ex: le 5 du mois courant)
-            nextDate = today.withDayOfMonth(st.getExecutionDay());
+            // CORRECTION 3A : Validation du jour du mois (max 31)
+            int day = Math.min(st.getExecutionDay(), 31);
+            if (day < 1) day = 1; // Sécurité supplémentaire
 
-            // Si le jour cible est deja passe ce mois-ci, on passe au mois prochain
+            nextDate = today.withDayOfMonth(day);
+
             if (!nextDate.isAfter(today)) {
                 nextDate = nextDate.plusMonths(1);
             }
         } else { // WEEKLY
-            // Convertir l'entier (1 = Lundi, 7 = Dimanche) en enum Java
-            DayOfWeek targetDay = DayOfWeek.of(st.getExecutionDay());
+            // CORRECTION 3B : Validation stricte du jour de la semaine (1 à 7 uniquement)
+            int dayOfWeek = st.getExecutionDay();
+            if (dayOfWeek < 1 || dayOfWeek > 7) {
+                throw new IllegalArgumentException("Le jour d'exécution hebdomadaire doit être entre 1 (Lundi) et 7 (Dimanche).");
+            }
+            DayOfWeek targetDay = DayOfWeek.of(dayOfWeek);
             nextDate = today.with(targetDay);
 
-            // Si le jour cible est deja passe cette semaine, on passe a la semaine prochaine
             if (!nextDate.isAfter(today)) {
                 nextDate = nextDate.plusWeeks(1);
             }
         }
 
-        // Se declenche a minuit
         st.setNextExecutionDate(nextDate.atStartOfDay());
         scheduledRepository.save(st);
     }
