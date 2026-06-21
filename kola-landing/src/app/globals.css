@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* Force le thème sombre pour les éléments par défaut */
+html, body {
+  background-color: #0A0A0F !important;
+  color: #FFFFFF !important;
+}
+
+/* Classe utilitaire pour les reflets lumineux sur les cartes */
+.glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Masquer les barres de défilement pour le côté "app native" */
+::-webkit-scrollbar {
+  display: none;
+}
