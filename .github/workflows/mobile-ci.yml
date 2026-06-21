@@ -1,4 +1,4 @@
-name: CI Mobile React Native
+name: CI Mobile Flutter
 
 on:
   push:
@@ -14,19 +14,29 @@ jobs:
     - name: Récupérer le code
       uses: actions/checkout@v4
 
-    - name: Configurer Node.js
-      uses: actions/setup-node@v4
+    - name: Configurer Flutter
+      uses: subosito/flutter-action@v2
       with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: 'mobile/package-lock.json'
+        flutter-version: '3.44.2'
+        channel: 'stable'
+        cache: true
 
     - name: Installer les dépendances
       run: |
         cd mobile
-        npm ci
+        flutter pub get
 
-    - name: Lancer les tests unitaires (Jest)
+    - name: Vérifier le formatage du code
       run: |
         cd mobile
-        npm run test --if-present
+        dart format --output=none --set-exit-if-changed .
+
+    - name: Analyser le code (lints)
+      run: |
+        cd mobile
+        flutter analyze
+
+    - name: Lancer les tests unitaires
+      run: |
+        cd mobile
+        flutter test --coverage
