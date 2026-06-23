@@ -10,7 +10,6 @@ import java.util.List;
 
 public interface ScheduledTransferRepository extends JpaRepository<ScheduledTransfer, Long> {
 
-    // CORRECTION : On utilise ScheduledStatus.ACTIF au lieu du String 'ACTIVE' pour éviter les erreurs de refactoring
     @Query("SELECT st FROM ScheduledTransfer st WHERE st.status = :status AND st.nextExecutionDate <= :now")
     List<ScheduledTransfer> findDueTransfers(@Param("status") ScheduledStatus status, @Param("now") LocalDateTime now);
 }

@@ -63,7 +63,9 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:4200",  // Angular
                 "http://localhost:3000",
-                "http://localhost:8000"
+                "http://localhost:8000",
+                "htp://10.0.2.2:8081",
+                "http://10.0.2.2:8080"
         ));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
