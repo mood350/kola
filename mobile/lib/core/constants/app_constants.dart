@@ -5,7 +5,7 @@ class AppConstants {
   // --- API ---
   // ⚠️ À adapter selon l'environnement (dev local, staging, prod).
   // 10.0.2.2 = adresse spéciale pour accéder au localhost depuis l'émulateur Android.
-  static const String baseUrl = 'http://10.0.2.2:8080/api';
+  static const String baseUrl = 'http://10.0.2.2:8081/api';
 
   static const Duration apiTimeout = Duration(seconds: 15);
 
