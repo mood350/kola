@@ -25,7 +25,10 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "_user")
+@Table(name = "_user", indexes = {
+        // countByCreatedAtBetween, statistiques du dashboard admin
+        @Index(name = "idx_user_created", columnList = "createdAt")
+})
 @EntityListeners(AuditingEntityListener.class)
 public class User extends Listeners implements Principal, UserDetails {
 
@@ -45,6 +48,13 @@ public class User extends Listeners implements Principal, UserDetails {
     @Column(length = 2)
     private String countryCode;
 
+    /**
+     * Identifiant de l'avatar choisi parmi une liste prédéfinie côté mobile
+     * (ex: "avatar_03"). On stocke une référence, pas une image : pas d'upload
+     * de fichier ni de stockage binaire à gérer.
+     */
+    private String avatar;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private KycLevel kycLevel = KycLevel.TIER_0;
@@ -62,8 +72,22 @@ public class User extends Listeners implements Principal, UserDetails {
     private String lastKnownIp;
     private String lastKnownUserAgent;
 
-    // CORRECTION 1 : Passage en LAZY pour éviter de charger les rôles à chaque requête
-    @ManyToMany(fetch = FetchType.LAZY)
+    // EAGER (pas LAZY) : roles est lu via getAuthorities() dans JwtAuthFilter,
+    // qui s'exécute au niveau Filter Servlet — AVANT que l'interception
+    // "open-in-view" de Spring Boot (qui n'ouvre la session Hibernate qu'au
+    // niveau des HandlerInterceptor, donc après tous les Filters) ne soit
+    // active. En LAZY, ça levait un LazyInitializationException silencieusement
+    // avalé par JwtAuthFilter, transformant CHAQUE requête authentifiée en 403.
+    // Table de jointure minuscule (2 rôles), le coût EAGER est négligeable.
+    //
+    // La contrepartie de ce EAGER : user_roles est lue à CHAQUE requête
+    // authentifiée. Or Hibernate ne pose pas de clé primaire sur la table de
+    // jointure d'un bag (une List, contrairement à un Set), et Postgres
+    // n'indexe pas les colonnes portant une clé étrangère — la table est donc
+    // née sans le moindre index. La PK composite (user_id, role_id) est posée
+    // par la migration V2 : elle indexe user_id et interdit les doublons de
+    // rôle que le bag autorise côté Java.
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),

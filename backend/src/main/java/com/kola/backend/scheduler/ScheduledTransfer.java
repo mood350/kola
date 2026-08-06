@@ -17,7 +17,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "scheduled_transfers")
+@Table(name = "scheduled_transfers", indexes = {
+        // findDueTransfers, appelé à chaque réveil du job
+        @Index(name = "idx_sched_status_next", columnList = "status, nextExecutionDate"),
+        @Index(name = "idx_sched_user", columnList = "user_id")
+})
 @EntityListeners(AuditingEntityListener.class)
 public class ScheduledTransfer extends Listeners {
 

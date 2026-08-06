@@ -15,12 +15,15 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 // OPTIMISATION : Ajout d'index pour accélérer les requêtes du Dashboard Admin
+// et les lectures par expéditeur/destinataire (LAB-FT, scoring, plafonds KYC).
+// Pas d'index sur idempotencyKey : la contrainte unique en crée déjà un.
 @Entity
 @Table(name = "transactions", indexes = {
         @Index(name = "idx_tx_status_created", columnList = "status, createdAt"),
         @Index(name = "idx_tx_type_currency", columnList = "type, currency"),
         @Index(name = "idx_tx_wallet_created", columnList = "wallet_id, createdAt"),
-        @Index(name = "idx_tx_idempotency_key", columnList = "idempotencyKey")
+        @Index(name = "idx_tx_sender_created", columnList = "sender_id, createdAt"),
+        @Index(name = "idx_tx_receiver_created", columnList = "receiver_id, createdAt")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class Transaction extends Listeners {
