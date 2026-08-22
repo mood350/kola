@@ -6,9 +6,19 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../providers/auth_provider.dart';
 import '../../routes/app_routes.dart';
+import 'otp_verification_screen.dart';
 
-/// Écran d'inscription : étape 1/3 (Nom complet, email/téléphone, mot de passe).
-/// Les étapes 2 et 3 correspondent au flow de vérification KYC (écrans séparés).
+/// Écran d'inscription : étape 1/3 (infos de base).
+///
+/// Champs exactement alignés sur RegistrationRequest (backend) :
+/// firstname, lastname, email, phoneNumber (format international,
+/// ex: +22890000000), countryCode (ISO 3166-1 alpha-2, ex: "TG"), password
+/// (8+ caractères, au moins 1 majuscule, 1 minuscule, 1 chiffre).
+///
+/// ⚠️ Le backend renvoie 202 Accepted SANS tokens : un code à 6 chiffres est
+/// envoyé par email, et l'utilisateur doit activer son compte avant de se
+/// connecter. Donc après inscription, on redirige vers l'écran de saisie du
+/// code (OtpVerificationScreen), pas vers Home.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -16,18 +26,37 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+/// Liste réduite de pays UEMOA/cible pour le sélecteur de code pays.
+const _countryOptions = [
+  (code: 'TG', dialCode: '+228', label: 'Togo (+228)'),
+  (code: 'SN', dialCode: '+221', label: 'Sénégal (+221)'),
+  (code: 'CI', dialCode: '+225', label: "Côte d'Ivoire (+225)"),
+  (code: 'GH', dialCode: '+233', label: 'Ghana (+233)'),
+  (code: 'NG', dialCode: '+234', label: 'Nigeria (+234)'),
+];
+
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
-  final _identifierController = TextEditingController();
+  final _firstnameController = TextEditingController();
+  final _lastnameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController(); // sans le code pays
   final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _acceptedTerms = false;
+  String _selectedCountryCode = _countryOptions.first.code;
+
+  String get _selectedDialCode => _countryOptions
+      .firstWhere((c) => c.code == _selectedCountryCode)
+      .dialCode;
 
   @override
   void dispose() {
-    _fullNameController.dispose();
-    _identifierController.dispose();
+    _firstnameController.dispose();
+    _lastnameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -38,29 +67,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_acceptedTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Veuillez accepter les conditions générales pour continuer.'),
+          content: Text(
+            'Veuillez accepter les conditions générales pour continuer.',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
+    // Construit le numéro au format international attendu par le backend :
+    // ^\+[1-9]\d{6,14}$  (ex: +22890000000)
+    final rawPhone = _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+    final fullPhoneNumber = '$_selectedDialCode$rawPhone';
+
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.register(
-      _fullNameController.text.trim(),
-      _identifierController.text.trim(),
-      _passwordController.text,
+      firstname: _firstnameController.text.trim(),
+      lastname: _lastnameController.text.trim(),
+      email: _emailController.text.trim(),
+      phoneNumber: fullPhoneNumber,
+      countryCode: _selectedCountryCode,
+      password: _passwordController.text,
     );
 
     if (!mounted) return;
 
     if (success) {
-      // Étape suivante : vérification OTP du numéro de téléphone.
-      Navigator.pushNamed(
-        context,
-        AppRoutes.otpVerification,
-        arguments: _identifierController.text.trim(),
-      );
+      // Pas de tokens à ce stade : le compte doit être activé par code email.
+      _showConfirmationDialog();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -69,6 +104,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     }
+  }
+
+  void _showConfirmationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        icon: const Icon(
+          Icons.mark_email_read_outlined,
+          color: AppColors.success,
+          size: 40,
+        ),
+        title: Text(
+          'Vérifiez votre boîte mail',
+          style: AppTypography.headingSm,
+          textAlign: TextAlign.center,
+        ),
+        content: Text(
+          'Un code à 6 chiffres a été envoyé à ${_emailController.text.trim()}. '
+          'Saisissez-le pour activer votre compte : il est valable 15 minutes.',
+          style: AppTypography.bodyMd,
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryButton(
+              label: 'Saisir le code',
+              onPressed: () {
+                Navigator.pop(context); // ferme le dialog
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OtpVerificationScreen(
+                      email: _emailController.text.trim(),
+                      purpose: OtpPurpose.activation,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -87,7 +170,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.marginMobile, vertical: AppSpacing.lg),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.marginMobile,
+            vertical: AppSpacing.lg,
+          ),
           child: Container(
             padding: const EdgeInsets.all(AppDimens.cardPadding),
             decoration: BoxDecoration(
@@ -105,47 +191,126 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Text('Step 1 of 3', style: AppTypography.bodySm),
                   const SizedBox(height: AppSpacing.sm),
 
-                  // --- Barre de progression (3 étapes) ---
                   Row(
-                    children: [
+                    children: const [
                       _StepBar(active: true),
-                      const SizedBox(width: AppSpacing.xs),
+                      SizedBox(width: AppSpacing.xs),
                       _StepBar(active: false),
-                      const SizedBox(width: AppSpacing.xs),
+                      SizedBox(width: AppSpacing.xs),
                       _StepBar(active: false),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
 
-                  // --- Nom complet ---
-                  Text('Full Name', style: AppTypography.bodySm.copyWith(fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-                  const SizedBox(height: AppSpacing.xs),
-                  TextFormField(
-                    controller: _fullNameController,
-                    decoration: const InputDecoration(hintText: 'Jane Doe'),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Le nom complet est requis';
+                  // --- Prénom + Nom ---
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _LabeledField(
+                          label: 'First Name',
+                          controller: _firstnameController,
+                          hint: 'Jane',
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: _LabeledField(
+                          label: 'Last Name',
+                          controller: _lastnameController,
+                          hint: 'Doe',
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // --- Email ---
+                  _LabeledField(
+                    label: 'Email',
+                    controller: _emailController,
+                    hint: 'name@example.com',
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return "L'email est obligatoire";
+                      }
+                      if (!v.contains('@')) return 'Email invalide';
                       return null;
                     },
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  // --- Email ou téléphone ---
-                  Text('Email or Phone', style: AppTypography.bodySm.copyWith(fontWeight: FontWeight.w600, color: AppColors.onSurface)),
+                  // --- Pays + Téléphone ---
+                  Text(
+                    'Phone Number',
+                    style: AppTypography.bodySm.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.xs),
-                  TextFormField(
-                    controller: _identifierController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(hintText: 'name@example.com'),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) return 'Ce champ est requis';
-                      return null;
-                    },
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                        ),
+                        height: AppDimens.inputHeight,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.hairlineLight),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCountryCode,
+                            items: _countryOptions
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c.code,
+                                    child: Text(c.dialCode),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _selectedCountryCode = value);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            hintText: '90 00 00 00',
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'Requis';
+                            final digits = v.replaceAll(RegExp(r'\D'), '');
+                            if (digits.length < 6) return 'Numéro trop court';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.md),
 
                   // --- Mot de passe ---
-                  Text('Password', style: AppTypography.bodySm.copyWith(fontWeight: FontWeight.w600, color: AppColors.onSurface)),
+                  Text(
+                    'Password',
+                    style: AppTypography.bodySm.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.xs),
                   TextFormField(
                     controller: _passwordController,
@@ -153,12 +318,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     decoration: InputDecoration(
                       hintText: '••••••••',
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                     validator: (value) {
-                      if (value == null || value.length < 8) return '8 caractères minimum';
+                      if (value == null || value.length < 8) {
+                        return '8 caractères minimum';
+                      }
+                      final hasUpper = RegExp(r'[A-Z]').hasMatch(value);
+                      final hasLower = RegExp(r'[a-z]').hasMatch(value);
+                      final hasDigit = RegExp(r'\d').hasMatch(value);
+                      if (!hasUpper || !hasLower || !hasDigit) {
+                        return '1 majuscule, 1 minuscule, 1 chiffre requis';
+                      }
                       return null;
                     },
                   ),
@@ -173,23 +352,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         height: 24,
                         child: Checkbox(
                           value: _acceptedTerms,
-                          onChanged: (value) => setState(() => _acceptedTerms = value ?? false),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          onChanged: (value) =>
+                              setState(() => _acceptedTerms = value ?? false),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Wrap(
                           children: [
-                            Text('I agree to the ', style: AppTypography.bodyMd),
+                            Text(
+                              'I agree to the ',
+                              style: AppTypography.bodyMd,
+                            ),
                             Text(
                               'Terms & Conditions',
-                              style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                              style: AppTypography.bodyMd.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             Text(' and ', style: AppTypography.bodyMd),
                             Text(
                               'Privacy Policy',
-                              style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                              style: AppTypography.bodyMd.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             Text('.', style: AppTypography.bodyMd),
                           ],
@@ -209,12 +400,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Already have an account? ', style: AppTypography.bodyMd),
+                      Text(
+                        'Already have an account? ',
+                        style: AppTypography.bodyMd,
+                      ),
                       GestureDetector(
-                        onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.login),
+                        onTap: () => Navigator.pushReplacementNamed(
+                          context,
+                          AppRoutes.login,
+                        ),
                         child: Text(
                           'Log In',
-                          style: AppTypography.bodyMd.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                          style: AppTypography.bodyMd.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -229,7 +429,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-/// Petite barre de progression utilisée pour le stepper "Step X of 3".
+/// Champ texte avec label externe, factorisé pour éviter la répétition.
+class _LabeledField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+
+  const _LabeledField({
+    required this.label,
+    required this.controller,
+    required this.hint,
+    this.keyboardType,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTypography.bodySm.copyWith(
+            fontWeight: FontWeight.w600,
+            color: AppColors.onSurface,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(hintText: hint),
+          validator: validator,
+        ),
+      ],
+    );
+  }
+}
+
 class _StepBar extends StatelessWidget {
   final bool active;
   const _StepBar({required this.active});

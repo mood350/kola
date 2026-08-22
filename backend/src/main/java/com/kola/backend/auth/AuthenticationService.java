@@ -2,6 +2,8 @@ package com.kola.backend.auth;
 
 import com.kola.backend.email.EmailService;
 import com.kola.backend.email.EmailTemplateName;
+import com.kola.backend.notification.NotificationService;
+import com.kola.backend.notification.NotificationType;
 import com.kola.backend.ratelimit.RateLimitPolicy;
 import com.kola.backend.ratelimit.RateLimitingService;
 import com.kola.backend.role.RoleRepository;
@@ -20,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -42,6 +45,7 @@ public class AuthenticationService {
     private final TokenRepository tokenRepository;
     private final EmailService emailService;
     private final RateLimitingService rateLimitingService;
+    private final NotificationService notificationService;
 
     @Value("${application.mail.from}")
     private String from;
@@ -136,6 +140,22 @@ public class AuthenticationService {
     //  CONNEXION
     // ═══════════════════════════════════════════════════════════════
 
+    // dontRollbackOn est INDISPENSABLE ici, pas une optimisation.
+    //
+    // Les échecs d'authentification de Spring Security (BadCredentialsException,
+    // LockedException, DisabledException...) héritent tous de RuntimeException :
+    // sans cette clause, les lever déclenchait le rollback de TOUTE la
+    // transaction — y compris le `userRepository.save(user)` de
+    // registerFailedAttempt(). Le compteur failedLoginAttempts revenait donc
+    // systématiquement à sa valeur d'avant la tentative et n'atteignait jamais
+    // MAX_FAILED_ATTEMPTS : le verrouillage automatique du compte ne s'est
+    // jamais déclenché, quel que soit le nombre de mots de passe essayés.
+    // Le déverrouillage automatique de checkAndAutoUnlockIfExpired() était
+    // perdu de la même façon quand le compte s'avérait ensuite désactivé.
+    //
+    // Les seules écritures du chemin d'échec sont ce compteur et le
+    // verrou/déverrou du compte : les committer est exactement l'effet voulu.
+    @Transactional(dontRollbackOn = AuthenticationException.class)
     public AuthenticationResponse authenticate(
             AuthenticationRequest request,
             String ipAddress,
@@ -178,6 +198,12 @@ public class AuthenticationService {
         // Détection nouveau appareil/IP (comme Google)
         if (isNewDevice(user, ipAddress, userAgent)) {
             sendNewDeviceEmail(user, ipAddress, userAgent);
+            notificationService.notify(
+                    user,
+                    "Nouvelle connexion détectée",
+                    "Une connexion depuis un nouvel appareil ou une nouvelle adresse IP a été détectée.",
+                    NotificationType.SECURITY
+            );
         }
 
         // Met à jour le dernier IP et userAgent connus

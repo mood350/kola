@@ -47,8 +47,12 @@ public class VaultService {
             );
         }
 
-        // CORRECTION FINANCIÈRE : L'argent quitte le solde disponible et va dans le coffre.
-        wallet.setBalance(wallet.getBalance().subtract(initialAmount));
+        // CONVENTION COMPTABLE : `balance` est le solde TOTAL du wallet et
+        // `lockedBalance` la part immobilisée à l'intérieur de ce total
+        // (disponible = balance - lockedBalance, formule utilisée par
+        // checkSufficientFunds, LoanService et WalletResponse).
+        // Bloquer des fonds n'incrémente donc QUE lockedBalance : décrémenter
+        // aussi `balance` retirerait le montant deux fois du disponible.
         wallet.setLockedBalance(wallet.getLockedBalance().add(initialAmount));
 
         Vault vault = Vault.builder()
@@ -99,8 +103,7 @@ public class VaultService {
             );
         }
 
-        // CORRECTION FINANCIÈRE
-        wallet.setBalance(wallet.getBalance().subtract(request.amount()));
+        // Cf. createVault : on immobilise, on ne retire pas du total.
         wallet.setLockedBalance(wallet.getLockedBalance().add(request.amount()));
 
         vault.setCurrentAmount(vault.getCurrentAmount().add(request.amount()));
@@ -122,8 +125,10 @@ public class VaultService {
 
         if (vault.getStatus() == VaultStatus.ACTIVE) {
             throw new VaultLockedException(
-                    "Ce coffre est verrouillé jusqu'au " + vault.getUnlockDate()
-                            + ". Utilisez /close pour une fermeture anticipée (si autorisée)."
+                    vault.getUnlockDate() != null
+                            ? "Ce coffre est verrouillé jusqu'au " + vault.getUnlockDate()
+                                    + ". Fermez-le par anticipation pour récupérer les fonds avant cette date."
+                            : "Ce coffre n'a pas de date d'échéance : fermez-le pour récupérer les fonds."
             );
         }
         if (vault.getStatus() == VaultStatus.CLOSED) {
@@ -198,8 +203,8 @@ public class VaultService {
 
         BigDecimal amountToRelease = vault.getCurrentAmount();
 
-        // CORRECTION FINANCIÈRE : L'argent revient dans le solde disponible.
-        wallet.setBalance(wallet.getBalance().add(amountToRelease));
+        // Symétrique du blocage : l'argent n'a jamais quitté `balance`, il
+        // redevient simplement disponible en levant l'immobilisation.
         wallet.setLockedBalance(wallet.getLockedBalance().subtract(amountToRelease));
 
         recordVaultTransaction(currentUser, wallet, vault, TransactionType.VAULT_UNLOCK, amountToRelease, description);

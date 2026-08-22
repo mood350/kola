@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 public class CreditScoringService {
 
     private final CreditScoreRepository creditScoreRepository;
+    private final LoanRequestRepository loanRequestRepository;
     private final TransactionRepository transactionRepository;
     private final VaultRepository vaultRepository;
     private final UserRepository userRepository;
@@ -118,6 +119,7 @@ public class CreditScoringService {
             case ACCOUNT_SENIORITY -> scoreSeniority(user);
             case KYC_LEVEL         -> scoreKyc(user);
             case DEPOSIT_REGULARITY -> scoreDepositRegularity(user);
+            case LOAN_REPAYMENT_HISTORY -> scoreLoanRepaymentHistory(user);
             case VAULT_DISCIPLINE  -> scoreVaultDiscipline(user);
             case TRANSACTION_VOLUME -> scoreTransactionVolume(user);
             case EXPENSE_INCOME_RATIO -> scoreExpenseIncomeRatio(user);
@@ -175,6 +177,41 @@ public class CreditScoringService {
     }
 
     /**
+     * Historique de remboursement.
+     *
+     * Un défaut, même régularisé depuis, plafonne la note à 0 : c'est le
+     * signal de risque le plus fort dont on dispose, et il est lu sur
+     * defaultedAt et non sur le statut courant, sinon un remboursement tardif
+     * effacerait le défaut de l'historique.
+     *
+     * L'absence de prêt donne une note neutre (7/15) et non zéro : ne jamais
+     * avoir emprunté n'est pas un mauvais signal, c'est une absence de signal.
+     * Noter 0 aurait exclu tout nouveau client du premier prêt, rendant la
+     * règle auto-réalisatrice.
+     */
+    private ScoreBreakdown.RuleScore scoreLoanRepaymentHistory(User user) {
+        List<LoanRequest> loans = loanRequestRepository.findByBorrowerIdOrderByCreatedAtDesc(user.getId());
+
+        if (loans.isEmpty()) {
+            return ruleScore(ScoringRule.LOAN_REPAYMENT_HISTORY, 7, "Aucun historique de prêt");
+        }
+
+        long defaults = loans.stream().filter(l -> l.getDefaultedAt() != null).count();
+        if (defaults > 0) {
+            return ruleScore(ScoringRule.LOAN_REPAYMENT_HISTORY, 0,
+                    defaults + " prêt(s) ayant connu un défaut de paiement");
+        }
+
+        long repaid = loans.stream().filter(l -> l.getStatus() == LoanStatus.REPAID).count();
+        int pts = repaid >= 3 ? 15 : repaid == 2 ? 12 : repaid == 1 ? 10 : 7;
+
+        return ruleScore(ScoringRule.LOAN_REPAYMENT_HISTORY, pts,
+                repaid == 0
+                        ? "Prêt en cours, aucun incident à ce jour"
+                        : repaid + " prêt(s) remboursé(s) sans incident");
+    }
+
+    /**
      * Discipline épargne : ratio coffres respectés jusqu'à l'échéance
      * vs coffres fermés prématurément.
      */
@@ -208,7 +245,13 @@ public class CreditScoringService {
                 .stream()
                 .filter(t -> t.getStatus() == TransactionStatus.SUCCESS)
                 .filter(t -> t.getCreatedAt() != null && t.getCreatedAt().isAfter(since))
-                .filter(t -> t.getType() != TransactionType.FEE)
+                // TRANSFER_IN exclu au même titre que FEE : cette ligne est la
+                // contrepartie du TRANSFER_OUT déjà comptée, et elle porte le
+                // même `sender` (l'émetteur). Sans ce filtre, un transfert
+                // interne gonflerait le volume de l'émetteur du double de son
+                // montant réel — et donc son score de crédit.
+                .filter(t -> t.getType() != TransactionType.FEE
+                        && t.getType() != TransactionType.TRANSFER_IN)
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

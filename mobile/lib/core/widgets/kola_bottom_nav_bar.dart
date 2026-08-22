@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_typography.dart';
 import '../theme/app_spacing.dart';
 
 /// Bottom navigation bar partagée, 4 onglets : Home, Vaults, Credit, Profile.
@@ -17,15 +16,28 @@ class KolaBottomNavBar extends StatelessWidget {
 
   static const _items = [
     (icon: Icons.home_rounded, outlineIcon: Icons.home_outlined, label: 'Home'),
-    (icon: Icons.account_balance_wallet_rounded, outlineIcon: Icons.account_balance_wallet_outlined, label: 'Vaults'),
-    (icon: Icons.speed_rounded, outlineIcon: Icons.speed_outlined, label: 'Credit'),
-    (icon: Icons.person_rounded, outlineIcon: Icons.person_outline_rounded, label: 'Profile'),
+    (
+      icon: Icons.account_balance_wallet_rounded,
+      outlineIcon: Icons.account_balance_wallet_outlined,
+      label: 'Vaults',
+    ),
+    (
+      icon: Icons.speed_rounded,
+      outlineIcon: Icons.speed_outlined,
+      label: 'Credit',
+    ),
+    (
+      icon: Icons.person_rounded,
+      outlineIcon: Icons.person_outline_rounded,
+      label: 'Profile',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: AppDimens.bottomNavHeight + 16,
+      // Sans libellés, la ligne de texte en moins permet de resserrer la barre.
+      height: AppDimens.bottomNavHeight,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.marginMobile,
         vertical: AppSpacing.xs,
@@ -51,6 +63,10 @@ class KolaBottomNavBar extends StatelessWidget {
   }
 }
 
+/// Icône seule (sans libellé). Le nom de l'onglet reste exposé en tooltip et
+/// en label sémantique : le retirer complètement casserait la navigation au
+/// lecteur d'écran. L'onglet actif est signalé par la couleur + une pastille,
+/// puisqu'il n'y a plus de texte pour porter cette information.
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -67,24 +83,37 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? AppColors.primary : AppColors.onSurfaceVariant;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.defaultR),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs, horizontal: AppSpacing.sm),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: AppTypography.labelXs.copyWith(
-                color: color,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-              ),
+    return Semantics(
+      label: label,
+      selected: isActive,
+      button: true,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.xs,
+              horizontal: AppSpacing.md,
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 26),
+                const SizedBox(height: 4),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: isActive ? 6 : 0,
+                  height: isActive ? 6 : 0,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

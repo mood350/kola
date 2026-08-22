@@ -31,10 +31,20 @@ dependencies:
   # --- Icônes SVG (optionnel) ---
   flutter_svg: ^2.0.10+1
 
+  # --- Scan QR code (paiement marchand) ---
+  mobile_scanner: ^6.0.2
+
+  # --- Skeleton loaders (états de chargement) ---
+  shimmer: ^3.0.0
+
+  # --- Transitions de page Material (système d'animation) ---
+  animations: ^2.0.11
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  mocktail: ^1.0.4
 
 flutter:
   uses-material-design: true

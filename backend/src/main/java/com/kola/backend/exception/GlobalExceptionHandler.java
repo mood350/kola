@@ -50,25 +50,17 @@ public class GlobalExceptionHandler {
     //  SÉCURITÉ
     // ═══════════════════════════════════════════════════════════════
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentials(
-            BadCredentialsException ex, HttpServletRequest request) {
-        log.warn("Tentative de connexion échouée - {}", request.getRemoteAddr());
+    // Cette méthode unique gère désormais les deux cas de figure de manière identique
+    @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
+    public ResponseEntity<ErrorResponse> handleAuthenticationExceptions(
+            Exception ex, HttpServletRequest request) {
+
+        log.warn("Tentative de connexion échouée ({}) - {}", ex.getClass().getSimpleName(), request.getRemoteAddr());
+
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse(
                         "BAD_CREDENTIALS",
                         "Email ou mot de passe incorrect",
-                        request.getRequestURI()
-                ));
-    }
-
-    @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUsernameNotFound(
-            UsernameNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse(
-                        "USER_NOT_FOUND",
-                        ex.getMessage(),
                         request.getRequestURI()
                 ));
     }
@@ -170,6 +162,29 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    /**
+     * Corps de requête absent, tronqué ou non parsable.
+     *
+     * On ne renvoie NI ne logge le message de l'exception : Jackson y recopie
+     * un extrait du payload fautif. Sur /api/auth/reset-password, ce serait
+     * réintroduire dans les logs le mot de passe en clair qu'on vient d'en
+     * sortir. Sans ce handler, l'exception finissait dans handleGeneric, qui
+     * logge ex.getMessage() en ERROR — et répondait 500 pour une erreur
+     * strictement côté client.
+     */
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(
+            org.springframework.http.converter.HttpMessageNotReadableException ex,
+            HttpServletRequest request) {
+        log.warn("Corps de requête illisible sur {}", request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(
+                        "MALFORMED_BODY",
+                        "Le corps de la requête est absent ou mal formé.",
+                        request.getRequestURI()
+                ));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
             IllegalArgumentException ex, HttpServletRequest request) {
@@ -207,11 +222,34 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    /**
+     * Écriture concurrente détectée par le verrouillage optimiste
+     * (Wallet.version / Vault.version).
+     *
+     * 409 et non 500 : l'opération n'a rien cassé, elle a perdu la course. Le
+     * client peut simplement rejouer. Sans ce handler, le cas tombait dans
+     * handleGeneric et ressortait en « erreur interne », ce qui poussait à
+     * chercher une panne serveur là où il n'y a qu'une collision.
+     */
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(
+            org.springframework.orm.ObjectOptimisticLockingFailureException ex,
+            HttpServletRequest request) {
+        log.warn("Conflit d'écriture concurrente sur {} : {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(
+                        "CONCURRENT_MODIFICATION",
+                        "Une autre opération a modifié ces données en même temps. Veuillez réessayer.",
+                        request.getRequestURI()
+                ));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn("Violation de contrainte BDD : {}", ex.getMostSpecificCause().getMessage());
 
+        String code = "DUPLICATE_ENTRY";
         String message = "Cette valeur est déjà utilisée.";
 
         String cause = ex.getMostSpecificCause().getMessage().toLowerCase();
@@ -219,11 +257,18 @@ public class GlobalExceptionHandler {
             message = "Cette adresse email est déjà associée à un compte.";
         } else if (cause.contains("phone") || cause.contains("phone_number")) {
             message = "Ce numéro de téléphone est déjà associé à un compte.";
+        } else if (cause.contains("idempotency")) {
+            // Deux requêtes simultanées portant la même clé : la seconde a
+            // perdu la course à l'insertion. Sans ce cas explicite, le client
+            // recevait « Cette valeur est déjà utilisée », message qui laissait
+            // croire à un doublon d'email ou de téléphone.
+            code = "IDEMPOTENCY_CONFLICT";
+            message = "Une opération portant la même clé d'idempotence est en cours. Réessayez.";
         }
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(
-                        "DUPLICATE_ENTRY",
+                        code,
                         message,
                         request.getRequestURI()
                 ));

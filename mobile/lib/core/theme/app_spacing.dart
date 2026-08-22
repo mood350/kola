@@ -19,11 +19,12 @@ class AppSpacing {
 class AppRadius {
   AppRadius._();
 
-  static const double sm = 4;     // 0.25rem — badges (KYC tiers)
-  static const double defaultR = 8;  // 0.5rem
-  static const double md = 12;    // 0.75rem — inputs
-  static const double lg = 20;    // ~1.25rem (utilisé comme "rounded-lg" pour les cards/features)
-  static const double xl = 24;    // 1.5rem
+  static const double sm = 4; // 0.25rem — badges (KYC tiers)
+  static const double defaultR = 8; // 0.5rem
+  static const double md = 12; // 0.75rem — inputs
+  static const double lg =
+      20; // ~1.25rem (utilisé comme "rounded-lg" pour les cards/features)
+  static const double xl = 24; // 1.5rem
   static const double full = 9999; // pilule (boutons, chips)
 }
 
@@ -34,7 +35,10 @@ class AppDimens {
   static const double inputHeight = 56;
   static const double buttonMinHeight = 48;
   static const double bottomNavHeight = 64;
-  static const double cardPadding = 32; // padding interne "xl" des cards (esprit magazine)
-  static const double iconActionSize = 48; // boutons d'action circulaires (Déposer, Envoyer...)
-  static const double iconBadgeSize = 40;  // icônes dans les listes de transactions
+  static const double cardPadding =
+      32; // padding interne "xl" des cards (esprit magazine)
+  static const double iconActionSize =
+      48; // boutons d'action circulaires (Déposer, Envoyer...)
+  static const double iconBadgeSize =
+      40; // icônes dans les listes de transactions
 }

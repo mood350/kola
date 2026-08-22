@@ -14,6 +14,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(name = "token", indexes = {
+        // findValidToken cherche par (token, tokenType)
+        @Index(name = "idx_token_value_type", columnList = "token, tokenType"),
+        @Index(name = "idx_token_user", columnList = "user_id")
+})
 @EntityListeners(AuditingEntityListener.class)
 public class Token extends Listeners {
 

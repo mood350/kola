@@ -9,6 +9,7 @@ package com.kola.backend.transaction;
  * VAULT_LOCK       → Blocage de fonds dans un coffre-fort
  * VAULT_UNLOCK     → Déblocage de fonds depuis un coffre-fort
  * FEE              → Prélèvement de frais de transaction
+ * MERCHANT_PAYMENT → Paiement à un marchand (scan QR)
  */
 public enum TransactionType {
     DEPOSIT,
@@ -20,5 +21,6 @@ public enum TransactionType {
     FEE,
     SCHEDULED_TRANSFER, // <--- AJOUTER ICI
     LOAN_DISBURSEMENT,
-    LOAN_REPAYMENT
+    LOAN_REPAYMENT,
+    MERCHANT_PAYMENT
 }

@@ -1,7 +1,31 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
 import 'app_spacing.dart';
+
+/// Transition Material "shared axis" (glissement horizontal + fondu) —
+/// remplace le slide iOS/Android par défaut pour un système de transitions
+/// cohérent sur toutes les plateformes et tous les `Navigator.push`.
+class _SharedAxisPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _SharedAxisPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return SharedAxisTransition(
+      animation: animation,
+      secondaryAnimation: secondaryAnimation,
+      transitionType: SharedAxisTransitionType.horizontal,
+      child: child,
+    );
+  }
+}
 
 /// Thème global de l'application Kola.
 ///
@@ -58,19 +82,25 @@ class AppTheme {
 
       // --- Boutons primaires : pilule, fond cobalt, sans ombre ---
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryContainer,
-          foregroundColor: AppColors.onPrimary,
-          minimumSize: const Size.fromHeight(AppDimens.buttonMinHeight),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: AppSpacing.lg),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.full),
-          ),
-          textStyle: AppTypography.buttonMd,
-          elevation: 0,
-        ).copyWith(
-          overlayColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.08)),
-        ),
+        style:
+            ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryContainer,
+              foregroundColor: AppColors.onPrimary,
+              minimumSize: const Size.fromHeight(AppDimens.buttonMinHeight),
+              padding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: AppSpacing.lg,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+              textStyle: AppTypography.buttonMd,
+              elevation: 0,
+            ).copyWith(
+              overlayColor: WidgetStateProperty.all(
+                Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
       ),
 
       // --- Boutons secondaires : pilule, fond gris doux, texte noir ---
@@ -83,7 +113,9 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.full),
           ),
-          textStyle: AppTypography.buttonMd.copyWith(color: AppColors.onSurface),
+          textStyle: AppTypography.buttonMd.copyWith(
+            color: AppColors.onSurface,
+          ),
         ),
       ),
 
@@ -135,7 +167,9 @@ class AppTheme {
         backgroundColor: AppColors.surfaceContainerLowest,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.onSurfaceVariant,
-        selectedLabelStyle: AppTypography.labelXs.copyWith(color: AppColors.primary),
+        selectedLabelStyle: AppTypography.labelXs.copyWith(
+          color: AppColors.primary,
+        ),
         unselectedLabelStyle: AppTypography.labelXs,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
@@ -159,6 +193,17 @@ class AppTheme {
       ),
 
       iconTheme: const IconThemeData(color: AppColors.onSurface),
+
+      // --- Transitions de page : shared-axis Material, cohérent partout ---
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _SharedAxisPageTransitionsBuilder(),
+          TargetPlatform.iOS: _SharedAxisPageTransitionsBuilder(),
+          TargetPlatform.windows: _SharedAxisPageTransitionsBuilder(),
+          TargetPlatform.macOS: _SharedAxisPageTransitionsBuilder(),
+          TargetPlatform.linux: _SharedAxisPageTransitionsBuilder(),
+        },
+      ),
     );
   }
 }

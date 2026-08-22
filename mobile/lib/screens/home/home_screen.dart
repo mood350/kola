@@ -4,14 +4,24 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/date_format_utils.dart';
+import '../../core/utils/transaction_display_utils.dart';
 import '../../core/widgets/transaction_item.dart';
 import '../../core/widgets/kola_bottom_nav_bar.dart';
-import '../../providers/auth_provider.dart';
+import 'widgets/home_skeleton.dart';
+import '../../providers/notification_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../providers/wallet_provider.dart';
-import '../../models/transaction.dart';
 import '../vaults/vaults_screen.dart';
 import '../credit/credit_screen.dart';
 import '../profile/profile_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../transactions/transaction_detail_screen.dart';
+import '../transactions/transaction_history_screen.dart';
+import '../transactions/widgets/amount_input_sheet.dart';
+import '../transfer/beneficiary_picker_screen.dart';
+import '../merchant/merchant_scan_screen.dart';
 
 /// Écran principal de l'application : tableau de bord avec carte de solde,
 /// actions rapides (Déposer/Envoyer/Payer/Retirer) et transactions récentes.
@@ -60,20 +70,75 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WalletProvider>().loadHomeData();
+      context.read<UserProvider>().loadMe();
+      context.read<NotificationProvider>().loadUnreadCount();
     });
+  }
+
+  Future<void> _openAmountSheet({required bool isDeposit}) async {
+    final wallet = context.read<WalletProvider>().primaryWallet;
+    if (wallet == null) return;
+
+    await AmountInputSheet.show(
+      context,
+      title: isDeposit ? 'Déposer' : 'Retirer',
+      onSubmit: (amount, idempotencyKey) async {
+        final txProvider = context.read<TransactionProvider>();
+        final success = isDeposit
+            ? await txProvider.deposit(
+                walletId: wallet.id,
+                amount: amount,
+                idempotencyKey: idempotencyKey,
+              )
+            : await txProvider.withdraw(
+                walletId: wallet.id,
+                amount: amount,
+                idempotencyKey: idempotencyKey,
+              );
+        if (success && mounted) {
+          await context.read<WalletProvider>().loadHomeData();
+        }
+        return success;
+      },
+    );
+  }
+
+  Future<void> _openTransfer() async {
+    final wallet = context.read<WalletProvider>().primaryWallet;
+    if (wallet == null) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BeneficiaryPickerScreen(walletId: wallet.id),
+      ),
+    );
+  }
+
+  Future<void> _openMerchantScan() async {
+    final wallet = context.read<WalletProvider>().primaryWallet;
+    if (wallet == null) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MerchantScanScreen(walletId: wallet.id),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
+    final userProvider = context.watch<UserProvider>();
     final walletProvider = context.watch<WalletProvider>();
-    final user = authProvider.currentUser;
+    final displayName = userProvider.user?.fullName ?? 'Utilisateur';
+    final kycLevel = userProvider.user?.kycLevel ?? 'TIER_1';
 
     final currencyFormat = NumberFormat.decimalPattern('fr_FR');
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: () => context.read<WalletProvider>().loadHomeData(),
+        onRefresh: () => walletProvider.loadHomeData(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
@@ -93,7 +158,10 @@ class _HomeTabContentState extends State<_HomeTabContent> {
                         CircleAvatar(
                           radius: 20,
                           backgroundColor: AppColors.surfaceVariant,
-                          child: Icon(Icons.person_rounded, color: AppColors.onSurfaceVariant),
+                          child: Icon(
+                            Icons.person_rounded,
+                            color: AppColors.onSurfaceVariant,
+                          ),
                         ),
                         const SizedBox(width: AppSpacing.md),
                         Column(
@@ -101,8 +169,10 @@ class _HomeTabContentState extends State<_HomeTabContent> {
                           children: [
                             Text('Bonjour,', style: AppTypography.bodySm),
                             Text(
-                              user?.fullName.split(' ').first ?? 'Utilisateur',
-                              style: AppTypography.headingSm.copyWith(color: AppColors.primary),
+                              displayName,
+                              style: AppTypography.headingSm.copyWith(
+                                color: AppColors.primary,
+                              ),
                             ),
                           ],
                         ),
@@ -111,24 +181,36 @@ class _HomeTabContentState extends State<_HomeTabContent> {
                     Stack(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.notifications_outlined, color: AppColors.primary, size: 28),
-                          onPressed: () {
-                            // TODO: navigation vers l'écran de notifications.
-                          },
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: AppColors.danger,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.surface, width: 1.5),
+                          icon: const Icon(
+                            Icons.notifications_outlined,
+                            color: AppColors.primary,
+                            size: 28,
+                          ),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationsScreen(),
                             ),
                           ),
                         ),
+                        if (context.watch<NotificationProvider>().unreadCount >
+                            0)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: AppColors.danger,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.surface,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -136,169 +218,263 @@ class _HomeTabContentState extends State<_HomeTabContent> {
               ),
 
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.marginMobile),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppSpacing.sm),
-
-                    // --- Balance Card ---
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppDimens.cardPadding),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceCard,
-                        borderRadius: BorderRadius.circular(AppRadius.xl),
-                        border: Border.all(color: AppColors.secondaryContainer),
-                      ),
-                      child: Column(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.marginMobile,
+                ),
+                child:
+                    walletProvider.isLoading &&
+                        walletProvider.primaryWallet == null
+                    ? const HomeSkeleton()
+                    : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Badge KYC + toggle visibilité
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainerLow,
-                                  borderRadius: BorderRadius.circular(AppRadius.full),
-                                  border: Border.all(color: AppColors.surfaceVariant),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                          const SizedBox(height: AppSpacing.sm),
+
+                          // --- Balance Card ---
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(
+                              AppDimens.cardPadding,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceCard,
+                              borderRadius: BorderRadius.circular(AppRadius.xl),
+                              border: Border.all(
+                                color: AppColors.secondaryContainer,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Badge KYC + toggle visibilité
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.xs,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceContainerLow,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.full,
+                                        ),
+                                        border: Border.all(
+                                          color: AppColors.surfaceVariant,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: AppColors.success,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: AppSpacing.xxs),
+                                          Text(
+                                            _kycTierLabel(kycLevel),
+                                            style: AppTypography.labelXs,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const SizedBox(width: AppSpacing.xxs),
-                                    Text(
-                                      _kycTierLabel(user?.kycTier),
-                                      style: AppTypography.labelXs,
+                                    IconButton(
+                                      icon: Icon(
+                                        walletProvider.isBalanceVisible
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                      onPressed: () => context
+                                          .read<WalletProvider>()
+                                          .toggleBalanceVisibility(),
                                     ),
                                   ],
                                 ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  walletProvider.isBalanceVisible
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                                onPressed: () => context.read<WalletProvider>().toggleBalanceVisibility(),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
+                                const SizedBox(height: AppSpacing.sm),
 
-                          Text('Solde principal', style: AppTypography.bodyMd),
-                          const SizedBox(height: AppSpacing.xxs),
+                                Text(
+                                  'Solde principal',
+                                  style: AppTypography.bodyMd,
+                                ),
+                                const SizedBox(height: AppSpacing.xxs),
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      child: Text(
+                                        walletProvider.isBalanceVisible
+                                            ? currencyFormat.format(
+                                                walletProvider.balance,
+                                              )
+                                            : '•••••••',
+                                        key: ValueKey(
+                                          walletProvider.isBalanceVisible,
+                                        ),
+                                        style: AppTypography.displayLgMobile,
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.xs),
+                                    Text(
+                                      'XOF',
+                                      style: AppTypography.headingSm.copyWith(
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+
+                                // Actions rapides
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _QuickAction(
+                                      icon: Icons.add_rounded,
+                                      label: 'Déposer',
+                                      isPrimary: true,
+                                      onTap: () =>
+                                          _openAmountSheet(isDeposit: true),
+                                    ),
+                                    _QuickAction(
+                                      icon: Icons.send_rounded,
+                                      label: 'Envoyer',
+                                      onTap: _openTransfer,
+                                    ),
+                                    _QuickAction(
+                                      icon: Icons.qr_code_scanner_rounded,
+                                      label: 'Payer',
+                                      onTap: _openMerchantScan,
+                                    ),
+                                    _QuickAction(
+                                      icon: Icons.arrow_downward_rounded,
+                                      label: 'Retirer',
+                                      onTap: () =>
+                                          _openAmountSheet(isDeposit: false),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: AppSpacing.xl),
+
+                          // --- Section Récent ---
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                walletProvider.isBalanceVisible
-                                    ? currencyFormat.format(walletProvider.balance)
-                                    : '•••••••',
-                                style: AppTypography.displayLgMobile,
+                              Text('Récent', style: AppTypography.headingMd),
+                              GestureDetector(
+                                onTap: () {
+                                  final wallet = walletProvider.primaryWallet;
+                                  if (wallet == null) return;
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => TransactionHistoryScreen(
+                                        walletId: wallet.id,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  'Voir tout',
+                                  style: AppTypography.bodySm.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
-                              const SizedBox(width: AppSpacing.xs),
-                              Text('XOF', style: AppTypography.headingSm.copyWith(color: AppColors.onSurfaceVariant)),
                             ],
                           ),
                           const SizedBox(height: AppSpacing.md),
 
-                          // Actions rapides
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _QuickAction(
-                                icon: Icons.add_rounded,
-                                label: 'Déposer',
-                                isPrimary: true,
-                                onTap: () {},
+                          if (walletProvider.errorMessage != null &&
+                              walletProvider.primaryWallet == null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.xl,
                               ),
-                              _QuickAction(
-                                icon: Icons.send_rounded,
-                                label: 'Envoyer',
-                                onTap: () {},
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      walletProvider.errorMessage!,
+                                      style: AppTypography.bodyMd,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: AppSpacing.sm),
+                                    TextButton(
+                                      onPressed: () =>
+                                          walletProvider.loadHomeData(),
+                                      child: const Text('Réessayer'),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              _QuickAction(
-                                icon: Icons.qr_code_scanner_rounded,
-                                label: 'Payer',
-                                onTap: () {},
+                            )
+                          else if (walletProvider.recentTransactions.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.xl,
                               ),
-                              _QuickAction(
-                                icon: Icons.arrow_downward_rounded,
-                                label: 'Retirer',
-                                onTap: () {},
+                              child: Center(
+                                child: Text(
+                                  'Aucune transaction récente',
+                                  style: AppTypography.bodyMd,
+                                ),
                               ),
-                            ],
-                          ),
+                            )
+                          else
+                            Column(
+                              children: walletProvider.recentTransactions.map((
+                                tx,
+                              ) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm,
+                                  ),
+                                  child: TransactionItem(
+                                    icon: tx.icon,
+                                    iconColor: colorForTransactionType(tx.type),
+                                    title: tx.displayTitle,
+                                    subtitle: tx.displaySubtitle,
+                                    amount:
+                                        '${tx.isCredit ? '+' : '-'}${currencyFormat.format(tx.amount)} XOF',
+                                    dateLabel: formatRelativeDate(tx.createdAt),
+                                    isPositive: tx.isCredit,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              TransactionDetailScreen(
+                                                reference: tx.reference,
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+
+                          const SizedBox(height: AppSpacing.xl),
                         ],
                       ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // --- Section Récent ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Récent', style: AppTypography.headingMd),
-                        GestureDetector(
-                          onTap: () {
-                            // TODO: navigation vers l'historique complet.
-                          },
-                          child: Text(
-                            'Voir tout',
-                            style: AppTypography.bodySm.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    if (walletProvider.isLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-                        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                      )
-                    else if (walletProvider.recentTransactions.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-                        child: Center(
-                          child: Text('Aucune transaction récente', style: AppTypography.bodyMd),
-                        ),
-                      )
-                    else
-                      Column(
-                        children: walletProvider.recentTransactions.map((tx) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: TransactionItem(
-                              icon: tx.icon,
-                              iconColor: _colorForTransaction(tx.type),
-                              title: tx.title,
-                              subtitle: tx.subtitle,
-                              amount: '${tx.isPositive ? '+' : ''}${currencyFormat.format(tx.amount)} XOF',
-                              dateLabel: _formatRelativeDate(tx.date),
-                              isPositive: tx.isPositive,
-                              onTap: () {
-                                // TODO: navigation vers le détail de la transaction.
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-                ),
               ),
             ],
           ),
@@ -307,7 +483,7 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     );
   }
 
-  String _kycTierLabel(String? tier) {
+  String _kycTierLabel(String tier) {
     switch (tier) {
       case 'TIER_0':
         return 'NIVEAU 0';
@@ -321,41 +497,10 @@ class _HomeTabContentState extends State<_HomeTabContent> {
         return 'NIVEAU 1';
     }
   }
-
-  Color _colorForTransaction(TransactionType type) {
-    switch (type) {
-      case TransactionType.merchantPayment:
-        return AppColors.orangeMoney;
-      case TransactionType.deposit:
-        return AppColors.success;
-      case TransactionType.transferSent:
-      case TransactionType.transferReceived:
-        return AppColors.primary;
-      case TransactionType.withdrawal:
-        return AppColors.warning;
-      case TransactionType.billPayment:
-        return AppColors.moovBlue;
-    }
-  }
-
-  String _formatRelativeDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final txDate = DateTime(date.year, date.month, date.day);
-    final timeStr = DateFormat('HH:mm').format(date);
-
-    if (txDate == today) {
-      return "Aujourd'hui, $timeStr";
-    } else if (txDate == today.subtract(const Duration(days: 1))) {
-      return 'Hier, $timeStr';
-    } else {
-      return '${DateFormat('d MMM', 'fr_FR').format(date)}, $timeStr';
-    }
-  }
 }
 
 /// Bouton d'action rapide circulaire (Déposer, Envoyer, Payer, Retirer).
-class _QuickAction extends StatelessWidget {
+class _QuickAction extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool isPrimary;
@@ -369,30 +514,59 @@ class _QuickAction extends StatelessWidget {
   });
 
   @override
+  State<_QuickAction> createState() => _QuickActionState();
+}
+
+class _QuickActionState extends State<_QuickAction> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) => setState(() => _pressed = value);
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.full),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: AppDimens.iconActionSize,
-            height: AppDimens.iconActionSize,
-            decoration: BoxDecoration(
-              color: isPrimary ? AppColors.primaryContainer : AppColors.surfaceContainerHigh,
-              shape: BoxShape.circle,
-              border: isPrimary ? null : Border.all(color: AppColors.surfaceVariant),
+    final icon = widget.icon;
+    final label = widget.label;
+    final isPrimary = widget.isPrimary;
+
+    return GestureDetector(
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.9 : 1,
+        duration: const Duration(milliseconds: 100),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: AppDimens.iconActionSize,
+              height: AppDimens.iconActionSize,
+              decoration: BoxDecoration(
+                color: isPrimary
+                    ? AppColors.primaryContainer
+                    : AppColors.surfaceContainerHigh,
+                shape: BoxShape.circle,
+                border: isPrimary
+                    ? null
+                    : Border.all(color: AppColors.surfaceVariant),
+              ),
+              child: Icon(
+                icon,
+                color: isPrimary ? Colors.white : AppColors.onSurface,
+                size: 22,
+              ),
             ),
-            child: Icon(
-              icon,
-              color: isPrimary ? Colors.white : AppColors.onSurface,
-              size: 22,
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              label,
+              style: AppTypography.bodySm.copyWith(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(label, style: AppTypography.bodySm.copyWith(color: AppColors.onSurface, fontWeight: FontWeight.w500)),
-        ],
+          ],
+        ),
       ),
     );
   }

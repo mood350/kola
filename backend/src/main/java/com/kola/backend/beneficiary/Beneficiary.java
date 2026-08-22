@@ -12,7 +12,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "beneficiaries")
+// Même raisonnement que Wallet : la contrainte remplace le existsBy... de
+// BeneficiaryService, et indexe owner_id au passage.
+@Table(name = "beneficiaries", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_benef_owner_phone_network",
+                columnNames = {"owner_id", "phone_number", "network"})
+})
 @EntityListeners(AuditingEntityListener.class)
 public class Beneficiary extends Listeners {
 

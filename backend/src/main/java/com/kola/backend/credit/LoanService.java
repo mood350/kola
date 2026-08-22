@@ -2,6 +2,8 @@ package com.kola.backend.credit;
 
 import com.kola.backend.exception.ActiveLoanExistsException;
 import com.kola.backend.exception.InsufficientCreditScoreException;
+import com.kola.backend.notification.NotificationService;
+import com.kola.backend.notification.NotificationType;
 import com.kola.backend.transaction.Transaction;
 import com.kola.backend.transaction.TransactionReferenceGenerator;
 import com.kola.backend.transaction.TransactionRepository;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -33,6 +36,7 @@ public class LoanService {
     private final WalletService walletService;
     private final TransactionRepository transactionRepository;
     private final TransactionReferenceGenerator referenceGenerator;
+    private final NotificationService notificationService;
 
     // Score minimum pour être éligible (correspond à BASIC tier, score ≥ 40)
     private static final int MIN_ELIGIBLE_SCORE = CreditTier.BASIC.getMinScore();
@@ -44,7 +48,10 @@ public class LoanService {
     @Transactional
     public LoanDtos.LoanResponse apply(User borrower, LoanDtos.LoanApplicationRequest req) {
 
-        // 1. Un seul prêt actif à la fois
+        // 1. Un seul prêt non soldé à la fois
+        if (loanRequestRepository.hasDefaultedLoan(borrower.getId())) {
+            throw ActiveLoanExistsException.defaulted();
+        }
         if (loanRequestRepository.hasActiveLoan(borrower.getId())) {
             throw new ActiveLoanExistsException();
         }
@@ -74,8 +81,13 @@ public class LoanService {
                                 .multiply(BigDecimal.valueOf(req.durationMonths()))))
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // 5. Wallet de destination (vérifie appartenance)
-        Wallet wallet = walletService.findOwnedWalletOrThrow(borrower, req.walletId());
+        // 5. Wallet de destination, VERROUILLÉ : le déboursement plus bas fait
+        //    un balance += montant. Sans verrou pessimiste, un transfert
+        //    concurrent lisait le solde d'avant et écrasait le crédit du prêt
+        //    (lost update). findOwnedWalletForUpdateOrThrow refuse en prime un
+        //    portefeuille suspendu, que findOwnedWalletOrThrow créditait
+        //    volontiers.
+        Wallet wallet = walletService.findOwnedWalletForUpdateOrThrow(borrower, req.walletId());
 
         LoanRequest loan = LoanRequest.builder()
                 .borrower(borrower)
@@ -108,7 +120,12 @@ public class LoanService {
     public LoanDtos.LoanResponse repay(User borrower, Long loanId) {
         LoanRequest loan = findOwnedLoanOrThrow(borrower, loanId);
 
-        if (loan.getStatus() != LoanStatus.DISBURSED) {
+        // DEFAULTED est accepté au même titre que DISBURSED : n'autoriser que
+        // DISBURSED rendait une créance en défaut littéralement impossible à
+        // régulariser. Le batch de 2h la faisait basculer, et l'emprunteur se
+        // retrouvait avec une dette qu'il ne pouvait plus payer, sans aucune
+        // voie de recouvrement côté Kola.
+        if (loan.getStatus() != LoanStatus.DISBURSED && loan.getStatus() != LoanStatus.DEFAULTED) {
             throw new IllegalStateException(
                     "Ce prêt n'est pas en cours de remboursement (statut : " + loan.getStatus() + ")."
             );
@@ -143,11 +160,27 @@ public class LoanService {
         loan.setStatus(LoanStatus.REPAID);
         loanRequestRepository.save(loan);
 
+        // La réponse est construite MAINTENANT, avant le recalcul du score.
+        // computeAndSave() passe par markAllAsNotLatest(), annoté
+        // @Modifying(clearAutomatically = true) : il vide le contexte de
+        // persistance et détache `loan`. Or fromEntity() lit le proxy paresseux
+        // creditScoreSnapshot → LazyInitializationException, et le rollback
+        // annulait tout le remboursement (le prêt restait DISBURSED, sans que
+        // l'utilisateur comprenne pourquoi).
+        LoanDtos.LoanResponse response = LoanDtos.LoanResponse.fromEntity(loan);
+
         // Recalcul du score (le remboursement améliore le profil)
         creditScoringService.computeAndSave(borrower.getId());
 
+        notificationService.notify(
+                borrower,
+                "Prêt remboursé",
+                "Votre prêt de " + loan.getRequestedAmount() + " XOF a été intégralement remboursé.",
+                NotificationType.TRANSACTION
+        );
+
         log.info("Prêt #{} remboursé par user {}", loanId, borrower.getId());
-        return LoanDtos.LoanResponse.fromEntity(loan);
+        return response;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -176,6 +209,16 @@ public class LoanService {
         List<LoanRequest> overdue = loanRequestRepository.findOverdueLoans();
         overdue.forEach(loan -> {
             loan.setStatus(LoanStatus.DEFAULTED);
+            // Trace permanente : le statut redeviendra REPAID si l'emprunteur
+            // régularise, mais le défaut doit rester visible du scoring.
+            loan.setDefaultedAt(LocalDateTime.now());
+            notificationService.notify(
+                    loan.getBorrower(),
+                    "Prêt en défaut de paiement",
+                    "Votre prêt de " + loan.getRequestedAmount() + " XOF a dépassé son échéance du "
+                            + loan.getDueDate() + ". Régularisez-le pour pouvoir emprunter à nouveau.",
+                    NotificationType.SYSTEM
+            );
             log.warn("Prêt #{} marqué DEFAULTED (user {})", loan.getId(), loan.getBorrower().getId());
         });
         loanRequestRepository.saveAll(overdue);
@@ -202,6 +245,13 @@ public class LoanService {
         transactionRepository.save(disburseTx);
 
         loan.setStatus(LoanStatus.DISBURSED);
+
+        notificationService.notify(
+                borrower,
+                "Prêt accordé",
+                "Votre prêt de " + loan.getRequestedAmount() + " XOF a été approuvé et versé sur votre wallet.",
+                NotificationType.TRANSACTION
+        );
     }
 
     private LoanRequest findOwnedLoanOrThrow(User borrower, Long loanId) {

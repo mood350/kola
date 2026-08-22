@@ -46,6 +46,15 @@ public class TransactionController {
         return transactionService.transfer(currentUser, request);
     }
 
+    @PostMapping("/pay-merchant")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TransactionResponse payMerchant(
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody @Valid PayMerchantRequest request
+    ) {
+        return transactionService.payMerchant(currentUser, request);
+    }
+
     @GetMapping("/wallet/{walletId}")
     public ResponseEntity<Page<TransactionResponse>> getWalletHistory(
             @AuthenticationPrincipal User currentUser,

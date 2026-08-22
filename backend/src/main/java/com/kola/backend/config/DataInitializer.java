@@ -1,5 +1,7 @@
 package com.kola.backend.config;
 
+import com.kola.backend.merchant.Merchant;
+import com.kola.backend.merchant.MerchantRepository;
 import com.kola.backend.role.Role;
 import com.kola.backend.role.RoleRepository;
 import com.kola.backend.user.User;
@@ -10,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
 import java.util.List;
 
 @Component
@@ -19,6 +23,7 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MerchantRepository merchantRepository;
 
     @Override
     @Transactional
@@ -31,6 +36,8 @@ public class DataInitializer implements CommandLineRunner {
         // migrateRoleMembership("Administrateur", "ADMIN");
         // migrateRoleMembership("Client", "CLIENT");
         createDefaultAdminIfMissing();
+        createDefaultTestUserIfMissing();
+        createDemoMerchantsIfMissing();
     }
 
     private void createRoleIfMissing(String roleName) {
@@ -69,5 +76,59 @@ public class DataInitializer implements CommandLineRunner {
                 .build();
 
         userRepository.save(admin);
+    }
+
+    /**
+     * Compte de test pour le développement mobile : pas de confirmation email
+     * requise (enabled=true dès la création), pour tester le login sans passer
+     * par le flux OTP/email.
+     */
+    private void createDefaultTestUserIfMissing() {
+        if (userRepository.findByEmail("test@gmail.com").isPresent()) {
+            return;
+        }
+
+        Role clientRole = roleRepository.findByRoleName("CLIENT")
+                .orElseThrow(() -> new RuntimeException("Rôle CLIENT introuvable en BDD"));
+
+        User testUser = User.builder()
+                .firstName("Test")
+                .lastName("Test")
+                .email("test@gmail.com")
+                .phoneNumber("+22890000001")
+                .countryCode("TG")
+                .kycLevel(KycLevel.TIER_1)
+                .password(passwordEncoder.encode("Test1234"))
+                .roles(List.of(clientRole))
+                .enabled(true)
+                .accountLocked(false)
+                .failedLoginAttempts(0)
+                .build();
+
+        userRepository.save(testUser);
+    }
+
+    /**
+     * Marchands de démo pour tester le paiement QR ("Payer") sans avoir à
+     * construire un flux d'inscription marchand (hors périmètre de cette
+     * version).
+     */
+    private void createDemoMerchantsIfMissing() {
+        createMerchantIfMissing("Boutique Kola", "Commerce général", "MERCHANT001");
+        createMerchantIfMissing("Café Test", "Restauration", "MERCHANT002");
+    }
+
+    private void createMerchantIfMissing(String name, String category, String code) {
+        if (merchantRepository.findByMerchantCode(code).isPresent()) {
+            return;
+        }
+        Merchant merchant = Merchant.builder()
+                .name(name)
+                .category(category)
+                .merchantCode(code)
+                .balance(BigDecimal.ZERO)
+                .currency("XOF")
+                .build();
+        merchantRepository.save(merchant);
     }
 }

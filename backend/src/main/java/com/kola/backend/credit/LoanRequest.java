@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Demande de prêt in-app Kola.
@@ -21,7 +22,12 @@ import java.time.LocalDate;
  *   principal + intérêts au bout de durationMonths mois.
  */
 @Entity
-@Table(name = "loan_requests")
+@Table(name = "loan_requests", indexes = {
+        // hasActiveLoan, évalué à chaque demande
+        @Index(name = "idx_loan_borrower_status", columnList = "borrower_id, status"),
+        // findOverdueLoans, balayage du batch quotidien de mise en défaut
+        @Index(name = "idx_loan_status_due", columnList = "status, dueDate")
+})
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
@@ -74,4 +80,14 @@ public class LoanRequest extends Listeners {
 
     // Raison du rejet éventuel
     private String rejectionReason;
+
+    /**
+     * Horodatage du passage en défaut, conservé même après régularisation.
+     *
+     * Le statut seul ne suffit pas : un emprunteur qui rembourse après coup
+     * repasse en REPAID, et son défaut disparaîtrait de l'historique. Le score
+     * de crédit blanchirait alors exactement le comportement qu'il est censé
+     * pénaliser. Ce champ garde la trace ; il est nul pour un prêt sain.
+     */
+    private LocalDateTime defaultedAt;
 }

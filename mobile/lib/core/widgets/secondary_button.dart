@@ -32,7 +32,9 @@ class SecondaryButton extends StatelessWidget {
             ],
             Text(
               label,
-              style: AppTypography.buttonMd.copyWith(color: AppColors.onSurface),
+              style: AppTypography.buttonMd.copyWith(
+                color: AppColors.onSurface,
+              ),
             ),
           ],
         ),

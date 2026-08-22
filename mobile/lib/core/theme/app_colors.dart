@@ -86,5 +86,7 @@ class AppColors {
 
   // --- Hairlines (bordures) ---
   static const Color hairlineLight = Color(0xFFE2E2E7);
-  static const Color hairlineDarkOnDark = Color(0x1FFFFFFF); // blanc 12% opacité
+  static const Color hairlineDarkOnDark = Color(
+    0x1FFFFFFF,
+  ); // blanc 12% opacité
 }

@@ -21,6 +21,14 @@ public record TransferRequest(
         @DecimalMin(value = "1", message = "Le montant doit être supérieur à 0")
         BigDecimal amount,
 
-        String description
+        String description,
+
+        /**
+         * Clé d'idempotence fournie par le client (un UUID par opération).
+         * Optionnelle pour rester compatible avec les clients existants, mais
+         * indispensable en pratique : sans elle, un double-tap ou un retry
+         * réseau rejoue intégralement le mouvement d'argent.
+         */
+        String idempotencyKey
 ) {
 }

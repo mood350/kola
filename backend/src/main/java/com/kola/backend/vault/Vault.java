@@ -16,7 +16,10 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "vaults")
+@Table(name = "vaults", indexes = {
+        @Index(name = "idx_vault_owner_status", columnList = "owner_id, status"),
+        @Index(name = "idx_vault_wallet", columnList = "wallet_id")
+})
 @EntityListeners(AuditingEntityListener.class)
 public class Vault extends Listeners {
 
@@ -35,6 +38,20 @@ public class Vault extends Listeners {
     @Column(nullable = false, precision = 19, scale = 4)
     @Builder.Default
     private BigDecimal currentAmount = BigDecimal.ZERO;
+
+    /**
+     * Même rôle que Wallet.version (cf. commentaire détaillé là-bas).
+     *
+     * Particulièrement utile ici : VaultService lit le coffre SANS verrou
+     * avant de libérer les fonds, si bien que deux déblocages simultanés
+     * peuvent tous deux lire le même currentAmount et le créditer deux fois au
+     * portefeuille. Ce compteur transforme cette double libération silencieuse
+     * en échec explicite.
+     */
+    @Version
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    @Builder.Default
+    private Long version = 0L;
 
     @Column(nullable = false, length = 3)
     private String currency;
