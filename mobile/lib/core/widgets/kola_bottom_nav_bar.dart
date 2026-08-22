@@ -93,8 +93,11 @@ class _NavItem extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.full),
           child: Padding(
+            // xxs et non xs : la barre fait 64 px, moins sa bordure haute et
+            // les deux paddings, il ne restait que 31 px pour un contenu qui
+            // en demande 36 une fois la pastille affichee.
             padding: const EdgeInsets.symmetric(
-              vertical: AppSpacing.xs,
+              vertical: AppSpacing.xxs,
               horizontal: AppSpacing.md,
             ),
             child: Column(
@@ -102,10 +105,14 @@ class _NavItem extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 26),
                 const SizedBox(height: 4),
+                // La hauteur reste a 6 dans les deux etats : seule la largeur
+                // s'anime. Animer la hauteur faisait varier celle de la
+                // Column pendant la transition, ce qui relayoutait la barre a
+                // chaque frame et debordait sur les valeurs intermediaires.
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: isActive ? 6 : 0,
-                  height: isActive ? 6 : 0,
+                  height: 6,
                   decoration: const BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
