@@ -11,12 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Remplacez les lignes 15 et 18 :
     - name: Checkout repository
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
     - name: Set up Node.js
-      uses: actions/setup-node@396ea43027f687473d5f85d64e7ce0db734cd602 # v4.2.0
+      uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
       with:
         node-version: '20'
         cache: 'npm'
