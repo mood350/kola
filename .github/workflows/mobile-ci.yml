@@ -5,6 +5,10 @@ on:
     branches: [ "main" ]
     paths:
       - 'mobile/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'mobile/**'
 
 jobs:
   test-mobile:
