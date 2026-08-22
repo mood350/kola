@@ -12,4 +12,6 @@ public interface ScheduledTransferRepository extends JpaRepository<ScheduledTran
 
     @Query("SELECT st FROM ScheduledTransfer st WHERE st.status = :status AND st.nextExecutionDate <= :now")
     List<ScheduledTransfer> findDueTransfers(@Param("status") ScheduledStatus status, @Param("now") LocalDateTime now);
+
+    List<ScheduledTransfer> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
 }

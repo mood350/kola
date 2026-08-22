@@ -4,4 +4,14 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Autorise le HTTP en clair pour la variante DEBUG uniquement.
+         Depuis Android 9 (API 28), le trafic non chiffré est refusé par
+         défaut : sans ça, l'URL par défaut http://10.0.2.2:8081 vers le
+         backend local est bloquée par la plateforme, pas par le code.
+         Ce fichier n'est fusionné que dans le build de debug — une release
+         reste donc incapable d'émettre du trafic en clair, seule position
+         tenable pour une app qui transporte des tokens et des mouvements
+         d'argent. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

@@ -62,7 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.marginMobile, vertical: AppSpacing.xl),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.marginMobile,
+              vertical: AppSpacing.xl,
+            ),
             child: KolaCard(
               child: Form(
                 key: _formKey,
@@ -85,19 +88,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xl),
 
-                    // --- Email ou téléphone ---
-                    Text('Email or Phone number', style: AppTypography.bodySm.copyWith(fontWeight: FontWeight.w600, color: AppColors.onSurface)),
+                    // --- Email (le backend n'accepte QUE l'email pour le login) ---
+                    Text(
+                      'Email',
+                      style: AppTypography.bodySm.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onSurface,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.xs),
                     TextFormField(
                       controller: _identifierController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                        hintText: 'Enter your email or phone',
+                        hintText: 'Enter your email',
                         prefixIcon: Icon(Icons.mail_outline_rounded),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Ce champ est requis';
+                        }
+                        if (!value.contains('@')) {
+                          return 'Veuillez entrer un email valide';
                         }
                         return null;
                       },
@@ -108,9 +120,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Password', style: AppTypography.bodySm.copyWith(fontWeight: FontWeight.w600, color: AppColors.onSurface)),
+                        Text(
+                          'Password',
+                          style: AppTypography.bodySm.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
                         GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.forgotPassword),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.forgotPassword,
+                          ),
                           child: Text(
                             'Forgot password?',
                             style: AppTypography.bodySm.copyWith(
@@ -129,8 +150,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         hintText: '••••••••',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
                       validator: (value) {
@@ -152,9 +179,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text("Don't have an account? ", style: AppTypography.bodyMd),
+                        Text(
+                          "Don't have an account? ",
+                          style: AppTypography.bodyMd,
+                        ),
                         GestureDetector(
-                          onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.register),
+                          onTap: () => Navigator.pushReplacementNamed(
+                            context,
+                            AppRoutes.register,
+                          ),
                           child: Text(
                             'Sign Up',
                             style: AppTypography.bodyMd.copyWith(

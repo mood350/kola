@@ -36,6 +36,25 @@ public final class TransactionPolicy {
             KycLevel.TIER_3, new BigDecimal("999999999")
     );
 
+    /**
+     * Plafonds journaliers d'ENTRÉE (dépôts), distincts des plafonds de sortie
+     * ci-dessus — les régulateurs encadrent les deux sens, avec des valeurs
+     * différentes.
+     *
+     * Ce plafond est aujourd'hui la seule contrainte sur le dépôt : faute
+     * d'intégration avec un opérateur Mobile Money, /api/transactions/deposit
+     * crédite le wallet sur la seule foi de la requête du client, sans
+     * contrepartie externe vérifiée. Le plafond ne corrige pas ce défaut de
+     * conception, il en borne l'exploitation en attendant un webhook signé
+     * qui fera passer le dépôt par PENDING → SUCCESS.
+     */
+    private static final Map<KycLevel, BigDecimal> DAILY_DEPOSIT_LIMITS_XOF = Map.of(
+            KycLevel.TIER_0, new BigDecimal("100000"),
+            KycLevel.TIER_1, new BigDecimal("500000"),
+            KycLevel.TIER_2, new BigDecimal("2000000"),
+            KycLevel.TIER_3, new BigDecimal("10000000")
+    );
+
     // Taux de frais appliqué sur les transferts (1.5%) et retraits (1%).
     // Les dépôts sont gratuits (incitation à recharger le wallet).
     private static final BigDecimal TRANSFER_FEE_RATE = new BigDecimal("0.015");
@@ -43,6 +62,10 @@ public final class TransactionPolicy {
 
     public static BigDecimal getDailyLimit(KycLevel level) {
         return DAILY_LIMITS_XOF.getOrDefault(level, BigDecimal.ZERO);
+    }
+
+    public static BigDecimal getDailyDepositLimit(KycLevel level) {
+        return DAILY_DEPOSIT_LIMITS_XOF.getOrDefault(level, BigDecimal.ZERO);
     }
 
     public static BigDecimal computeTransferFee(BigDecimal amount) {

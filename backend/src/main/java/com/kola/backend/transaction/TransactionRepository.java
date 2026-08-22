@@ -63,8 +63,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             "AND t.status = com.kola.backend.transaction.TransactionStatus.SUCCESS " +
             "AND t.type IN (" +
             "  com.kola.backend.transaction.TransactionType.TRANSFER_OUT, " +
-            "  com.kola.backend.transaction.TransactionType.WITHDRAWAL" +
+            "  com.kola.backend.transaction.TransactionType.WITHDRAWAL, " +
+            "  com.kola.backend.transaction.TransactionType.MERCHANT_PAYMENT" +
             ") " +
             "AND t.createdAt >= :startOfDay")
     BigDecimal sumSpentTodayBySender(@Param("senderId") Long senderId, @Param("startOfDay") LocalDateTime startOfDay);
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
+            "WHERE t.sender.id = :senderId " +
+            "AND t.status = com.kola.backend.transaction.TransactionStatus.SUCCESS " +
+            "AND t.type = com.kola.backend.transaction.TransactionType.DEPOSIT " +
+            "AND t.createdAt >= :startOfDay")
+    BigDecimal sumDepositedTodayBySender(@Param("senderId") Long senderId, @Param("startOfDay") LocalDateTime startOfDay);
 }

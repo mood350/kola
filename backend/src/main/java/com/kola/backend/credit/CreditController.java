@@ -27,6 +27,19 @@ public class CreditController {
         return ResponseEntity.ok(creditScoringService.getOrCompute(currentUser));
     }
 
+    /**
+     * Force le recalcul immédiat du score, sans attendre l'expiration du cache
+     * (30 jours) ni le batch nocturne. Utilisé par le bouton "Recalculer" du
+     * mobile : sans ça, un utilisateur qui vient d'effectuer des transactions
+     * voit un score figé et croit que rien ne se met à jour.
+     */
+    @PostMapping("/score/refresh")
+    public ResponseEntity<ScoreBreakdown> refreshMyScore(
+            @AuthenticationPrincipal User currentUser) {
+        creditScoringService.computeAndSave(currentUser.getId());
+        return ResponseEntity.ok(creditScoringService.getOrCompute(currentUser));
+    }
+
     /** Historique complet des scores. */
     @GetMapping("/score/history")
     public ResponseEntity<List<ScoreBreakdown>> getScoreHistory(

@@ -22,6 +22,20 @@ public class JwtService {
     @Value("${application.security.jwt.expiration}")
     private long jwtExpiration;
 
+    /**
+     * Claim distinguant un token d'accès d'un token de rafraîchissement.
+     *
+     * Les deux étaient jusqu'ici signés avec la même clé, avec le même sujet
+     * et sans rien qui permette de les différencier : ils étaient donc
+     * strictement interchangeables. Concrètement, un refresh token volé
+     * s'utilisait directement en `Authorization: Bearer` comme un token
+     * d'accès — avec sa durée de vie de 7 jours au lieu de 24 h — et un
+     * access token était accepté par /api/auth/refresh-token pour battre
+     * monnaie indéfiniment. Le type est désormais vérifié à chaque usage.
+     */
+    private static final String CLAIM_TYPE = "type";
+    private static final String TYPE_ACCESS = "access";
+    private static final String TYPE_REFRESH = "refresh";
 
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
@@ -31,6 +45,7 @@ public class JwtService {
         return Jwts.builder()
                 // Claims supplémentaires (rôles, id, etc.)
                 .claims(extraClaims)
+                .claim(CLAIM_TYPE, TYPE_ACCESS)
                 // Subject = identifiant principal = email de l'user
                 .subject(userDetails.getUsername())
                 // Date d'émission du token
@@ -44,23 +59,25 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        return isValidForType(token, userDetails, TYPE_ACCESS);
     }
 
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+    /**
+     * Un token sans claim `type` est refusé : ce sont les jetons émis avant
+     * l'introduction du claim, et rien ne permet de savoir s'ils étaient des
+     * tokens d'accès ou de rafraîchissement. Les accepter par défaut
+     * reviendrait à garder la faille ouverte le temps de leur expiration.
+     * Effet de bord assumé : les sessions en cours doivent se reconnecter.
+     */
+    private boolean isValidForType(String token, UserDetails userDetails, String expectedType) {
+        final Claims claims = extractAllClaims(token);
+        return expectedType.equals(claims.get(CLAIM_TYPE, String.class))
+                && userDetails.getUsername().equals(claims.getSubject())
+                && claims.getExpiration().after(new Date());
     }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
-    }
-
-    /**
-     * Extrait la date d'expiration du token.
-     */
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
     }
 
     /**
@@ -100,6 +117,7 @@ public class JwtService {
     // Génère un refresh token (même logique, durée plus longue)
     public String generateRefreshToken(UserDetails userDetails) {
         return Jwts.builder()
+                .claim(CLAIM_TYPE, TYPE_REFRESH)
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
@@ -108,8 +126,7 @@ public class JwtService {
     }
 
     public boolean isRefreshTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        return isValidForType(token, userDetails, TYPE_REFRESH);
     }
 
     private SecretKey getSigningKey() {

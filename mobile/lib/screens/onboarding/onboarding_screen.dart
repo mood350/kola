@@ -22,19 +22,19 @@ const _slides = [
     icon: Icons.bolt_rounded,
     title: "Payez en un clin d'œil",
     description:
-    "Envoyez et recevez de l'argent instantanément, sans frais cachés ni complications.",
+        "Envoyez et recevez de l'argent instantanément, sans frais cachés ni complications.",
   ),
   _OnboardingSlide(
     icon: Icons.lock_outline_rounded,
     title: 'Épargnez pour demain',
     description:
-    'Créez des coffres-forts dédiés à vos projets et regardez votre argent fructifier en toute sécurité.',
+        'Créez des coffres-forts dédiés à vos projets et regardez votre argent fructifier en toute sécurité.',
   ),
   _OnboardingSlide(
     icon: Icons.show_chart_rounded,
     title: 'Votre activité est votre garantie',
     description:
-    'Construisez votre score de crédit simplement en utilisant l\'application pour vos transactions quotidiennes.',
+        'Construisez votre score de crédit simplement en utilisant l\'application pour vos transactions quotidiennes.',
   ),
 ];
 
@@ -89,28 +89,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 itemBuilder: (context, index) {
                   final slide = _slides[index];
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.marginMobile),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.marginMobile,
+                    ),
                     child: Column(
                       children: [
                         const SizedBox(height: AppSpacing.xl),
                         // Illustration (remplacée par une icône stylisée dans un container)
-                        Container(
-                          width: double.infinity,
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          height: 320,
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(32),
-                          ),
-                          child: Center(
-                            child: Container(
-                              width: 96,
-                              height: 96,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryContainer,
-                                borderRadius: BorderRadius.circular(AppRadius.xl),
+                        // Échelle + fondu selon la distance à la page active,
+                        // pour un effet de profondeur pendant le swipe.
+                        AnimatedBuilder(
+                          animation: _pageController,
+                          builder: (context, child) {
+                            double distance = 0;
+                            if (_pageController.hasClients &&
+                                _pageController.position.haveDimensions) {
+                              distance =
+                                  ((_pageController.page ??
+                                              _currentIndex.toDouble()) -
+                                          index)
+                                      .abs()
+                                      .clamp(0.0, 1.0);
+                            } else if (index != _currentIndex) {
+                              distance = 1;
+                            }
+                            final scale = 1 - (distance * 0.15);
+                            final opacity = 1 - (distance * 0.5);
+                            return Opacity(
+                              opacity: opacity,
+                              child: Transform.scale(
+                                scale: scale,
+                                child: child,
                               ),
-                              child: Icon(slide.icon, color: Colors.white, size: 48),
+                            );
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(maxWidth: 320),
+                            height: 320,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 96,
+                                height: 96,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryContainer,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.xl,
+                                  ),
+                                ),
+                                child: Icon(
+                                  slide.icon,
+                                  color: Colors.white,
+                                  size: 48,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -122,7 +158,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                          ),
                           child: Text(
                             slide.description,
                             textAlign: TextAlign.center,
@@ -148,7 +186,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   width: isActive ? 24 : 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: isActive ? AppColors.primary : AppColors.surfaceVariant,
+                    color: isActive
+                        ? AppColors.primary
+                        : AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(AppRadius.full),
                   ),
                 );
@@ -156,7 +196,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.marginMobile),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.marginMobile,
+              ),
               child: Column(
                 children: [
                   PrimaryButton(

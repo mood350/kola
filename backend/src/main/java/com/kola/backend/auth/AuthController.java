@@ -23,10 +23,12 @@ public class AuthController {
         authService.register(request, clientIp(httpRequest));
     }
 
-    @GetMapping("/confirm")
-    public ResponseEntity<String> confirmAccount(@RequestParam String token, HttpServletRequest httpRequest)
-            throws MessagingException {
-        authService.confirmAccount(token, clientIp(httpRequest));
+    @PostMapping("/confirm")
+    public ResponseEntity<String> confirmAccount(
+            @RequestBody @Valid ConfirmAccountRequest request,
+            HttpServletRequest httpRequest
+    ) throws MessagingException {
+        authService.confirmAccount(request.token(), clientIp(httpRequest));
         return ResponseEntity.ok("Compte activé avec succès !");
     }
 
@@ -42,18 +44,17 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void forgotPassword(@RequestParam String email)
+    public void forgotPassword(@RequestBody @Valid ForgotPasswordRequest request)
             throws MessagingException {
-        authService.requestPasswordReset(email);
+        authService.requestPasswordReset(request.email());
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(
-            @RequestParam String token,
-            @RequestParam String newPassword,
+            @RequestBody @Valid ResetPasswordRequest request,
             HttpServletRequest httpRequest
     ) {
-        authService.resetPassword(token, newPassword, clientIp(httpRequest));
+        authService.resetPassword(request.token(), request.newPassword(), clientIp(httpRequest));
         return ResponseEntity.ok("Mot de passe réinitialisé avec succès !");
     }
 

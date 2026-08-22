@@ -1,31 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/app.dart';
+import 'package:mobile/routes/app_routes.dart';
 
-import 'package:mobile/main.dart';
-
+/// Remplace le test par défaut de l'app "compteur" Flutter (jamais adapté à
+/// Kola, cassé depuis le début du projet). Ne pompe pas KolaApp/SplashScreen
+/// directement : le splash a un Future.delayed non annulé + un appel à
+/// StorageService (flutter_secure_storage), ce qui déclenche soit l'assertion
+/// "Timer still pending" du test framework, soit un vrai appel de canal de
+/// plateforme (voire FFI native sur Windows) — trop fragile pour un smoke test.
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const KolaApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('AppRoutes enregistre les routes principales de l\'application', () {
+    expect(
+      AppRoutes.routes.keys,
+      containsAll(<String>[
+        AppRoutes.splash,
+        AppRoutes.onboarding,
+        AppRoutes.login,
+        AppRoutes.register,
+        AppRoutes.forgotPassword,
+        AppRoutes.home,
+      ]),
+    );
   });
 }
