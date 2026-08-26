@@ -60,6 +60,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Notifications des prestataires de paiement : ils ne
+                        // peuvent presenter aucun jeton Kola. Ce qui autorise
+                        // l'operation n'est pas une session mais la signature
+                        // HMAC verifiee dans le controleur — sans secret
+                        // configure, tout y est refuse.
+                        .requestMatchers("/api/webhooks/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/credit/**").authenticated()
                         .requestMatchers(
@@ -78,8 +84,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // Chaque origine est listee explicitement : un joker ("*") est
+        // incompatible avec setAllowCredentials(true), et un pattern large
+        // ouvrirait l'API a n'importe quel site charge dans le navigateur du
+        // client. Toute nouvelle interface web doit donc etre ajoutee ici.
+        //   3000 -> frontend-admin (console d'administration)
+        //   3002 -> frontend-web   (espace client)
+        //   10.0.2.2 -> alias de l'hote vu depuis l'emulateur Android
+        // (landing/ tourne sur 3001 mais n'appelle jamais cette API :
+        //  l'y ajouter serait une autorisation sans usage.)
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
+                "http://localhost:3002",
                 "http://10.0.2.2:8081"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

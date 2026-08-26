@@ -16,6 +16,7 @@ import java.util.List;
 public class CreditController {
 
     private final CreditScoringService creditScoringService;
+    private final RepaymentCapacityService repaymentCapacityService;
     private final LoanService loanService;
 
     // ── Score ──────────────────────────────────────────────────────
@@ -41,6 +42,24 @@ public class CreditController {
     }
 
     /** Historique complet des scores. */
+    /**
+     * Capacité d'emprunt réelle, calculée sur les flux des 90 derniers jours.
+     *
+     * SÉPARÉE DE /score À DESSEIN. Le score dit la solvabilité — il fixe le
+     * taux et un plafond de sécurité. Cette route dit le MONTANT, et deux
+     * emprunteurs de même score obtiennent ici des valeurs différentes si leurs
+     * entrées et sorties diffèrent. C'est cette route que l'écran de demande
+     * doit lire pour borner le champ « montant », jamais maxLoanAmount du score.
+     */
+    @GetMapping("/capacity")
+    public ResponseEntity<LoanCapacityResponse> getMyCapacity(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        ScoreBreakdown breakdown = creditScoringService.getOrCompute(currentUser);
+        LoanCapacity capacity = repaymentCapacityService.compute(currentUser, breakdown.tier());
+        return ResponseEntity.ok(LoanCapacityResponse.from(capacity, breakdown.tier()));
+    }
+
     @GetMapping("/score/history")
     public ResponseEntity<List<ScoreBreakdown>> getScoreHistory(
             @AuthenticationPrincipal User currentUser) {

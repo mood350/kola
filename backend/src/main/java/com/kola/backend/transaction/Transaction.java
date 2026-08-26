@@ -83,4 +83,27 @@ public class Transaction extends Listeners {
 
     @Column(unique = true)
     private String idempotencyKey;
+
+    /**
+     * Prestataire d'encaissement, quand l'argent est entré par un tiers.
+     *
+     * Nul pour tout ce qui reste interne à Kola (virements entre wallets,
+     * mouvements de coffre, frais) : ces écritures n'ont pas de contrepartie
+     * externe, et leur donner un prestataire fictif fausserait tout
+     * rapprochement.
+     */
+    @Column(length = 20)
+    private String provider;
+
+    /**
+     * Identifiant de l'opération CHEZ le prestataire.
+     *
+     * C'est la seule clé dont dispose un webhook pour retrouver cette écriture :
+     * la notification ne connaît pas les identifiants de Kola. Unique, parce
+     * qu'une même opération externe ne doit jamais pouvoir créditer deux
+     * écritures — c'est ce qui rend le rejeu inoffensif au niveau de la base,
+     * et pas seulement au niveau du code.
+     */
+    @Column(unique = true, length = 64)
+    private String providerTransactionId;
 }

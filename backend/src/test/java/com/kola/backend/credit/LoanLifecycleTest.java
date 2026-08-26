@@ -170,8 +170,10 @@ class LoanLifecycleTest {
                 .orElseThrow();
 
         assertThat(historique.points())
-                .as("ne jamais avoir emprunté est une absence de signal, pas un mauvais signal")
-                .isEqualTo(7);
+                .as("ne jamais avoir emprunté est une absence de signal, pas un mauvais signal — "
+                        + "mais 8/20 plafonne le score total à 88, donc PREMIUM au mieux : "
+                        + "le palier ÉLITE se mérite en remboursant")
+                .isEqualTo(8);
     }
 
     // ── Fixtures ───────────────────────────────────────────────────

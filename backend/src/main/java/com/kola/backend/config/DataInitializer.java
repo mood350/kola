@@ -30,11 +30,6 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         createRoleIfMissing("ADMIN");
         createRoleIfMissing("CLIENT");
-        // J'ai commenté ces deux lignes : elles semblent servir à migrer d'anciennes données
-        // (legacyRoleName "Administrateur" / "Client"). Si tu n'as pas ces anciens rôles en BDD,
-        // ça va faire des requêtes inutiles voire des erreurs. À garder uniquement si c'est une vraie migration.
-        // migrateRoleMembership("Administrateur", "ADMIN");
-        // migrateRoleMembership("Client", "CLIENT");
         createDefaultAdminIfMissing();
         createDefaultTestUserIfMissing();
         createDemoMerchantsIfMissing();
@@ -47,10 +42,6 @@ public class DataInitializer implements CommandLineRunner {
             roleRepository.save(role);
         }
     }
-
-    /* ... gardé si tu en as vraiment besoin ...
-    private void migrateRoleMembership(String legacyRoleName, String targetRoleName) { ... }
-    */
 
     private void createDefaultAdminIfMissing() {
         // Sécurité : le .get() sur Optional est safe grâce au isPresent() au dessus
@@ -78,11 +69,7 @@ public class DataInitializer implements CommandLineRunner {
         userRepository.save(admin);
     }
 
-    /**
-     * Compte de test pour le développement mobile : pas de confirmation email
-     * requise (enabled=true dès la création), pour tester le login sans passer
-     * par le flux OTP/email.
-     */
+
     private void createDefaultTestUserIfMissing() {
         if (userRepository.findByEmail("test@gmail.com").isPresent()) {
             return;
@@ -108,11 +95,7 @@ public class DataInitializer implements CommandLineRunner {
         userRepository.save(testUser);
     }
 
-    /**
-     * Marchands de démo pour tester le paiement QR ("Payer") sans avoir à
-     * construire un flux d'inscription marchand (hors périmètre de cette
-     * version).
-     */
+
     private void createDemoMerchantsIfMissing() {
         createMerchantIfMissing("Boutique Kola", "Commerce général", "MERCHANT001");
         createMerchantIfMissing("Café Test", "Restauration", "MERCHANT002");

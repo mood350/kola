@@ -4,6 +4,8 @@ import com.kola.backend.email.EmailService;
 import com.kola.backend.email.EmailTemplateName;
 import com.kola.backend.notification.NotificationService;
 import com.kola.backend.notification.NotificationType;
+import com.kola.backend.exception.InvalidRefreshTokenException;
+import com.kola.backend.exception.InvalidTokenException;
 import com.kola.backend.ratelimit.RateLimitPolicy;
 import com.kola.backend.ratelimit.RateLimitingService;
 import com.kola.backend.role.RoleRepository;
@@ -19,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,6 +38,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthenticationService {
 
     private final UserRepository userRepository;
@@ -106,7 +110,7 @@ public class AuthenticationService {
 
         emailService.sendEmail(
                 user.getEmail(),
-                "Confirmation de votre compte Armin",
+                "Confirmation de votre compte Kola",
                 EmailTemplateName.ACTIVATE_ACCOUNT,
                 properties,
                 from
@@ -120,8 +124,12 @@ public class AuthenticationService {
     public void confirmAccount(String tokenValue, String ipAddress) throws MessagingException {
         rateLimitingService.consume(RateLimitPolicy.CONFIRM_ACCOUNT, ipAddress);
 
+        // Un code recopie de travers est une SAISIE A CORRIGER, pas une panne :
+        // une RuntimeException nue tombait dans le gestionnaire de repli et
+        // renvoyait 500, que le client ne peut traiter que comme une erreur
+        // serveur (cf. InvalidTokenException).
         Token token = tokenRepository.findValidToken(tokenValue, TokenType.ACTIVATION, LocalDateTime.now())
-                .orElseThrow(() -> new RuntimeException("Token invalide ou expiré"));
+                .orElseThrow(InvalidTokenException::new);
 
         // Active le compte
         User user = token.getUser();
@@ -261,8 +269,30 @@ public class AuthenticationService {
     public void requestPasswordReset(String email) throws MessagingException {
         rateLimitingService.consume(RateLimitPolicy.FORGOT_PASSWORD, email);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email introuvable"));
+        // ═══ ADRESSE INCONNUE : ON RÉPOND COMME SI DE RIEN N'ÉTAIT ═══
+        //
+        // Cette recherche levait une RuntimeException, donc un 500, là où une
+        // adresse connue renvoyait 202. L'écart de statut suffisait à savoir
+        // qui est client de Kola : il suffisait d'essayer des adresses. Sur un
+        // service financier, cette liste a de la valeur — pour du hameçonnage
+        // ciblé, notamment.
+        //
+        // On sort donc silencieusement, avec le MÊME statut et le même délai
+        // apparent (l'envoi d'email est de toute façon asynchrone). Le message
+        // affiché côté client — « si un compte existe pour cette adresse, un
+        // code vient d'y être envoyé » — devient enfin exact.
+        //
+        // Le quota par adresse est consommé AVANT cette sortie, volontairement :
+        // sans quoi une adresse inconnue serait un test gratuit et illimité.
+        var maybeUser = userRepository.findByEmail(email);
+        if (maybeUser.isEmpty()) {
+            // Sans l'adresse : ces journaux sont conservés, et la liste des
+            // adresses sondées est précisément ce qu'on refuse de constituer.
+            log.info("Demande de réinitialisation pour une adresse inconnue — ignorée en silence");
+            return;
+        }
+
+        User user = maybeUser.get();
 
         String otp = generateAndSaveToken(user, TokenType.PASSWORD_RESET);
 
@@ -284,7 +314,7 @@ public class AuthenticationService {
         rateLimitingService.consume(RateLimitPolicy.RESET_PASSWORD, ipAddress);
 
         Token token = tokenRepository.findValidToken(tokenValue, TokenType.PASSWORD_RESET, LocalDateTime.now())
-                .orElseThrow(() -> new RuntimeException("Token invalide ou expiré"));
+                .orElseThrow(InvalidTokenException::new);
 
         User user = token.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));
@@ -306,15 +336,23 @@ public class AuthenticationService {
 
         final String userEmail = jwtService.extractUsername(refreshToken);
 
+        // Les trois refus ci-dessous disent la même chose au client — « cette
+        // session ne vaut plus rien » — et méritent donc le même 401. En
+        // RuntimeException nue, ils tombaient dans le gestionnaire de repli et
+        // répondaient 500 : une session expirée, cas parfaitement ordinaire,
+        // était présentée comme une panne serveur (cf. InvalidRefreshTokenException).
         if (userEmail == null) {
-            throw new RuntimeException("Refresh token invalide");
+            throw new InvalidRefreshTokenException();
         }
 
+        // Un jeton lisible dont le porteur n'existe plus n'authentifie personne.
+        // Répondre « utilisateur introuvable » confirmerait en prime la
+        // suppression du compte à qui détient le jeton.
         var user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+                .orElseThrow(InvalidRefreshTokenException::new);
 
         if (!jwtService.isRefreshTokenValid(refreshToken, user)) {
-            throw new RuntimeException("Refresh token expiré ou invalide");
+            throw new InvalidRefreshTokenException();
         }
 
         var newAccessToken = jwtService.generateToken(user);
@@ -380,7 +418,7 @@ public class AuthenticationService {
 
         emailService.sendEmail(
                 user.getEmail(),
-                "Bienvenue sur Armin ! 🎉",
+                "Bienvenue sur Kola ! 🎉",
                 EmailTemplateName.WELCOME,
                 properties,
                 from

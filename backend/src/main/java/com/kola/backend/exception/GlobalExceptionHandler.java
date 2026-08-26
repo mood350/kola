@@ -3,6 +3,7 @@ package com.kola.backend.exception;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
+import com.kola.backend.payment.PaymentProviderException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -374,12 +375,63 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("INSUFFICIENT_CREDIT_SCORE", ex.getMessage(), request.getRequestURI()));
     }
 
+    @ExceptionHandler(LoanNotEligibleException.class)
+    public ResponseEntity<ErrorResponse> handleLoanNotEligible(
+            LoanNotEligibleException ex, HttpServletRequest request) {
+        // 422 : la requete est valide, l'utilisateur authentifie — c'est sa
+        // situation qui bloque. Le message nomme toujours la condition
+        // manquante, sans quoi l'emprunteur ne sait pas quoi corriger.
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ErrorResponse("LOAN_NOT_ELIGIBLE", ex.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(ActiveLoanExistsException.class)
     public ResponseEntity<ErrorResponse> handleActiveLoanExists(
             ActiveLoanExistsException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("ACTIVE_LOAN_EXISTS", ex.getMessage(), request.getRequestURI()));
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  CODES À USAGE UNIQUE (activation, réinitialisation)
+    // ═══════════════════════════════════════════════════════════════
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidToken(
+            InvalidTokenException ex, HttpServletRequest request) {
+        // 400 et non 500 : le code soumis est faux, expiré ou déjà utilisé —
+        // rien n'a dysfonctionné côté serveur. Le client peut donc l'afficher
+        // sous le champ concerné au lieu d'annoncer une panne.
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("INVALID_TOKEN", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
+            InvalidRefreshTokenException ex, HttpServletRequest request) {
+        // 401 : c'est le statut auquel un client réagit en purgeant sa session
+        // et en renvoyant vers la connexion. Un 500 lui ferait croire à une
+        // panne passagère, et réessayer avec le même jeton mort.
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("INVALID_REFRESH_TOKEN", ex.getMessage(), request.getRequestURI()));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  PRESTATAIRE DE PAIEMENT
+    // ═══════════════════════════════════════════════════════════════
+
+    @ExceptionHandler(PaymentProviderException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentProvider(
+            PaymentProviderException ex, HttpServletRequest request) {
+        // 502 : la panne vient d'un système tiers. Un 500 accuserait Kola, un
+        // 400 accuserait l'utilisateur — ni l'un ni l'autre n'aiderait le
+        // support à savoir où chercher. Le message est celui du prestataire,
+        // déjà rédigé pour l'utilisateur final.
+        log.error("Prestataire de paiement en échec : {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse("PAYMENT_PROVIDER_ERROR", ex.getMessage(), request.getRequestURI()));
+    }
+
 
     // ═══════════════════════════════════════════════════════════════
     //  FALLBACK

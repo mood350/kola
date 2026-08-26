@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/credit_score.dart';
 import '../models/loan.dart';
+import '../models/loan_capacity.dart';
 import '../services/api_client.dart';
 import '../services/credit_service.dart';
 
@@ -27,6 +28,22 @@ class CreditProvider extends ChangeNotifier {
   List<Loan> get loans => _loans;
   bool get isLoadingLoans => _isLoadingLoans;
   String? get loansError => _loansError;
+
+  LoanCapacity? _capacity;
+  bool _isLoadingCapacity = false;
+  String? _capacityError;
+
+  LoanCapacity? get capacity => _capacity;
+  bool get isLoadingCapacity => _isLoadingCapacity;
+  String? get capacityError => _capacityError;
+
+  /// Prêt issu de la dernière demande aboutie.
+  ///
+  /// Exposé parce que la SUITE en dépend : au-delà du seuil d'examen le prêt
+  /// revient `pending` et rien n'a été versé, sinon il est déjà décaissé. Sans
+  /// cette information, l'écran annoncerait un versement dans les deux cas.
+  Loan? _lastSubmittedLoan;
+  Loan? get lastSubmittedLoan => _lastSubmittedLoan;
 
   bool _isSubmitting = false;
   String? _submitError;
@@ -85,6 +102,21 @@ class CreditProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadCapacity() async {
+    _isLoadingCapacity = true;
+    _capacityError = null;
+    notifyListeners();
+
+    final result = await _service.getCapacity();
+    if (result.success) {
+      _capacity = result.data;
+    } else {
+      _capacityError = result.error?.message ?? 'Capacité indisponible';
+    }
+    _isLoadingCapacity = false;
+    notifyListeners();
+  }
+
   Future<bool> applyForLoan({
     required int walletId,
     required double requestedAmount,
@@ -94,6 +126,7 @@ class CreditProvider extends ChangeNotifier {
     _isSubmitting = true;
     _submitError = null;
     _submitErrorCode = null;
+    _lastSubmittedLoan = null;
     notifyListeners();
 
     final result = await _service.applyForLoan(
@@ -104,7 +137,10 @@ class CreditProvider extends ChangeNotifier {
     );
 
     if (result.success) {
+      _lastSubmittedLoan = result.data;
       await loadLoans();
+      // La capacité a changé : un prêt en cours consomme le droit à emprunter.
+      await loadCapacity();
       _isSubmitting = false;
       notifyListeners();
       return true;
