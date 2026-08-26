@@ -1,5 +1,6 @@
 import '../models/credit_score.dart';
 import '../models/loan.dart';
+import '../models/loan_capacity.dart';
 import 'api_client.dart';
 
 /// Service gérant les appels API liés au score de crédit et aux prêts
@@ -33,6 +34,17 @@ class CreditService {
       decode: (json) => (json as List<dynamic>)
           .map((e) => CreditScoreBreakdown.fromJson(e as Map<String, dynamic>))
           .toList(),
+    );
+  }
+
+  /// GET /credit/capacity — le MONTANT empruntable, par durée.
+  ///
+  /// Séparé du score à dessein : le score dit si l'on prête et à quel taux,
+  /// cette route dit combien. C'est elle que l'écran de demande interroge.
+  Future<ApiResult<LoanCapacity>> getCapacity() {
+    return _api.get<LoanCapacity>(
+      '/credit/capacity',
+      decode: (json) => LoanCapacity.fromJson(json as Map<String, dynamic>),
     );
   }
 

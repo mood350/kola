@@ -156,6 +156,13 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                         ],
                       ),
                     ),
+                    /* Un prêt en attente n'a rien versé : sans cette
+                       explication, l'emprunteur voit un montant affiché et
+                       cherche l'argent sur son solde. */
+                    if (loan.status == LoanStatus.pending) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      const _ReviewBanner(),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     if (loan.status == LoanStatus.disbursed)
                       PrimaryButton(
@@ -167,6 +174,57 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+/// Explication d'un prêt en cours d'examen.
+///
+/// Au-delà du seuil, la demande n'est plus accordée automatiquement : elle
+/// attend une décision humaine, et AUCUN montant n'a été versé. Ce bandeau
+/// existe pour que le montant affiché plus haut ne se lise pas comme un
+/// virement déjà reçu — c'est la confusion la plus coûteuse de cet écran, elle
+/// finit en appel au support.
+class _ReviewBanner extends StatelessWidget {
+  const _ReviewBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.schedule_rounded,
+            color: AppColors.warning,
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Demande en cours d'examen",
+                  style: AppTypography.bodyMdBold,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  "Notre équipe examine votre demande. Aucun montant n'a été "
+                  "versé pour l'instant : vous serez notifié dès qu'une "
+                  "décision sera prise.",
+                  style: AppTypography.bodySm,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
