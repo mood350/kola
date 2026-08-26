@@ -15,6 +15,7 @@ import com.kola.backend.wallet.Wallet;
 import com.kola.backend.wallet.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +31,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
@@ -40,6 +42,167 @@ public class TransactionService {
     private final MerchantRepository merchantRepository;
     private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DÉPÔT MOBILE MONEY — encaissement par un prestataire externe
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Ouvre une écriture de dépôt EN ATTENTE, sans créditer quoi que ce soit.
+     *
+     * ═══ POURQUOI L'ÉCRITURE EXISTE AVANT L'ARGENT ═══
+     *
+     * Parce que l'ordre inverse perd des dépôts. Si l'on appelait d'abord le
+     * prestataire, une panne juste après son acceptation laisserait un débit
+     * réel chez l'opérateur sans aucune trace côté Kola — de l'argent parti de
+     * chez le client et arrivé nulle part, introuvable au support. En ouvrant
+     * l'écriture d'abord, le pire cas devient une ligne PENDING orpheline :
+     * visible, rapprochable, réparable.
+     *
+     * Le plafond KYC est vérifié ICI et pas à la confirmation : refuser après
+     * que le client a saisi son code Mobile Money serait le prévenir trop tard.
+     * Contrepartie assumée — une demande abandonnée consomme du plafond
+     * journalier jusqu'à son échec.
+     *
+     * Le solde n'est pas touché, donc aucun verrou de wallet n'est pris : la
+     * transaction reste courte, ce qui compte puisqu'un appel réseau suit.
+     */
+    @Transactional
+    public Transaction openMobileMoneyDeposit(User currentUser, MobileMoneyDepositRequest request) {
+        String idempotencyKey = normalizeKey(request.idempotencyKey());
+
+        if (idempotencyKey != null) {
+            Transaction replay = transactionRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
+            if (replay != null) {
+                return replay;
+            }
+        }
+
+        Wallet wallet = walletService.findOwnedActiveWalletOrThrow(currentUser, request.walletId());
+
+        checkDailyDepositLimit(currentUser, request.amount());
+
+        Transaction tx = Transaction.builder()
+                .reference(referenceGenerator.generate())
+                .type(TransactionType.DEPOSIT)
+                .status(TransactionStatus.PENDING)
+                .amount(request.amount())
+                .fee(BigDecimal.ZERO)
+                .currency(wallet.getCurrency())
+                .wallet(wallet)
+                .sender(currentUser)
+                .receiverPhoneNumber(request.phoneNumber())
+                .receiverCountryCode(request.mode().getCountryCode())
+                .idempotencyKey(idempotencyKey)
+                .description("Rechargement " + request.mode().getLabel())
+                .build();
+
+        return transactionRepository.save(tx);
+    }
+
+    /** Relie l'écriture en attente à l'opération ouverte chez le prestataire. */
+    @Transactional
+    public void attachProviderTransaction(Long transactionId, String provider, String providerTransactionId) {
+        Transaction tx = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new EntityNotFoundException("Transaction introuvable : " + transactionId));
+        tx.setProvider(provider);
+        tx.setProviderTransactionId(providerTransactionId);
+        transactionRepository.save(tx);
+    }
+
+    /**
+     * Referme une écriture dont la demande n'a jamais été prise en charge.
+     *
+     * Appelée quand le prestataire refuse ou reste injoignable : rien n'a été
+     * débité chez l'opérateur, la ligne ne deviendra jamais un dépôt. La
+     * marquer FAILED plutôt que la supprimer garde la trace de la tentative —
+     * le grand livre d'un service financier n'efface pas.
+     */
+    @Transactional
+    public void abandonPendingDeposit(Long transactionId) {
+        transactionRepository.findById(transactionId).ifPresent(tx -> {
+            if (tx.getStatus() == TransactionStatus.PENDING) {
+                tx.setStatus(TransactionStatus.FAILED);
+                transactionRepository.save(tx);
+            }
+        });
+    }
+
+    /**
+     * Applique le verdict du prestataire : crédite, ou classe l'échec.
+     *
+     * ═══ LE SEUL ENDROIT OÙ UN DÉPÔT MOBILE MONEY CRÉE DE L'ARGENT ═══
+     *
+     * Et il est idempotent par construction. Le webhook de FedaPay est rejoué
+     * jusqu'à neuf fois ; une notification qui arrive deux fois doit créditer
+     * une seule fois. Deux protections superposées, volontairement :
+     *
+     * 1. le verrou pessimiste sur l'écriture sérialise les notifications
+     *    concurrentes — la seconde attend, puis voit SUCCESS ;
+     * 2. le contrôle de statut ci-dessous ignore tout ce qui n'est plus en
+     *    attente.
+     *
+     * La première sans la seconde ne protégerait pas d'un rejeu tardif ; la
+     * seconde sans la première ne protégerait pas de deux threads simultanés.
+     *
+     * Une opération inconnue n'est pas une erreur à faire remonter : elle
+     * signifie que la notification concerne une transaction étrangère à ce
+     * grand livre (autre environnement, autre application partageant le compte
+     * marchand). On la journalise et on l'acquitte — sans quoi FedaPay la
+     * rejouerait jusqu'à désactiver l'endpoint.
+     */
+    @Transactional
+    public void settleMobileMoneyDeposit(String providerTransactionId, boolean approved) {
+        Transaction tx = transactionRepository
+                .findByProviderTransactionIdForUpdate(providerTransactionId)
+                .orElse(null);
+
+        if (tx == null) {
+            log.warn("Notification de paiement pour une opération inconnue : {}", providerTransactionId);
+            return;
+        }
+
+        if (tx.getStatus() != TransactionStatus.PENDING) {
+            log.info("Notification déjà traitée pour {} (statut {}) — ignorée",
+                    tx.getReference(), tx.getStatus());
+            return;
+        }
+
+        if (!approved) {
+            tx.setStatus(TransactionStatus.FAILED);
+            transactionRepository.save(tx);
+            notificationService.notify(
+                    tx.getSender(),
+                    "Rechargement échoué",
+                    "Votre rechargement de " + tx.getAmount() + " " + tx.getCurrency()
+                            + " n'a pas abouti. Aucun montant n'a été débité.",
+                    NotificationType.TRANSACTION
+            );
+            return;
+        }
+
+        /* Le wallet est relu SOUS VERROU : celui porté par l'écriture a été
+           chargé avant l'appel réseau, et son solde peut avoir changé depuis
+           (un virement reçu, un coffre débloqué). Créditer à partir de cette
+           valeur périmée écraserait ces mouvements. */
+        Wallet wallet = walletService.lockForUpdate(tx.getWallet().getId());
+        wallet.setBalance(wallet.getBalance().add(tx.getAmount()));
+
+        tx.setStatus(TransactionStatus.SUCCESS);
+        transactionRepository.save(tx);
+
+        notificationService.notify(
+                tx.getSender(),
+                "Dépôt effectué",
+                "Votre wallet a été crédité de " + tx.getAmount() + " " + tx.getCurrency() + ".",
+                NotificationType.TRANSACTION
+        );
+
+        eventPublisher.publishEvent(new TransactionCompletedEvent(tx.getSender().getId(), tx.getId()));
+
+        log.info("Dépôt {} crédité après confirmation du prestataire ({})",
+                tx.getReference(), providerTransactionId);
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  DÉPÔT (DEPOSIT) — recharge depuis Mobile Money

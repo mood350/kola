@@ -1,5 +1,6 @@
 package com.kola.backend.transaction;
 
+import com.kola.backend.payment.MobileMoneyDepositService;
 import com.kola.backend.user.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final MobileMoneyDepositService mobileMoneyDepositService;
 
     @PostMapping("/deposit")
     @ResponseStatus(HttpStatus.CREATED)
@@ -26,6 +28,26 @@ public class TransactionController {
             @RequestBody @Valid DepositRequest request
     ) {
         return transactionService.deposit(currentUser, request);
+    }
+
+    /**
+     * Rechargement depuis un compte Mobile Money, via le prestataire.
+     *
+     * 202 ACCEPTED et non 201 : rien n'est encore acquis. La demande part sur
+     * le téléphone du client, qui doit la valider ; le crédit n'aura lieu qu'à
+     * la notification du prestataire. Répondre 201 laisserait croire à un dépôt
+     * abouti et ferait afficher un solde qui n'a pas bougé.
+     *
+     * À NE PAS CONFONDRE avec POST /deposit, qui crédite immédiatement et
+     * n'existe que pour le développement et les corrections manuelles.
+     */
+    @PostMapping("/deposit/mobile-money")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public TransactionResponse depositByMobileMoney(
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody @Valid MobileMoneyDepositRequest request
+    ) {
+        return mobileMoneyDepositService.deposit(currentUser, request);
     }
 
     @PostMapping("/withdraw")

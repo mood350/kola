@@ -171,7 +171,17 @@ public class CreditScoringService {
                 .map(t -> t.getCreatedAt().getDayOfYear() / 7)
                 .collect(Collectors.toSet());
 
-        int pts = Math.min(weeksWithDeposit.size(), 4) * 5; // 5 pts par semaine active, max 20
+        /* Palier par semaine active, plafonne a 15 — le maximum declare par la
+           regle. La formule precedente (semaines x 5) montait a 20 et offrait
+           donc 5 points hors bareme a quiconque deposait quatre semaines de
+           suite : de quoi compenser l'echec complet d'une autre regle. */
+        int pts = switch (Math.min(weeksWithDeposit.size(), 4)) {
+            case 0 -> 0;
+            case 1 -> 5;
+            case 2 -> 9;
+            case 3 -> 12;
+            default -> 15;
+        };
         return ruleScore(ScoringRule.DEPOSIT_REGULARITY, pts,
                 weeksWithDeposit.size() + " semaine(s) avec dépôt sur les 4 dernières");
     }
@@ -193,7 +203,11 @@ public class CreditScoringService {
         List<LoanRequest> loans = loanRequestRepository.findByBorrowerIdOrderByCreatedAtDesc(user.getId());
 
         if (loans.isEmpty()) {
-            return ruleScore(ScoringRule.LOAN_REPAYMENT_HISTORY, 7, "Aucun historique de prêt");
+            /* 8/20 et non 0 : ne jamais avoir emprunte n'est pas un mauvais
+               signal, c'est une absence de signal. Mais 8/20 plafonne le score
+               total a 88 — PREMIUM au mieux. Le palier ELITE, et ses deux
+               millions, ne s'ouvre qu'apres des remboursements observes. */
+            return ruleScore(ScoringRule.LOAN_REPAYMENT_HISTORY, 8, "Aucun historique de prêt");
         }
 
         long defaults = loans.stream().filter(l -> l.getDefaultedAt() != null).count();
@@ -203,7 +217,7 @@ public class CreditScoringService {
         }
 
         long repaid = loans.stream().filter(l -> l.getStatus() == LoanStatus.REPAID).count();
-        int pts = repaid >= 3 ? 15 : repaid == 2 ? 12 : repaid == 1 ? 10 : 7;
+        int pts = repaid >= 3 ? 20 : repaid == 2 ? 16 : repaid == 1 ? 12 : 8;
 
         return ruleScore(ScoringRule.LOAN_REPAYMENT_HISTORY, pts,
                 repaid == 0
@@ -225,10 +239,10 @@ public class CreditScoringService {
                 .count();
 
         if (total == 0) {
-            return ruleScore(ScoringRule.VAULT_DISCIPLINE, 5, "Aucun coffre terminé pour l'instant");
+            return ruleScore(ScoringRule.VAULT_DISCIPLINE, 3, "Aucun coffre terminé pour l'instant");
         }
         double ratio = (double) respected / total;
-        int pts = ratio >= 0.9 ? 15 : ratio >= 0.6 ? 10 : ratio >= 0.3 ? 5 : 0;
+        int pts = ratio >= 0.9 ? 10 : ratio >= 0.6 ? 7 : ratio >= 0.3 ? 3 : 0;
         return ruleScore(ScoringRule.VAULT_DISCIPLINE, pts,
                 respected + "/" + total + " coffre(s) respecté(s) jusqu'à l'échéance (" +
                 Math.round(ratio * 100) + "%)");
@@ -257,10 +271,13 @@ public class CreditScoringService {
 
         int pts;
         String expl;
-        if (volume.compareTo(new BigDecimal("300000")) >= 0) { pts = 15; expl = "Volume excellent (≥ 300 000 XOF/mois)"; }
-        else if (volume.compareTo(new BigDecimal("100000")) >= 0) { pts = 12; expl = "Bon volume (≥ 100 000 XOF/mois)"; }
-        else if (volume.compareTo(new BigDecimal("25000")) >= 0) { pts = 7; expl = "Volume modéré (≥ 25 000 XOF/mois)"; }
-        else if (volume.compareTo(new BigDecimal("5000")) >= 0) { pts = 3; expl = "Volume faible (≥ 5 000 XOF/mois)"; }
+        /* Bareme reetalonne sur 10 points : il en donnait 15 pour 10 declares.
+           Le volume reste un indice d'activite, pas une mesure de capacite —
+           c'est RepaymentCapacityService qui traduit les flux en montant. */
+        if (volume.compareTo(new BigDecimal("300000")) >= 0) { pts = 10; expl = "Volume excellent (≥ 300 000 XOF/mois)"; }
+        else if (volume.compareTo(new BigDecimal("100000")) >= 0) { pts = 8; expl = "Bon volume (≥ 100 000 XOF/mois)"; }
+        else if (volume.compareTo(new BigDecimal("25000")) >= 0) { pts = 5; expl = "Volume modéré (≥ 25 000 XOF/mois)"; }
+        else if (volume.compareTo(new BigDecimal("5000")) >= 0) { pts = 2; expl = "Volume faible (≥ 5 000 XOF/mois)"; }
         else { pts = 0; expl = "Volume insuffisant ce mois (< 5 000 XOF)"; }
 
         return ruleScore(ScoringRule.TRANSACTION_VOLUME, pts, expl);
@@ -315,7 +332,10 @@ public class CreditScoringService {
                 .distinct()
                 .count();
 
-        int pts = distinct >= 5 ? 10 : distinct >= 3 ? 7 : distinct >= 1 ? 4 : 0;
+        /* Ramene a 5 points : c'est le critere le plus facile a fabriquer
+           (enregistrer cinq numeros ne coute rien) et le plus faible en
+           prediction. Un signal simulable ne doit pas peser lourd. */
+        int pts = distinct >= 5 ? 5 : distinct >= 3 ? 3 : distinct >= 1 ? 2 : 0;
         return ruleScore(ScoringRule.BENEFICIARY_DIVERSITY, pts,
                 distinct + " bénéficiaire(s) distinct(s) contacté(s)");
     }

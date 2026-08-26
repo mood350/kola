@@ -96,4 +96,20 @@ public final class AdminLoanDtos {
             BigDecimal outstandingRepayment,
             List<LoanStatusBucket> byStatus
     ) {}
+
+    /**
+     * Motif d'un refus de prêt.
+     *
+     * Longueur imposée comme pour les décisions KYC : « non » ne dit rien à
+     * l'emprunteur, et 500 caractères suffisent largement à une décision de
+     * crédit. Cette contrainte est ce qui rend le refus contestable — donc
+     * défendable.
+     */
+    public record RejectLoanRequest(
+            @jakarta.validation.constraints.NotBlank(message = "Le motif est obligatoire")
+            @jakarta.validation.constraints.Size(
+                    min = 10, max = 500,
+                    message = "Le motif doit contenir entre 10 et 500 caractères")
+            String reason
+    ) {}
 }

@@ -1,8 +1,10 @@
 package com.kola.backend.transaction;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -57,6 +59,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Object[]> summarizeMonthlySince(@Param("start") LocalDateTime start);
 
     Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
+
+    /**
+     * Écriture correspondant à une opération du prestataire de paiement.
+     *
+     * VERROU PESSIMISTE, et il est indispensable : FedaPay relance une
+     * notification jusqu'à neuf fois, et rien ne garantit que deux relances
+     * n'arrivent pas en même temps sur deux threads. Sans verrou, les deux
+     * liraient une écriture encore PENDING et créditeraient le wallet chacune
+     * de leur côté. Le contrôle de statut ne suffit pas : il faut que la
+     * seconde ATTENDE la fin de la première pour voir SUCCESS.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Transaction t WHERE t.providerTransactionId = :providerTransactionId")
+    Optional<Transaction> findByProviderTransactionIdForUpdate(
+            @Param("providerTransactionId") String providerTransactionId);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
             "WHERE t.sender.id = :senderId " +

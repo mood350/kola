@@ -31,6 +31,17 @@
             <div class="otp-code" th:text="${activation_code}">123456</div>
         </div>
 
+        <p style="text-align: center; margin: 28px 0;">
+            <!-- Le lien ne porte PAS le code : une URL est archivee dans les logs
+                 serveur et l'historique du navigateur, et ce code active un compte
+                 (meme raisonnement que ConfirmAccountRequest). Il ouvre l'ecran de
+                 saisie, rien de plus. -->
+            <a th:href="${confirmationUrl}" href="#"
+               style="display: inline-block; background-color: #2E32C7; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 9999px; font-weight: 600;">
+                Activer mon compte
+            </a>
+        </p>
+
         <div class="security-note">
             ⏳ Ce code expire dans <strong>15 minutes</strong>.<br>
             Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.

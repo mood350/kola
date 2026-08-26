@@ -199,6 +199,23 @@ public class WalletService {
     }
 
     /**
+     * Verrouille UN portefeuille dont les contrôles ont déjà été faits ailleurs.
+     *
+     * Délègue à lockAllForUpdate plutôt que d'appeler findByIdForUpdate en
+     * direct : c'est là qu'est traité le piège du détachement (une entité déjà
+     * chargée sans verrou lève OptimisticLockException à l'acquisition). Le
+     * réécrire ici finirait par diverger.
+     *
+     * Cas d'usage : la confirmation d'un dépôt Mobile Money, où le portefeuille
+     * est connu par l'écriture en attente et l'appartenance déjà vérifiée à
+     * l'ouverture de la demande.
+     */
+    @Transactional
+    public Wallet lockForUpdate(Long walletId) {
+        return lockAllForUpdate(List.of(walletId)).get(walletId);
+    }
+
+    /**
      * Récupère un wallet AVEC verrou pessimiste de manière 100% sécurisée.
      * Le verrou n'est posé en base de données QUE si le wallet appartient à l'utilisateur.
      */
