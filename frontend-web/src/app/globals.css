@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   KOLA — APPLICATION WEB : JETONS DE DESIGN
+   Tailwind v4 : la configuration vit dans le CSS (@theme), il n'y a pas de
+   tailwind.config.ts. Chaque jeton déclaré ici génère ses utilitaires
+   (bg-kola-600, font-display, text-ink-500…).
+
+   Les valeurs ne sont PAS choisies ici : elles reprennent celles de
+   `landing/src/app/globals.css` et de `mobile/lib/core/theme/app_colors.dart`.
+   Le site vitrine, l'application mobile et cette application web doivent se
+   reconnaître comme un seul produit — un utilisateur qui passe du téléphone au
+   navigateur ne doit pas avoir l'impression de changer de banque.
+   ========================================================================= */
+
+@theme {
+  /* --- Marque -------------------------------------------------------------
+     #2E32C7 (kola-600) est la couleur d'action, #494FDF (kola-500) sa variante
+     claire. Le reste de la rampe est dérivé à teinte constante. */
+  --color-kola-50: #eef0fe;
+  --color-kola-100: #e0e2fd;
+  --color-kola-200: #c2c4fb;
+  --color-kola-300: #9ea1f6;
+  --color-kola-400: #7b7fec;
+  --color-kola-500: #494fdf;
+  --color-kola-600: #2e32c7;
+  --color-kola-700: #2528a3;
+  --color-kola-800: #1f2183;
+  --color-kola-900: #1b1d68;
+  --color-kola-950: #101138;
+
+  /* --- Encre --------------------------------------------------------------
+     Ce ne sont pas des gris : chaque valeur porte une pointe de violet
+     désaturé, héritée de la teinte de marque. Posé à côté de l'indigo, un gris
+     neutre paraît sale et fait lire l'écran comme deux systèmes juxtaposés. */
+  --color-ink-50: #f4f2fc;
+  --color-ink-100: #e9e6f6;
+  --color-ink-200: #d8d4e9;
+  --color-ink-300: #b7b1ce;
+  --color-ink-400: #948cb4;
+  --color-ink-500: #756b9c;
+  --color-ink-600: #5c5288;
+  --color-ink-700: #4a3f73;
+  --color-ink-800: #382e5c;
+  --color-ink-900: #2a2247;
+  --color-ink-950: #1e1834;
+
+  /* --- Statuts ------------------------------------------------------------
+     Ce sont des ÉTATS, jamais des décorations : le vert dit « réussi », pas
+     « joli ». Mêmes valeurs que AppColors.success / warning / danger. */
+  --color-positive-50: #e6f7f2;
+  --color-positive-100: #c4ece1;
+  --color-positive-500: #00a87e;
+  --color-positive-600: #048364;
+  --color-positive-700: #056650;
+
+  --color-warning-50: #fdf1e3;
+  --color-warning-100: #fbe1c2;
+  --color-warning-500: #ec7e00;
+  --color-warning-600: #c26700;
+  --color-warning-700: #94500b;
+
+  --color-danger-50: #fdecee;
+  --color-danger-100: #fad4d8;
+  --color-danger-500: #e23b4a;
+  --color-danger-600: #c11f2e;
+  --color-danger-700: #93000a;
+
+  --color-info-50: #e7f0f9;
+  --color-info-100: #c8ddf1;
+  --color-info-500: #00539b;
+  --color-info-600: #044278;
+
+  /* --- Surfaces -----------------------------------------------------------
+     Le fond de page n'est jamais blanc : une lavande très claire dérivée de la
+     marque. Le blanc pur est réservé aux panneaux posés dessus — c'est ce
+     contraste faible qui fait exister les cartes sans ombres appuyées. */
+  --color-canvas: #f5f3fd;
+  --color-sunken: #ebe8f9;
+  --color-surface: #ffffff;
+
+  --color-line: rgb(30 24 52 / 0.08);
+  --color-line-strong: rgb(30 24 52 / 0.14);
+
+  /* --- Typographies -------------------------------------------------------
+     Sora pour les titres et les montants (géométrique, crédible en fintech),
+     Inter pour le texte courant (lisible à petite taille). Les deux sont
+     auto-hébergées par next/font : aucune requête vers un tiers. */
+  --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* --- Rayons -------------------------------------------------------------
+     Repris de AppRadius côté mobile : cartes généreusement arrondies (20px),
+     champs à 12px, boutons en pilule. C'est la signature de forme du produit. */
+  --radius-card: 20px;
+  --radius-panel: 24px;
+  --radius-field: 12px;
+
+  /* --- Ombres -------------------------------------------------------------
+     Teintées d'indigo plutôt que noires : une ombre neutre sur un fond lavande
+     se voit comme une salissure. */
+  --shadow-card: 0 1px 2px rgb(30 24 52 / 0.04), 0 8px 24px -12px rgb(30 24 52 / 0.12);
+  --shadow-raised: 0 2px 4px rgb(30 24 52 / 0.05), 0 18px 40px -16px rgb(30 24 52 / 0.22);
+}
+
+/* ============================================================================
+   BASE
+   ========================================================================= */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Le contour de focus est visible et de la couleur de marque : sur une
+     application où l'on saisit des montants, la navigation au clavier doit
+     rester praticable — et un contour supprimé est une régression
+     d'accessibilité, pas un choix esthétique. */
+  :focus-visible {
+    outline: 2px solid var(--color-kola-500);
+    outline-offset: 2px;
+  }
+
+  /* Les champs numériques de montant n'affichent pas les flèches : elles
+     invitent à modifier une somme d'un pixel de trop. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* ============================================================================
+   UTILITAIRES
+   ========================================================================= */
+
+/* Chiffres à chasse fixe : sans cela, une colonne de montants danse d'une
+   ligne à l'autre au gré des « 1 » plus étroits que les « 8 ». */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Animation de chargement des squelettes. Respecte `prefers-reduced-motion`
+   plus bas — un scintillement permanent est pénible pour qui y est sensible. */
+@utility shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-ink-100) 0%,
+    var(--color-ink-50) 50%,
+    var(--color-ink-100) 100%
+  );
+  background-size: 200% 100%;
+  animation: kola-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes kola-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes kola-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility rise {
+  animation: kola-rise 0.28s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
