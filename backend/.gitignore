@@ -37,3 +37,6 @@ build/
 
 # Local runtime config (use application.properties.example as the template)
 src/main/resources/application.properties
+
+# KYC documents written by LocalDocumentStorage
+var/

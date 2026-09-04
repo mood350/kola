@@ -1,5 +1,6 @@
 # Copy to application.properties and fill in real values. Never commit application.properties.
 spring.application.name=backend
+server.server-header=
 
 # --- Datasource (PostgreSQL) ---
 spring.datasource.url=jdbc:postgresql://localhost:5432/dogaa
@@ -16,14 +17,54 @@ spring.jpa.open-in-view=false
 # --- Server ---
 server.port=8080
 
-# --- Security / JWT ---
-app.security.jwt.secret=CHANGE_ME_BASE64_SECRET
+# --- JWT ---
+# Base64 or raw passphrase; must decode to at least 32 bytes (HS256).
+# Generate one with: openssl rand -base64 48
+app.security.jwt.secret=CHANGE_ME_BASE64_SECRET_AT_LEAST_32_BYTES
+app.security.jwt.issuer=dogaa
 app.security.jwt.access-token-ttl=15m
 app.security.jwt.refresh-token-ttl=30d
 
-# --- Admin security (temporary HTTP Basic; replace with dogaa-auth JWT roles once merged) ---
-app.security.admin.username=admin
-app.security.admin.password=CHANGE_ME
+# --- Phone + PIN authentication ---
+# Calling code assumed when a user types a local number (228 = Togo).
+app.security.auth.default-calling-code=228
+app.security.auth.max-pin-attempts=5
+app.security.auth.lock-duration=15m
+
+# --- Registration OTP ---
+app.security.otp.code-length=6
+app.security.otp.ttl=5m
+app.security.otp.max-attempts=5
+app.security.otp.resend-cooldown=60s
+app.security.otp.verification-token-ttl=15m
+
+# --- CORS ---
+# Comma-separated front-end origins allowed to call the API.
+app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000,http://10.0.2.2:8081
+
+# --- KYC (DOGAA.md 4.4). Amounts in XOF; an empty ceiling means unlimited. ---
+app.kyc.limits.TIER_0.per-transaction=25000
+app.kyc.limits.TIER_0.daily=50000
+app.kyc.limits.TIER_0.monthly=200000
+app.kyc.limits.TIER_0.balance-cap=100000
+app.kyc.limits.TIER_0.credit-eligible=false
+app.kyc.limits.TIER_1.per-transaction=100000
+app.kyc.limits.TIER_1.daily=300000
+app.kyc.limits.TIER_1.monthly=1500000
+app.kyc.limits.TIER_1.balance-cap=1000000
+app.kyc.limits.TIER_1.credit-eligible=false
+app.kyc.limits.TIER_2.per-transaction=1000000
+app.kyc.limits.TIER_2.daily=3000000
+app.kyc.limits.TIER_2.monthly=10000000
+app.kyc.limits.TIER_2.balance-cap=5000000
+app.kyc.limits.TIER_2.credit-eligible=true
+app.kyc.limits.TIER_3.credit-eligible=true
+app.kyc.upload.max-file-size=5MB
+app.kyc.upload.allowed-content-types=image/jpeg,image/png,image/webp,application/pdf
+app.kyc.upload.storage-directory=var/kyc-documents
+
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=6MB
 
 # --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
 app.scheduling.enabled=true

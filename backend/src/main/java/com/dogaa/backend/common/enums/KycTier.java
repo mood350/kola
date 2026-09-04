@@ -1,12 +1,16 @@
 package com.dogaa.backend.common.enums;
 
 /**
- * Progressive verification tiers (spec DOGAA.md §4.4). Each tier raises
- * transaction limits; TIER_2 is the gate for credit eligibility.
+ * Progressive KYC levels (DOGAA.md 4.4). Each tier raises the transaction limits;
+ * TIER_2 is the gate for credit.
  */
 public enum KycTier {
     TIER_0,
     TIER_1,
     TIER_2,
-    TIER_3
+    TIER_3;
+
+    public boolean isAtLeast(KycTier required) {
+        return this.ordinal() >= required.ordinal();
+    }
 }

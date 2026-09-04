@@ -22,11 +22,81 @@ Maven wrapper (Maven 3.9.16) — use `./mvnw` in Bash, `.\mvnw.cmd` in PowerShel
 
 No lint/format plugin is configured.
 
+## Authentication
+
+Phone + PIN, no passwords. Implemented across `modules/auth`, `modules/user` and `config/SecurityConfig`.
+
+- **Registration is three steps, and the OTP is structurally mandatory**:
+  `POST /register/request-otp` {phone} sends a 6-digit code (5 min TTL, 60 s resend cooldown, refused
+  if the number already has an account) -> `POST /register/verify-otp` {phone, code} returns a
+  single-use verification token (15 min) -> `POST /register` {verificationToken, identity, pin}.
+  **`RegisterRequest` has no phone field on purpose**: `AuthenticationService.register` reads the
+  number from `OtpService.consumeVerificationToken`. Skipping the OTP does not weaken the check, it
+  leaves the endpoint with no number to register at all. Never add a phone field back to that DTO.
+  The code is stored BCrypt-hashed (a 6-digit code is only a million guesses), burned after 5 wrong
+  attempts, and never returned by the API — it travels only through `OtpSender`.
+- **`OtpSender`** (`modules/notification`) is the SMS seam. The only implementation today is
+  `LoggingOtpSender`, which prints the code in the log and must not reach production.
+- **Identifier**: the phone number, normalised to E.164 by `common/util/PhoneNumbers` before it ever
+  reaches the database. `90123456`, `+228 90 12 34 56` and `0022890123456` are the same account.
+  Normalise at the edge of every new feature that accepts a phone number.
+- **Secret**: a 4-6 digit PIN, BCrypt strength 12, rejected by `PinPolicy` when trivial (repeated or
+  consecutive digits). Because the key space is tiny, `app.security.auth.max-pin-attempts` wrong
+  attempts lock the account for `lock-duration`.
+- **Recording a failed attempt must not join the caller's transaction.** `UserService.registerFailedPinAttempt`
+  is `REQUIRES_NEW` precisely because the login path aborts by throwing; in the same transaction the
+  rollback would erase the counter and the lockout would never fire. Any future "count the failure,
+  then reject" path needs the same treatment.
+- **Wiring**: `config/BeansConfig` declares `PasswordEncoder`, the `DaoAuthenticationProvider` and the
+  `AuthenticationManager`; `config/SecurityConfig` only wires the filter chain. `DogaaUserDetails`
+  adapts a `User` (username = phone, password = PIN hash) and maps the lockout and account status onto
+  `isAccountNonLocked` / `isEnabled`, so the provider enforces them before comparing the PIN.
+  `AuthenticationService.login` calls the manager and translates `LockedException` /
+  `DisabledException` / `BadCredentialsException` into the API's error codes.
+- **Tokens**: a short-lived HS256 access JWT (`JwtService`) plus an opaque refresh token stored as a
+  SHA-256 hash and rotated on every use (`RefreshTokenService`). Access tokens are not revocable by
+  design — revocation happens on the refresh token, and a PIN change revokes every one of them.
+- Endpoints: `POST /api/v1/auth/{register,login,refresh,logout,logout-all,change-pin}`,
+  `GET|PATCH /api/v1/users/me`. Only the first four are public — see `PUBLIC_ENDPOINTS` in `SecurityConfig`.
+- Controllers read the caller with `@AuthenticationPrincipal CurrentUser`; never trust a user id from
+  the request body.
+
+## KYC
+
+Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `modules/kyc`.
+
+- **The tier is derived, never assigned.** `KycTierRules.resolve(user, approvedDocumentTypes)` is the
+  single source of truth, and every path that could move a user ends in `KycService.recomputeTier`.
+  An administrator approves a *document*; no endpoint hands out a tier. Revoking an approval therefore
+  demotes the account for free. Add a new requirement in `KycTierRules`, not in the calling endpoint.
+- **Ladder**: TIER_0 phone verified (registration) -> TIER_1 declarative profile complete (address,
+  city, country) -> TIER_2 an approved identity document (national ID, passport, driving licence or
+  voter card) -> TIER_3 + selfie and proof of address. An approved document carries an incomplete
+  profile straight past TIER_1: verified evidence outranks a declared address.
+- **Email plays no part in the ladder** and must not be reintroduced into it. Most users of a Mobile
+  Money wallet in the UEMOA zone have a phone and no mailbox, so gating a tier on an address would
+  strand the product's own audience. Verification still exists at `POST /api/v1/auth/email/*` (auth
+  module, not KYC) and unlocks receipts and notifications only.
+- Profile edits move the tier through `UserProfileUpdatedEvent`: the user module publishes, KycService
+  listens. A direct call would make the user module import KYC, which already imports it.
+- **Limits** live in `KycProperties` (`app.kyc.limits.<tier>.*`, XOF) and are enforced by
+  `KycLimitService`. A `null` ceiling means unlimited (TIER_3) and is not the same as zero.
+  `assertCanSend` takes the period totals as arguments rather than reaching into a wallet, so the REST
+  path and the midnight scheduler hit the same ceilings through the same code. TIER_2 is the credit gate.
+- **Documents**: only a storage key is persisted; files go through the `DocumentStorage` seam
+  (`LocalDocumentStorage` writes to `app.kyc.upload.storage-directory` and is a dev stub - no
+  encryption at rest, no access audit). Uploads are restricted to images and PDF, 5 MB. The file leaves
+  the server only through the admin download endpoint, as an attachment.
+- Email codes reuse the OTP machinery with `OtpChannel.EMAIL`; the row stays keyed by the account's
+  phone number, so one cooldown and one attempt counter cover the account.
+
 ## Stack notes
 
 - Spring Boot **4.1.1**, Java release target **17** (the installed JDK is 25 — do not assume language features above 17 compile).
 - Boot 4 splits the old starters: this project uses `spring-boot-starter-webmvc` (not `spring-boot-starter-web`) and the matching `*-test` starters (`spring-boot-starter-webmvc-test`, `-data-jpa-test`, `-security-test`, `-thymeleaf-test`) instead of the single `spring-boot-starter-test`. Keep to that convention when adding dependencies.
-- Persistence: Spring Data JPA + PostgreSQL (runtime driver only). `application.properties` currently declares nothing but the app name — no datasource, no JPA config. A `.env` / `.env.example` pair exists but is empty and gitignored; wire configuration through it rather than hardcoding credentials.
+- **Boot 4 ships Jackson 3**: the autoconfigured `ObjectMapper` bean is `tools.jackson.databind.ObjectMapper`. Jackson 2 (`com.fasterxml.jackson.databind`) is on the classpath only as a jjwt transitive dependency and has no bean — injecting it fails at startup. Annotations (`@JsonInclude`, ...) still come from `com.fasterxml.jackson.annotation`.
+- **Boot 4 moved the test autoconfigurations**: `@AutoConfigureMockMvc` is `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`, not `...boot.test.autoconfigure.web.servlet`.
+- Persistence: Spring Data JPA + PostgreSQL; every entity extends `common/audit/BaseEntity` (UUID id, created/updated timestamps, `@Version`). `application.properties` is **gitignored** — copy `application.properties.example` and fill it in. Tests run against H2 via `src/test/resources/application-test.properties` and `@ActiveProfiles("test")`, so no local database is needed.
 - Security: Spring Security + `thymeleaf-extras-springsecurity6`. Server-rendered Thymeleaf views coexist with the REST API — the admin back-office (spec §4.5) is the likely consumer of the Thymeleaf side.
 - API docs: springdoc-openapi (`springdoc-openapi-starter-webmvc-ui`) → Swagger UI at `/swagger-ui.html` once controllers exist.
 - Lombok is an optional dependency wired explicitly into `annotationProcessorPaths` for both `default-compile` and `default-testCompile`; if you add another annotation processor (MapStruct, etc.) it must be added to *both* executions or compilation breaks.
@@ -38,6 +108,9 @@ Vertical slices under `com.dogaa.backend.modules.<module>`, each with the same s
 ```
 modules/<module>/{entity,dto,mapper,repository,service,controller}
 ```
+
+`modules/auth` additionally has a `security/` package (JWT issuing/parsing, the servlet filter, the
+`CurrentUser` principal, the PIN policy) — framework plumbing that is neither a service nor a controller.
 
 Modules: `auth`, `user`, `kyc`, `wallet`, `transaction`, `vault`, `scheduling`, `credit`, `scoring`, `notification`, `admin`.
 
@@ -53,7 +126,7 @@ common/util              shared helpers
 common/audit             JPA auditing base entities & listeners
 ```
 
-Rules that follow from this: a module never reaches into another module's `repository` or `entity` — cross-module access goes through the owning module's `service`. Shared enums used by more than one module belong in `common/enums`, not in one module's `entity` package. The `.gitkeep` files exist only to hold empty directories; delete them as real classes land.
+Rules that follow from this: a module never reaches into another module's `repository` — cross-module access goes through the owning module's `service`. Referencing another module's entity type is fine (auth reads `User`), but cross-module *ownership* is not: `RefreshToken` stores a plain `userId` rather than a JPA relation to `User`. Shared enums used by more than one module belong in `common/enums`, not in one module's `entity` package. The `.gitkeep` files exist only to hold empty directories; delete them as real classes land.
 
 ## Domain shape to expect
 
