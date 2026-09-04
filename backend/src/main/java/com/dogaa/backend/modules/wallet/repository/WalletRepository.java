@@ -1,6 +1,7 @@
 package com.dogaa.backend.modules.wallet.repository;
 
 import com.dogaa.backend.common.enums.Currency;
+import com.dogaa.backend.common.enums.WalletType;
 import com.dogaa.backend.modules.wallet.dto.WalletAggregate;
 import com.dogaa.backend.modules.wallet.entity.Wallet;
 import jakarta.persistence.LockModeType;
@@ -19,9 +20,11 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
 
     List<Wallet> findByOwnerId(UUID ownerId);
 
-    Optional<Wallet> findByOwnerIdAndCurrency(UUID ownerId, Currency currency);
+    Optional<Wallet> findByOwnerIdAndCurrencyAndType(UUID ownerId, Currency currency, WalletType type);
 
-    boolean existsByOwnerIdAndCurrency(UUID ownerId, Currency currency);
+    boolean existsByOwnerIdAndCurrencyAndType(UUID ownerId, Currency currency, WalletType type);
+
+    List<Wallet> findByOwnerIdAndType(UUID ownerId, WalletType type);
 
     /**
      * Row-locking read for money moves: two concurrent debits on the same wallet queue

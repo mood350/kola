@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -54,6 +55,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getProfile(UUID id) {
         return userMapper.toResponse(getById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> findActiveUserIds() {
+        return userRepository.findActiveIds();
     }
 
     public User save(User user) {

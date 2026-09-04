@@ -1,6 +1,7 @@
 package com.dogaa.backend.modules.wallet.service;
 
 import com.dogaa.backend.common.enums.Currency;
+import com.dogaa.backend.common.enums.WalletType;
 import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.InsufficientFundsException;
@@ -39,15 +40,23 @@ public class WalletService {
 
     // --- Wallet lifecycle ---------------------------------------------------
 
+    /** Creates the everyday account. */
     @Transactional
     public Wallet createWallet(UUID ownerId, Currency currency) {
+        return createWallet(ownerId, currency, WalletType.CURRENT);
+    }
+
+    @Transactional
+    public Wallet createWallet(UUID ownerId, Currency currency, WalletType type) {
         userService.getById(ownerId); // 404s if the owner does not exist
-        if (walletRepository.existsByOwnerIdAndCurrency(ownerId, currency)) {
-            throw new ConflictException("A " + currency + " wallet already exists for this user");
+        if (walletRepository.existsByOwnerIdAndCurrencyAndType(ownerId, currency, type)) {
+            throw new ConflictException(
+                    "A " + type + " " + currency + " wallet already exists for this user");
         }
         Wallet wallet = Wallet.builder()
                 .ownerId(ownerId)
                 .currency(currency)
+                .type(type)
                 .availableBalance(BigDecimal.ZERO)
                 .lockedBalance(BigDecimal.ZERO)
                 .status(WalletStatus.ACTIVE)
@@ -55,15 +64,43 @@ public class WalletService {
         return walletRepository.save(wallet);
     }
 
+    /**
+     * Same as {@link #createWallet}, but silent when the wallet is already there. Used by the
+     * sign-up listener, which must not fail a registration over a wallet that already exists.
+     */
+    @Transactional
+    public Wallet provision(UUID ownerId, Currency currency, WalletType type) {
+        return walletRepository.findByOwnerIdAndCurrencyAndType(ownerId, currency, type)
+                .orElseGet(() -> createWallet(ownerId, currency, type));
+    }
+
     @Transactional(readOnly = true)
     public List<Wallet> listWallets(UUID ownerId) {
         return walletRepository.findByOwnerId(ownerId);
     }
 
+    /** The everyday account. */
     @Transactional(readOnly = true)
     public Wallet getWallet(UUID ownerId, Currency currency) {
-        return walletRepository.findByOwnerIdAndCurrency(ownerId, currency)
-                .orElseThrow(() -> new ResourceNotFoundException("No " + currency + " wallet for this user"));
+        return getWallet(ownerId, currency, WalletType.CURRENT);
+    }
+
+    @Transactional(readOnly = true)
+    public Wallet getWallet(UUID ownerId, Currency currency, WalletType type) {
+        return walletRepository.findByOwnerIdAndCurrencyAndType(ownerId, currency, type)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No " + type + " " + currency + " wallet for this user"));
+    }
+
+    /** The collateral account a loan is secured against (DOGAA.md 4.3). */
+    @Transactional(readOnly = true)
+    public Wallet getSavingsWallet(UUID ownerId, Currency currency) {
+        return getWallet(ownerId, currency, WalletType.SAVINGS);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Wallet> listWallets(UUID ownerId, WalletType type) {
+        return walletRepository.findByOwnerIdAndType(ownerId, type);
     }
 
     @Transactional(readOnly = true)

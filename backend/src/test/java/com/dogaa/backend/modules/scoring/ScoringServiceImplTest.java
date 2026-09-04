@@ -1,24 +1,26 @@
 package com.dogaa.backend.modules.scoring;
 
 import com.dogaa.backend.common.enums.KycTier;
-import com.dogaa.backend.exception.ResourceNotFoundException;
+import com.dogaa.backend.config.ScoringProperties;
 import com.dogaa.backend.modules.scoring.dto.CreditScoreResponse;
 import com.dogaa.backend.modules.scoring.entity.CreditScore;
 import com.dogaa.backend.modules.scoring.repository.CreditScoreRepository;
 import com.dogaa.backend.modules.scoring.service.KycStatusPort;
+import com.dogaa.backend.modules.scoring.service.ScoreCalculator;
+import com.dogaa.backend.modules.scoring.service.ScoringDataCollector;
+import com.dogaa.backend.modules.scoring.service.ScoringInputs;
 import com.dogaa.backend.modules.scoring.service.ScoringServiceImpl;
-import com.dogaa.backend.modules.scoring.service.TransactionSignalsPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +34,9 @@ class ScoringServiceImplTest {
     private KycStatusPort kycStatusPort;
 
     @Mock
-    private TransactionSignalsPort signalsPort;
+    private ScoringDataCollector collector;
+
+    private final ScoringProperties properties = new ScoringProperties();
 
     private ScoringServiceImpl scoringService;
 
@@ -40,46 +44,96 @@ class ScoringServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        scoringService = new ScoringServiceImpl(repository, kycStatusPort, signalsPort);
+        scoringService = new ScoringServiceImpl(
+                repository, kycStatusPort, collector, new ScoreCalculator(properties), properties);
+    }
+
+    private static ScoringInputs strongInputs() {
+        return new ScoringInputs(
+                new BigDecimal("400000"), new BigDecimal("260000"),
+                new BigDecimal("80000"), new BigDecimal("80000"), BigDecimal.ZERO,
+                4, 0,
+                new BigDecimal("120000"), new BigDecimal("12000"), new BigDecimal("8600"), 0,
+                10, 0.15, ScoringInputs.Trend.GROWING,
+                3, 7,
+                3, 0, 0);
     }
 
     @Test
-    void sumsTheFivePointCategoriesIntoTheOverallScore() {
-        when(repository.save(any(CreditScore.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_1);
-        when(signalsPort.depositRegularityPoints(userId)).thenReturn(15);
-        when(signalsPort.savingsDisciplinePoints(userId)).thenReturn(10);
-        when(signalsPort.transactionDiversityPoints(userId)).thenReturn(5);
-        when(signalsPort.balanceStabilityPoints(userId)).thenReturn(20);
-        when(signalsPort.scheduledReliabilityPoints(userId)).thenReturn(0);
+    void storesTheAxisBreakdownAlongsideTheTotal() {
+        when(repository.save(any(CreditScore.class))).thenAnswer(call -> call.getArgument(0));
+        when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_2);
+        when(collector.collect(userId)).thenReturn(strongInputs());
+        when(repository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.empty());
 
         CreditScoreResponse response = scoringService.calculateScore(userId);
 
-        assertThat(response.scoreValue()).isEqualTo(50);
         assertThat(response.userId()).isEqualTo(userId);
+        assertThat(response.kycTier()).isEqualTo(KycTier.TIER_2);
+        assertThat(response.breakdown().total()).isEqualTo(response.rawScoreValue());
+        assertThat(response.breakdown().savingsDiscipline()
+                + response.breakdown().financialStability()
+                + response.breakdown().inflowRegularity()
+                + response.breakdown().usageIntensity()
+                + response.breakdown().creditHistory())
+                .isEqualTo(response.rawScoreValue());
     }
 
     @Test
-    void isNotCreditEligibleBelowTier2() {
-        when(repository.save(any(CreditScore.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_1);
-
-        assertThat(scoringService.calculateScore(userId).kycEligible()).isFalse();
-    }
-
-    @Test
-    void isCreditEligibleFromTier2Upward() {
-        when(repository.save(any(CreditScore.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    void theFirstEverScoreIsPublishedRaw() {
+        when(repository.save(any(CreditScore.class))).thenAnswer(call -> call.getArgument(0));
         when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_2);
-
-        assertThat(scoringService.calculateScore(userId).kycEligible()).isTrue();
-    }
-
-    @Test
-    void getLatestScoreRaisesWhenNoScoreWasEverCalculated() {
+        when(collector.collect(userId)).thenReturn(strongInputs());
         when(repository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> scoringService.getLatestScore(userId))
-                .isInstanceOf(ResourceNotFoundException.class);
+        CreditScoreResponse response = scoringService.calculateScore(userId);
+
+        assertThat(response.scoreValue()).isEqualTo(response.rawScoreValue());
+    }
+
+    /**
+     * The smoothing is what makes the score expensive to game: a perfect day on top of a poor
+     * history lands well short of the raw value, so reaching a lending threshold takes weeks of
+     * consistent behaviour rather than one staged evening.
+     */
+    @Test
+    void oneGoodDayOnlyMovesThePublishedScorePartOfTheWay() {
+        CreditScore yesterday = CreditScore.builder().userId(userId).scoreValue(20).build();
+        when(repository.save(any(CreditScore.class))).thenAnswer(call -> call.getArgument(0));
+        when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_2);
+        when(collector.collect(userId)).thenReturn(strongInputs());
+        when(repository.findFirstByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(Optional.of(yesterday));
+
+        CreditScoreResponse response = scoringService.calculateScore(userId);
+
+        int expected = (int) Math.round(0.7 * response.rawScoreValue() + 0.3 * 20);
+        assertThat(response.scoreValue()).isEqualTo(expected);
+        assertThat(response.scoreValue()).isLessThan(response.rawScoreValue());
+    }
+
+    @Test
+    void aQuietWeekDoesNotWipeOutMonthsOfGoodConduct() {
+        CreditScore yesterday = CreditScore.builder().userId(userId).scoreValue(90).build();
+        when(repository.save(any(CreditScore.class))).thenAnswer(call -> call.getArgument(0));
+        when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_2);
+        when(collector.collect(userId)).thenReturn(ScoringInputs.empty());
+        when(repository.findFirstByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(Optional.of(yesterday));
+
+        CreditScoreResponse response = scoringService.calculateScore(userId);
+
+        assertThat(response.rawScoreValue()).isEqualTo(5);
+        assertThat(response.scoreValue()).isGreaterThan(response.rawScoreValue());
+    }
+
+    @Test
+    void askingForAScoreThatWasNeverComputedCalculatesOneRatherThanFailing() {
+        when(repository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.empty());
+        when(repository.save(any(CreditScore.class))).thenAnswer(call -> call.getArgument(0));
+        when(kycStatusPort.getCurrentTier(userId)).thenReturn(KycTier.TIER_0);
+        when(collector.collect(userId)).thenReturn(ScoringInputs.empty());
+
+        assertThat(scoringService.getLatestScore(userId).userId()).isEqualTo(userId);
     }
 }

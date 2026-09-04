@@ -2,6 +2,7 @@ package com.dogaa.backend.modules.wallet.entity;
 
 import com.dogaa.backend.common.audit.BaseEntity;
 import com.dogaa.backend.common.enums.Currency;
+import com.dogaa.backend.common.enums.WalletType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,7 +33,8 @@ import java.util.UUID;
 @Table(
         name = "wallets",
         uniqueConstraints = @UniqueConstraint(
-                name = "uq_wallets_owner_currency", columnNames = {"owner_id", "currency"}),
+                name = "uq_wallets_owner_currency_type",
+                columnNames = {"owner_id", "currency", "type"}),
         indexes = @Index(name = "idx_wallets_owner", columnList = "owner_id"))
 @Getter
 @Setter
@@ -48,6 +50,15 @@ public class Wallet extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 3)
     private Currency currency;
+
+    /**
+     * CURRENT for everyday money, SAVINGS for the collateral account a loan is secured against
+     * (DOGAA.md 4.3). A user holds one of each per currency.
+     */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private WalletType type = WalletType.CURRENT;
 
     @Builder.Default
     @Column(name = "available_balance", nullable = false, precision = 19, scale = 2)

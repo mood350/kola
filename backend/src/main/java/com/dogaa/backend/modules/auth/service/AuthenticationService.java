@@ -20,10 +20,12 @@ import com.dogaa.backend.modules.auth.entity.RefreshToken;
 import com.dogaa.backend.modules.auth.security.JwtService;
 import com.dogaa.backend.modules.auth.security.PinPolicy;
 import com.dogaa.backend.modules.user.entity.User;
+import com.dogaa.backend.modules.user.event.UserRegisteredEvent;
 import com.dogaa.backend.modules.user.mapper.UserMapper;
 import com.dogaa.backend.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -61,6 +63,7 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final AuthProperties authProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Step 1: send a one-time code to the number. Refuses numbers that already have an account,
@@ -132,6 +135,9 @@ public class AuthenticationService {
                 .build());
 
         log.info("Registered user {} ({})", user.getId(), PhoneNumbers.mask(phone));
+        // The wallet module listens and provisions the current and savings accounts.
+        eventPublisher.publishEvent(new UserRegisteredEvent(user.getId()));
+
         return issueTokens(user, userAgent, ip);
     }
 
