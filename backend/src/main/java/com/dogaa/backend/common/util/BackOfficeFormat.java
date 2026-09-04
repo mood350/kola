@@ -1,4 +1,4 @@
-package com.dogaa.backend.modules.admin.service;
+package com.dogaa.backend.common.util;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -9,16 +9,16 @@ import java.time.temporal.ChronoUnit;
  * Formatting for the back-office.
  *
  * <p>The admin front-end renders every value verbatim and holds no formatting logic, so the strings
- * are built here. That keeps one definition of "how an amount looks" for the whole console instead
- * of one per screen.
+ * are built here. Shared by every module that answers the console, so "how an amount looks" is
+ * defined once rather than once per screen.
  */
-final class AdminFormat {
+public final class BackOfficeFormat {
 
-    private AdminFormat() {
+    private BackOfficeFormat() {
     }
 
     /** "100 000 XOF" — narrow no-break space between groups, as French typography expects. */
-    static String amount(BigDecimal value, String currency) {
+    public static String amount(BigDecimal value, String currency) {
         if (value == null) {
             return "0 " + currency;
         }
@@ -39,7 +39,7 @@ final class AdminFormat {
     }
 
     /** Compact form for headline tiles: "12,4 M XOF", "850 k XOF". */
-    static String compactAmount(BigDecimal value, String currency) {
+    public static String compactAmount(BigDecimal value, String currency) {
         if (value == null) {
             return "0 " + currency;
         }
@@ -54,7 +54,7 @@ final class AdminFormat {
     }
 
     /** How long the account has existed, in the coarsest unit that still says something. */
-    static String age(Instant createdAt) {
+    public static String age(Instant createdAt) {
         if (createdAt == null) {
             return "—";
         }
@@ -72,7 +72,7 @@ final class AdminFormat {
         return (months / 12) + " ans";
     }
 
-    static String percent(BigDecimal value) {
+    public static String percent(BigDecimal value) {
         if (value == null) {
             return "0 %";
         }
@@ -80,13 +80,13 @@ final class AdminFormat {
     }
 
     /** Signed change for a metric tile: "+8,0 %". */
-    static String signedPercent(BigDecimal value) {
+    public static String signedPercent(BigDecimal value) {
         String rendered = percent(value == null ? BigDecimal.ZERO : value.abs());
         return (value != null && value.signum() < 0 ? "−" : "+") + rendered;
     }
 
     /** Share of {@code part} in {@code whole}, 0-100, safe when nothing has happened yet. */
-    static BigDecimal share(BigDecimal part, BigDecimal whole) {
+    public static BigDecimal share(BigDecimal part, BigDecimal whole) {
         if (whole == null || whole.signum() <= 0 || part == null) {
             return BigDecimal.ZERO;
         }

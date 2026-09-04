@@ -309,6 +309,17 @@ public class TransactionService {
         return transactionRepository.findForUser(userId, type, status, from, to, pageable);
     }
 
+    /**
+     * Reads a transaction by its id, with no ownership check: for modules acting on behalf of the
+     * platform rather than a user — the disputes module resolving a chargeback, for instance.
+     */
+    @Transactional(readOnly = true)
+    public Transaction getById(UUID transactionId) {
+        return transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Transaction introuvable : " + transactionId));
+    }
+
     @Transactional(readOnly = true)
     public Transaction getForUser(UUID userId, String reference) {
         Transaction tx = transactionRepository.findByReference(reference)

@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.admin.service;
 
+import com.dogaa.backend.common.util.BackOfficeFormat;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.KycTier;
 import com.dogaa.backend.common.enums.LoanStatus;
@@ -179,7 +180,7 @@ public class AdminUserService {
                 user.getPhone(),
                 user.getKycTier().name(),
                 score,
-                AdminFormat.age(user.getCreatedAt()),
+                BackOfficeFormat.age(user.getCreatedAt()),
                 state(user.getStatus()),
                 vaults,
                 loan);
@@ -212,7 +213,7 @@ public class AdminUserService {
     }
 
     private static String describeLoan(Loan loan) {
-        return AdminFormat.amount(loan.getOutstanding(), currencyOf(loan));
+        return BackOfficeFormat.amount(loan.getOutstanding(), currencyOf(loan));
     }
 
     private static String currencyOf(Loan loan) {

@@ -543,6 +543,36 @@ inventées** — et `alerts` renvoie une liste vide quand rien ne va mal, ce qui
 valide et non une erreur. Le « solde global » ne concerne que le XOF : additionner des devises
 différentes produirait un nombre sans signification.
 
+### Litiges et chargebacks
+
+Côté client, contester une de ses transactions (enveloppe `ApiResponse` habituelle) :
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/api/v1/disputes` | `{ transactionReference, tag, title }` |
+
+`tag` : `fraud`, `double_debit`, `p2p`.
+
+Côté back-office (DTO brut) :
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/disputes` | `Dispute[]` |
+| `GET` | `/admin/disputes/{ref}` | `DisputeDetail` |
+| `POST` | `/admin/disputes/{ref}/chargeback` | `Dispute` — passe en `chargeback_pending` |
+| `POST` | `/admin/disputes/{ref}/reject` | `Dispute` — classé sans suite |
+| `POST` | `/admin/disputes/{ref}/validate` | `DisputeDetail` |
+
+**La double validation est réelle.** `validate` est refusé (`409`) si l'administrateur a déjà validé
+ce litige — un index unique `(dispute_id, admin_id)` l'empêche même en cas de requêtes simultanées.
+Il faut donc bien **deux administrateurs distincts**, et `lastValidationNote` les nomme tous les deux.
+
+Rien ne bouge tant que le quota n'est pas atteint. La dernière validation exécute le chargeback :
+le plaignant est **remboursé intégralement**, la récupération auprès du bénéficiaire est limitée à ce
+qu'il détient encore, et le manque éventuel apparaît dans `lastValidationNote`.
+
+Nombre de validations réglable par `app.disputes.validations-required` (défaut 2).
+
 ### Autres routes admin
 
 
