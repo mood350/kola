@@ -33,7 +33,7 @@ app.security.auth.lock-duration=15m
 
 # --- CORS ---
 # Comma-separated front-end origins allowed to call the API.
-app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000
+app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000,http://10.0.2.2:8081
 
 # --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
 app.scheduling.enabled=true
