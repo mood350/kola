@@ -321,7 +321,8 @@ class KycFlowIntegrationTest {
                                 "dateOfBirth", "1995-04-12",
                                 "pin", PIN,
                                 "confirmPin", PIN,
-                                "country", "TG"))))
+                                "country", "TG",
+                                "acceptedPrivacyPolicy", true))))
                 .andExpect(status().isCreated())
                 .andReturn()).path("accessToken").asString();
     }
@@ -337,6 +338,7 @@ class KycFlowIntegrationTest {
                 .dateOfBirth(LocalDate.of(1990, 1, 1))
                 .phoneVerified(true)
                 .role(Role.ADMIN)
+                .privacyPolicyAcceptedAt(java.time.Instant.now())
                 .build());
 
         return data(mockMvc.perform(post("/api/v1/auth/login")

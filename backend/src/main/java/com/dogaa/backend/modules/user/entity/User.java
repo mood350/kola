@@ -99,6 +99,14 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /**
+     * When the user accepted the privacy policy at registration. Not in DOGAA.md, but
+     * required to lawfully process personal data (KYC documents, transaction history,
+     * scoring signals) — consent is asked once, at account creation, and is never optional.
+     */
+    @Column(name = "privacy_policy_accepted_at", nullable = false)
+    private Instant privacyPolicyAcceptedAt;
+
     public String getFullName() {
         return firstName + " " + lastName;
     }

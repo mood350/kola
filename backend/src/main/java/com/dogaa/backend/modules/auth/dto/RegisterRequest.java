@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.auth.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -31,5 +32,9 @@ public record RegisterRequest(
 
         @Size(max = 120) String address,
         @Size(max = 80) String city,
-        @Pattern(regexp = "[A-Z]{2}", message = "must be an ISO alpha-2 country code") String country) {
+        @Pattern(regexp = "[A-Z]{2}", message = "must be an ISO alpha-2 country code") String country,
+
+        @NotNull(message = "You must accept the privacy policy to create an account")
+        @AssertTrue(message = "You must accept the privacy policy to create an account")
+        Boolean acceptedPrivacyPolicy) {
 }

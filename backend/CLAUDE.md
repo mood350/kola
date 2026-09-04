@@ -90,6 +90,42 @@ Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `m
 - Email codes reuse the OTP machinery with `OtpChannel.EMAIL`; the row stays keyed by the account's
   phone number, so one cooldown and one attempt counter cover the account.
 
+## Accounts, scoring and credit
+
+**Two accounts per user**, both provisioned at sign-up by `WalletProvisioningListener` reacting to
+`UserRegisteredEvent`: a `CURRENT` wallet for everyday money and a `SAVINGS` wallet that secures
+loans. They are the same `Wallet` entity with a `WalletType`, which is deliberate — freezing the
+collateral needs no new rule, it just moves the savings balance into `lockedBalance`, so withdrawals
+are refused by the existing code while deposits still land.
+
+**Scoring** (`modules/scoring`, DOGAA.md 3.2) is 5 axes over 30 days: savings discipline 30,
+financial stability 25, inflow regularity 20, usage intensity 15, credit history 10. `ScoreCalculator`
+is pure arithmetic over a `ScoringInputs` record; `ScoringDataCollector` does the gathering. Three
+anti-gaming mechanisms hold the model up and must not be removed piecemeal:
+
+1. every sub-signal is a **ratio**, never a count of events;
+2. amounts below `app.scoring.materiality-threshold` are dropped before anything is counted, and the
+   four behavioural axes are scaled by an **activity factor** so tiny-but-perfect ratios earn almost
+   nothing (credit history is exempt — it is a fact, not a ratio);
+3. the published score is an **exponential moving average**, so one staged evening barely moves it.
+
+Together they turn "score 100 for 500 XOF" into "score under 10". `ScoreCalculatorTest` pins this.
+
+**Credit** (`modules/credit`, DOGAA.md 4.3) lends against the savings balance. The leverage ladder in
+`CreditProperties` is the risk model: **at 1.0x the collateral covers the principal, so a first loan
+cannot lose money and defaulting costs the borrower more than it gains them. Above 1.0x that reverses
+— at 1.6x, walking away nets the borrower 60% of their own savings.** Leverage is therefore earned by
+repayment, never by score alone, and the rate falls as leverage rises because a proven borrower
+defaults far less than the extra exposure costs. Never raise a rung's leverage without also raising
+its `minLoansRepaid`.
+
+Eligibility is evaluated **live** in `CreditService.checkEligibility` — the KYC tier comes from the
+user, not from last night's score row, because a document can be revoked at any moment.
+
+Nightly jobs, staggered on purpose: scheduled transactions at 00:00, rescoring plus balance snapshots
+at 00:30, loan recovery at 01:00. Reading balances while transfers execute would make the score
+depend on which job won the race.
+
 ## Stack notes
 
 - Spring Boot **4.1.1**, Java release target **17** (the installed JDK is 25 — do not assume language features above 17 compile).

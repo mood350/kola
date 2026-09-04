@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,6 +43,15 @@ public class GlobalExceptionHandler {
                                                                HttpServletRequest request) {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of("BAD_REQUEST", ex.getMessage(), request.getRequestURI()));
+    }
+
+    /** A path/query value that will not bind to its target type, e.g. an unknown currency code. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                            HttpServletRequest request) {
+        String message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of("BAD_REQUEST", message, request.getRequestURI()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

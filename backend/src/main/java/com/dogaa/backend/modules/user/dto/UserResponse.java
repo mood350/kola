@@ -24,5 +24,6 @@ public record UserResponse(UUID id,
                            Role role,
                            UserStatus status,
                            Instant lastLoginAt,
+                           Instant privacyPolicyAcceptedAt,
                            Instant createdAt) {
 }

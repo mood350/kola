@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -56,8 +57,27 @@ public class UserService {
         return userMapper.toResponse(getById(id));
     }
 
+    @Transactional(readOnly = true)
+    public List<UUID> findActiveUserIds() {
+        return userRepository.findActiveIds();
+    }
+
     public User save(User user) {
         return userRepository.save(user);
+    }
+
+    // --- Admin aggregates (DOGAA.md 4.5) --------------------------
+
+    /** Total accounts. Read-only metric for dogaa-admin. */
+    @Transactional(readOnly = true)
+    public long totalUsers() {
+        return userRepository.count();
+    }
+
+    /** New accounts since a point in time — "croissance des utilisateurs". */
+    @Transactional(readOnly = true)
+    public long newUsersSince(Instant since) {
+        return userRepository.countByCreatedAtAfter(since);
     }
 
     /**

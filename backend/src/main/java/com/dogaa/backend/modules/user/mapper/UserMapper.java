@@ -24,6 +24,7 @@ public class UserMapper {
                 user.getRole(),
                 user.getStatus(),
                 user.getLastLoginAt(),
+                user.getPrivacyPolicyAcceptedAt(),
                 user.getCreatedAt());
     }
 }

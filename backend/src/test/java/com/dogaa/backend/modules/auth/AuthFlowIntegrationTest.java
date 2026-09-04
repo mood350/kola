@@ -313,14 +313,16 @@ class AuthFlowIntegrationTest {
     }
 
     private Map<String, Object> registrationPayload(String verificationToken, String pin) {
-        return Map.of(
-                "verificationToken", verificationToken,
-                "firstName", "Kossi",
-                "lastName", "Adjo",
-                "email", "kossi.adjo@example.com",
-                "dateOfBirth", "1995-04-12",
-                "pin", pin,
-                "confirmPin", pin,
-                "country", "TG");
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("verificationToken", verificationToken);
+        payload.put("firstName", "Kossi");
+        payload.put("lastName", "Adjo");
+        payload.put("email", "kossi.adjo@example.com");
+        payload.put("dateOfBirth", "1995-04-12");
+        payload.put("pin", pin);
+        payload.put("confirmPin", pin);
+        payload.put("country", "TG");
+        payload.put("acceptedPrivacyPolicy", true);
+        return payload;
     }
 }
