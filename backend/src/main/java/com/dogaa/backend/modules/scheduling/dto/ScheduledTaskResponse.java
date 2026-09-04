@@ -6,10 +6,11 @@ import com.dogaa.backend.common.enums.ScheduledTaskType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 public record ScheduledTaskResponse(
-        Long id,
-        Long userId,
+        UUID id,
+        UUID userId,
         ScheduledTaskType type,
         ScheduleFrequency frequency,
         BigDecimal amount,

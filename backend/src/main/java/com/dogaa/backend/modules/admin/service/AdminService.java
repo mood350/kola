@@ -6,6 +6,7 @@ import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskResponse;
 import com.dogaa.backend.modules.scoring.dto.CreditScoreResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface AdminService {
 
@@ -15,5 +16,5 @@ public interface AdminService {
 
     List<NotificationResponse> listAllNotifications();
 
-    CreditScoreResponse getUserScore(Long userId);
+    CreditScoreResponse getUserScore(UUID userId);
 }

@@ -2,6 +2,8 @@ package com.dogaa.backend.modules.scoring.service;
 
 import com.dogaa.backend.common.enums.KycTier;
 
+import java.util.UUID;
+
 /**
  * KYC tier lookup, owned by dogaa-kyc (developed by another team member on a
  * separate branch, not present on this branch yet). {@link DefaultKycStatusPort}
@@ -11,5 +13,5 @@ import com.dogaa.backend.common.enums.KycTier;
  */
 public interface KycStatusPort {
 
-    KycTier getCurrentTier(Long userId);
+    KycTier getCurrentTier(UUID userId);
 }

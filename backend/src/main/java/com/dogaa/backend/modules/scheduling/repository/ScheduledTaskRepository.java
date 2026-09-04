@@ -6,10 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
-public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, Long> {
+public interface ScheduledTaskRepository extends JpaRepository<ScheduledTask, UUID> {
 
     List<ScheduledTask> findByStatusAndNextRunAtLessThanEqual(ScheduledTaskStatus status, Instant now);
 
-    List<ScheduledTask> findByUserIdOrderByNextRunAtAsc(Long userId);
+    List<ScheduledTask> findByUserIdOrderByNextRunAtAsc(UUID userId);
 }

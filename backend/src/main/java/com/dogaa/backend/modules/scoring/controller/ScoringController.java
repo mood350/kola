@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/scoring")
 public class ScoringController {
@@ -19,12 +21,12 @@ public class ScoringController {
     }
 
     @PostMapping("/users/{userId}/calculate")
-    public CreditScoreResponse calculate(@PathVariable Long userId) {
+    public CreditScoreResponse calculate(@PathVariable UUID userId) {
         return scoringService.calculateScore(userId);
     }
 
     @GetMapping("/users/{userId}")
-    public CreditScoreResponse latest(@PathVariable Long userId) {
+    public CreditScoreResponse latest(@PathVariable UUID userId) {
         return scoringService.getLatestScore(userId);
     }
 }

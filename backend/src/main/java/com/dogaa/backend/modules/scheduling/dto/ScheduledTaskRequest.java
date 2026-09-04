@@ -8,9 +8,10 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 public record ScheduledTaskRequest(
-        @NotNull Long userId,
+        @NotNull UUID userId,
         @NotNull ScheduledTaskType type,
         @NotNull ScheduleFrequency frequency,
         @NotNull @Positive BigDecimal amount,

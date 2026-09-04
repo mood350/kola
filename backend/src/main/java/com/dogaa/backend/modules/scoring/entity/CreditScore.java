@@ -1,29 +1,24 @@
 package com.dogaa.backend.modules.scoring.entity;
 
-import com.dogaa.backend.common.audit.Auditable;
+import com.dogaa.backend.common.audit.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.UUID;
 
 @Entity
 @Table(name = "credit_scores")
 @Getter
 @Setter
 @NoArgsConstructor
-public class CreditScore extends Auditable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class CreditScore extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private UUID userId;
 
     @Column(name = "score_value", nullable = false)
     private int scoreValue;

@@ -2,6 +2,8 @@ package com.dogaa.backend.modules.scoring.service;
 
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 /**
  * Placeholder implementation: returns neutral (zero) signals. Replace by
  * wiring dogaa-wallet/transaction/vault once those modules are merged into
@@ -11,27 +13,27 @@ import org.springframework.stereotype.Service;
 public class DefaultTransactionSignalsPort implements TransactionSignalsPort {
 
     @Override
-    public int depositRegularityPoints(Long userId) {
+    public int depositRegularityPoints(UUID userId) {
         return 0;
     }
 
     @Override
-    public int savingsDisciplinePoints(Long userId) {
+    public int savingsDisciplinePoints(UUID userId) {
         return 0;
     }
 
     @Override
-    public int transactionDiversityPoints(Long userId) {
+    public int transactionDiversityPoints(UUID userId) {
         return 0;
     }
 
     @Override
-    public int balanceStabilityPoints(Long userId) {
+    public int balanceStabilityPoints(UUID userId) {
         return 0;
     }
 
     @Override
-    public int scheduledReliabilityPoints(Long userId) {
+    public int scheduledReliabilityPoints(UUID userId) {
         return 0;
     }
 }

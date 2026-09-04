@@ -1,9 +1,10 @@
 package com.dogaa.backend.modules.scoring.dto;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record CreditScoreResponse(
-        Long userId,
+        UUID userId,
         int scoreValue,
         boolean kycEligible,
         int depositRegularityPoints,

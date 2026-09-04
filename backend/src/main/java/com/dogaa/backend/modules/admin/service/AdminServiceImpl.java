@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -54,7 +55,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public CreditScoreResponse getUserScore(Long userId) {
+    public CreditScoreResponse getUserScore(UUID userId) {
         return scoringService.getLatestScore(userId);
     }
 }

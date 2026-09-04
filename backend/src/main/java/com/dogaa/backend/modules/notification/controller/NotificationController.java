@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -32,7 +33,7 @@ public class NotificationController {
     }
 
     @GetMapping("/users/{userId}")
-    public List<NotificationResponse> listByUser(@PathVariable Long userId) {
+    public List<NotificationResponse> listByUser(@PathVariable UUID userId) {
         return notificationService.listByUser(userId);
     }
 }

@@ -4,10 +4,11 @@ import com.dogaa.backend.common.enums.NotificationChannel;
 import com.dogaa.backend.modules.notification.entity.NotificationDeliveryStatus;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record NotificationResponse(
-        Long id,
-        Long userId,
+        UUID id,
+        UUID userId,
         NotificationChannel channel,
         String title,
         String body,

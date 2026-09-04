@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -50,7 +51,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<NotificationResponse> listByUser(Long userId) {
+    public List<NotificationResponse> listByUser(UUID userId) {
         return repository.findByUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(NotificationMapper::toResponse)
                 .toList();

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/scheduling/tasks")
@@ -33,22 +34,22 @@ public class ScheduledTaskController {
     }
 
     @PatchMapping("/{id}/pause")
-    public ScheduledTaskResponse pause(@PathVariable Long id) {
+    public ScheduledTaskResponse pause(@PathVariable UUID id) {
         return taskService.pause(id);
     }
 
     @PatchMapping("/{id}/resume")
-    public ScheduledTaskResponse resume(@PathVariable Long id) {
+    public ScheduledTaskResponse resume(@PathVariable UUID id) {
         return taskService.resume(id);
     }
 
     @PatchMapping("/{id}/cancel")
-    public ScheduledTaskResponse cancel(@PathVariable Long id) {
+    public ScheduledTaskResponse cancel(@PathVariable UUID id) {
         return taskService.cancel(id);
     }
 
     @GetMapping("/users/{userId}")
-    public List<ScheduledTaskResponse> listByUser(@PathVariable Long userId) {
+    public List<ScheduledTaskResponse> listByUser(@PathVariable UUID userId) {
         return taskService.listByUser(userId);
     }
 }

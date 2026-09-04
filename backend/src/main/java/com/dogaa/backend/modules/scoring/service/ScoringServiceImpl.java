@@ -9,6 +9,8 @@ import com.dogaa.backend.modules.scoring.repository.CreditScoreRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Service
 @Transactional
 public class ScoringServiceImpl implements ScoringService {
@@ -24,12 +26,12 @@ public class ScoringServiceImpl implements ScoringService {
     }
 
     @Override
-    public CreditScoreResponse calculateScore(Long userId) {
+    public CreditScoreResponse calculateScore(UUID userId) {
         KycTier tier = kycStatusPort.getCurrentTier(userId);
 
         CreditScore score = new CreditScore();
         score.setUserId(userId);
-        score.setKycEligible(tier.ordinal() >= KycTier.TIER_2.ordinal());
+        score.setKycEligible(tier.isAtLeast(KycTier.TIER_2));
         score.setDepositRegularityPoints(signalsPort.depositRegularityPoints(userId));
         score.setSavingsDisciplinePoints(signalsPort.savingsDisciplinePoints(userId));
         score.setTransactionDiversityPoints(signalsPort.transactionDiversityPoints(userId));
@@ -48,7 +50,7 @@ public class ScoringServiceImpl implements ScoringService {
 
     @Override
     @Transactional(readOnly = true)
-    public CreditScoreResponse getLatestScore(Long userId) {
+    public CreditScoreResponse getLatestScore(UUID userId) {
         return repository.findFirstByUserIdOrderByCreatedAtDesc(userId)
                 .map(CreditScoreMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Aucun score calcule pour l'utilisateur " + userId));

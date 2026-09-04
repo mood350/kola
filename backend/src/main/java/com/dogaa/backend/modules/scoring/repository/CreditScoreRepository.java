@@ -4,8 +4,9 @@ import com.dogaa.backend.modules.scoring.entity.CreditScore;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.UUID;
 
-public interface CreditScoreRepository extends JpaRepository<CreditScore, Long> {
+public interface CreditScoreRepository extends JpaRepository<CreditScore, UUID> {
 
-    Optional<CreditScore> findFirstByUserIdOrderByCreatedAtDesc(Long userId);
+    Optional<CreditScore> findFirstByUserIdOrderByCreatedAtDesc(UUID userId);
 }

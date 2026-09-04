@@ -1,5 +1,7 @@
 package com.dogaa.backend.modules.scoring.service;
 
+import java.util.UUID;
+
 /**
  * Behavioral signals over the last 30 days (spec DOGAA.md §3.2), owned by
  * dogaa-wallet / dogaa-transaction / dogaa-vault (Groupe A). Each method
@@ -10,13 +12,13 @@ package com.dogaa.backend.modules.scoring.service;
  */
 public interface TransactionSignalsPort {
 
-    int depositRegularityPoints(Long userId);
+    int depositRegularityPoints(UUID userId);
 
-    int savingsDisciplinePoints(Long userId);
+    int savingsDisciplinePoints(UUID userId);
 
-    int transactionDiversityPoints(Long userId);
+    int transactionDiversityPoints(UUID userId);
 
-    int balanceStabilityPoints(Long userId);
+    int balanceStabilityPoints(UUID userId);
 
-    int scheduledReliabilityPoints(Long userId);
+    int scheduledReliabilityPoints(UUID userId);
 }

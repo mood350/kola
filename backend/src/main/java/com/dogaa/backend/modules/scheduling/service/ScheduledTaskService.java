@@ -4,18 +4,19 @@ import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskRequest;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ScheduledTaskService {
 
     ScheduledTaskResponse create(ScheduledTaskRequest request);
 
-    ScheduledTaskResponse pause(Long taskId);
+    ScheduledTaskResponse pause(UUID taskId);
 
-    ScheduledTaskResponse resume(Long taskId);
+    ScheduledTaskResponse resume(UUID taskId);
 
-    ScheduledTaskResponse cancel(Long taskId);
+    ScheduledTaskResponse cancel(UUID taskId);
 
-    List<ScheduledTaskResponse> listByUser(Long userId);
+    List<ScheduledTaskResponse> listByUser(UUID userId);
 
     /**
      * Consumed by dogaa-admin (same module owner).

@@ -5,12 +5,13 @@ import com.dogaa.backend.modules.notification.dto.NotificationRequest;
 import com.dogaa.backend.modules.notification.dto.NotificationResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface NotificationService {
 
     NotificationResponse send(NotificationRequest request);
 
-    List<NotificationResponse> listByUser(Long userId);
+    List<NotificationResponse> listByUser(UUID userId);
 
     /**
      * Consumed by dogaa-admin (same module owner).
@@ -22,7 +23,7 @@ public interface NotificationService {
      * outcome of a scheduled task run (spec DOGAA.md §4.6.4: rappel J-1,
      * confirmation ou echec).
      */
-    default void notifyTaskOutcome(Long userId, Long taskId, boolean success, String failureReason) {
+    default void notifyTaskOutcome(UUID userId, UUID taskId, boolean success, String failureReason) {
         String title = success ? "Transaction programmee executee" : "Echec d'une transaction programmee";
         String body = success
                 ? "La tache programmee #" + taskId + " a ete executee avec succes."

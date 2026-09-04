@@ -1,7 +1,7 @@
 package com.dogaa.backend.modules.scheduling.service;
 
 import com.dogaa.backend.common.enums.ScheduledTaskStatus;
-import com.dogaa.backend.exception.InvalidStateException;
+import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskRequest;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskResponse;
@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -40,24 +41,24 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
     }
 
     @Override
-    public ScheduledTaskResponse pause(Long taskId) {
+    public ScheduledTaskResponse pause(UUID taskId) {
         ScheduledTask task = findActiveOrPaused(taskId);
         task.setStatus(ScheduledTaskStatus.PAUSED);
         return ScheduledTaskMapper.toResponse(repository.save(task));
     }
 
     @Override
-    public ScheduledTaskResponse resume(Long taskId) {
+    public ScheduledTaskResponse resume(UUID taskId) {
         ScheduledTask task = getOrThrow(taskId);
         if (task.getStatus() != ScheduledTaskStatus.PAUSED) {
-            throw new InvalidStateException("Seule une tache en pause peut etre reprise.");
+            throw new ConflictException("Seule une tache en pause peut etre reprise.");
         }
         task.setStatus(ScheduledTaskStatus.ACTIVE);
         return ScheduledTaskMapper.toResponse(repository.save(task));
     }
 
     @Override
-    public ScheduledTaskResponse cancel(Long taskId) {
+    public ScheduledTaskResponse cancel(UUID taskId) {
         ScheduledTask task = findActiveOrPaused(taskId);
         task.setStatus(ScheduledTaskStatus.CANCELLED);
         return ScheduledTaskMapper.toResponse(repository.save(task));
@@ -65,7 +66,7 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ScheduledTaskResponse> listByUser(Long userId) {
+    public List<ScheduledTaskResponse> listByUser(UUID userId) {
         return repository.findByUserIdOrderByNextRunAtAsc(userId).stream()
                 .map(ScheduledTaskMapper::toResponse)
                 .toList();
@@ -79,15 +80,15 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
                 .toList();
     }
 
-    private ScheduledTask findActiveOrPaused(Long taskId) {
+    private ScheduledTask findActiveOrPaused(UUID taskId) {
         ScheduledTask task = getOrThrow(taskId);
         if (task.getStatus() != ScheduledTaskStatus.ACTIVE && task.getStatus() != ScheduledTaskStatus.PAUSED) {
-            throw new InvalidStateException("Cette tache ne peut plus etre modifiee (statut: " + task.getStatus() + ").");
+            throw new ConflictException("Cette tache ne peut plus etre modifiee (statut: " + task.getStatus() + ").");
         }
         return task;
     }
 
-    private ScheduledTask getOrThrow(Long taskId) {
+    private ScheduledTask getOrThrow(UUID taskId) {
         return repository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tache programmee introuvable: " + taskId));
     }
