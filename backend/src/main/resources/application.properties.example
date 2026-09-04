@@ -21,6 +21,10 @@ app.security.jwt.secret=CHANGE_ME_BASE64_SECRET
 app.security.jwt.access-token-ttl=15m
 app.security.jwt.refresh-token-ttl=30d
 
+# --- Admin security (temporary HTTP Basic; replace with dogaa-auth JWT roles once merged) ---
+app.security.admin.username=admin
+app.security.admin.password=CHANGE_ME
+
 # --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
 app.scheduling.enabled=true
 app.scheduling.scheduled-transactions-cron=0 0 0 * * *
