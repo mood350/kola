@@ -1,0 +1,20 @@
+package com.dogaa.backend.modules.wallet.mapper;
+
+import com.dogaa.backend.modules.wallet.dto.WalletResponse;
+import com.dogaa.backend.modules.wallet.entity.Wallet;
+import org.springframework.stereotype.Component;
+
+@Component
+public class WalletMapper {
+
+    public WalletResponse toResponse(Wallet wallet) {
+        return new WalletResponse(
+                wallet.getId(),
+                wallet.getCurrency(),
+                wallet.getAvailableBalance(),
+                wallet.getLockedBalance(),
+                wallet.getTotalBalance(),
+                wallet.getStatus(),
+                wallet.getCreatedAt());
+    }
+}
