@@ -6,4 +6,6 @@ package-lock.incomplete.json
 .expo-smoke/
 dist/
 *.log
+.env
+.env.local
 .DS_Store
