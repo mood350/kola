@@ -1,4 +1,4 @@
-package com.dogaa.backend.modules.kyc.dto;
+package com.dogaa.backend.modules.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

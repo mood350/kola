@@ -5,9 +5,6 @@ import com.dogaa.backend.config.KycProperties;
 import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
-import com.dogaa.backend.modules.auth.entity.OtpChannel;
-import com.dogaa.backend.modules.auth.entity.OtpPurpose;
-import com.dogaa.backend.modules.auth.service.OtpService;
 import com.dogaa.backend.modules.kyc.dto.KycDocumentResponse;
 import com.dogaa.backend.modules.kyc.dto.KycStatusResponse;
 import com.dogaa.backend.modules.kyc.dto.ReviewDocumentRequest;
@@ -17,9 +14,11 @@ import com.dogaa.backend.modules.kyc.entity.KycDocumentType;
 import com.dogaa.backend.modules.kyc.mapper.KycDocumentMapper;
 import com.dogaa.backend.modules.kyc.repository.KycDocumentRepository;
 import com.dogaa.backend.modules.user.entity.User;
+import com.dogaa.backend.modules.user.event.UserProfileUpdatedEvent;
 import com.dogaa.backend.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -51,7 +50,6 @@ public class KycService {
     private final KycLimitService kycLimitService;
     private final DocumentStorage documentStorage;
     private final UserService userService;
-    private final OtpService otpService;
     private final KycProperties kycProperties;
 
     // ------------------------------------------------------------------ status
@@ -66,47 +64,21 @@ public class KycService {
                 user.getKycTier(),
                 KycTierRules.nextTier(user.getKycTier()),
                 user.isPhoneVerified(),
-                user.isEmailVerified(),
+                KycTierRules.isProfileComplete(user),
                 approved.stream().anyMatch(KycDocumentType::isIdentityDocument),
                 KycTierRules.requirementsForNextTier(user, approved),
                 kycDocumentMapper.toResponse(kycLimitService.limitsFor(user.getKycTier())),
                 documents.stream().map(kycDocumentMapper::toResponse).toList());
     }
 
-    // ------------------------------------------------- tier 1: email ownership
-
-    /** Sends a code to the address on the profile. */
+    /**
+     * The declarative half of the ladder lives on the profile, so a profile edit can promote or
+     * demote a user. Reacting to the event keeps the user module free of any KYC import.
+     */
+    @EventListener
     @Transactional
-    public Instant requestEmailVerification(UUID userId) {
-        User user = userService.getById(userId);
-
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
-            throw new BadRequestException("Add an email address to your profile first");
-        }
-        if (user.isEmailVerified()) {
-            throw new ConflictException("This email address is already verified");
-        }
-        return otpService.requestCode(user.getPhone(), OtpPurpose.EMAIL_VERIFICATION,
-                OtpChannel.EMAIL, user.getEmail());
-    }
-
-    @Transactional
-    public KycStatusResponse confirmEmailVerification(UUID userId, String code) {
-        User user = userService.getById(userId);
-
-        if (user.isEmailVerified()) {
-            throw new ConflictException("This email address is already verified");
-        }
-        // Throws when the code is wrong; the token it returns is not needed, the act of
-        // verifying is the whole point here.
-        otpService.verify(user.getPhone(), code, OtpPurpose.EMAIL_VERIFICATION);
-
-        user.setEmailVerified(true);
-        userService.save(user);
-        log.info("Email verified for user {}", userId);
-
-        recomputeTier(user);
-        return getStatus(userId);
+    public void onProfileUpdated(UserProfileUpdatedEvent event) {
+        recomputeTier(userService.getById(event.userId()));
     }
 
     // ------------------------------------------------ tiers 2 and 3: documents

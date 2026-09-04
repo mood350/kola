@@ -69,9 +69,16 @@ Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `m
   single source of truth, and every path that could move a user ends in `KycService.recomputeTier`.
   An administrator approves a *document*; no endpoint hands out a tier. Revoking an approval therefore
   demotes the account for free. Add a new requirement in `KycTierRules`, not in the calling endpoint.
-- **Ladder**: TIER_0 phone verified (registration) -> TIER_1 + email verified -> TIER_2 + an approved
-  identity document (national ID, passport, driving licence or voter card) -> TIER_3 + selfie and
-  proof of address. The tiers are cumulative: documents never substitute for the email step.
+- **Ladder**: TIER_0 phone verified (registration) -> TIER_1 declarative profile complete (address,
+  city, country) -> TIER_2 an approved identity document (national ID, passport, driving licence or
+  voter card) -> TIER_3 + selfie and proof of address. An approved document carries an incomplete
+  profile straight past TIER_1: verified evidence outranks a declared address.
+- **Email plays no part in the ladder** and must not be reintroduced into it. Most users of a Mobile
+  Money wallet in the UEMOA zone have a phone and no mailbox, so gating a tier on an address would
+  strand the product's own audience. Verification still exists at `POST /api/v1/auth/email/*` (auth
+  module, not KYC) and unlocks receipts and notifications only.
+- Profile edits move the tier through `UserProfileUpdatedEvent`: the user module publishes, KycService
+  listens. A direct call would make the user module import KYC, which already imports it.
 - **Limits** live in `KycProperties` (`app.kyc.limits.<tier>.*`, XOF) and are enforced by
   `KycLimitService`. A `null` ceiling means unlimited (TIER_3) and is not the same as zero.
   `assertCanSend` takes the period totals as arguments rather than reaching into a wallet, so the REST

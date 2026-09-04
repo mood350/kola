@@ -10,8 +10,10 @@ import com.dogaa.backend.modules.auth.dto.RequestOtpRequest;
 import com.dogaa.backend.modules.auth.dto.VerifyOtpRequest;
 import com.dogaa.backend.modules.auth.dto.RefreshTokenRequest;
 import com.dogaa.backend.modules.auth.dto.RegisterRequest;
+import com.dogaa.backend.modules.auth.dto.VerifyEmailRequest;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
 import com.dogaa.backend.modules.auth.service.AuthenticationService;
+import com.dogaa.backend.modules.auth.service.EmailVerificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +29,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -34,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthenticationService authenticationService;
+    private final EmailVerificationService emailVerificationService;
 
     @PostMapping("/register/request-otp")
     @Operation(summary = "Step 1: send a one-time code to a phone number")
@@ -99,6 +105,27 @@ public class AuthController {
                                                        @Valid @RequestBody ChangePinRequest request) {
         authenticationService.changePin(currentUser.id(), request);
         return ResponseEntity.ok(ApiResponse.ok("PIN changed, please log in again"));
+    }
+
+    @PostMapping("/email/request-code")
+    @Operation(summary = "Send a code to the email address on the profile. Optional: "
+            + "a verified email unlocks receipts and notifications, not a KYC tier")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<Map<String, Instant>>> requestEmailCode(
+            @AuthenticationPrincipal CurrentUser currentUser) {
+        Instant resendAvailableAt = emailVerificationService.requestCode(currentUser.id());
+        return ResponseEntity.ok(ApiResponse.ok("Code sent by email",
+                Map.of("resendAvailableAt", resendAvailableAt)));
+    }
+
+    @PostMapping("/email/verify")
+    @Operation(summary = "Confirm the email address with the code")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @Valid @RequestBody VerifyEmailRequest request) {
+        emailVerificationService.confirm(currentUser.id(), request.code());
+        return ResponseEntity.ok(ApiResponse.ok("Email verified"));
     }
 
     private static String userAgent(HttpServletRequest request) {

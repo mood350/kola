@@ -22,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.ResultMatcher;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -34,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -134,12 +134,11 @@ class KycFlowIntegrationTest {
         assertThat(status.path("limits").path("daily").asString()).isEqualTo("50000");
         assertThat(status.path("limits").path("creditEligible").asBoolean()).isFalse();
         assertThat(status.path("requirementsForNextTier").get(0).asString())
-                .contains("email");
+                .contains("profile");
 
-        // Tier 1: the email address is proved by a code sent to it.
-        requestEmailCode(userToken);
-        JsonNode afterEmail = verifyEmail(userToken, recorder.codes.get(EMAIL), status().isOk());
-        assertThat(afterEmail.path("tier").asString()).isEqualTo("TIER_1");
+        // Tier 1: the declarative step, filled in from the profile endpoint.
+        completeProfile(userToken);
+        assertThat(kycStatus(userToken).path("tier").asString()).isEqualTo("TIER_1");
 
         // Tier 2: an identity document, once a reviewer approves it.
         String documentId = submitDocument(userToken, "NATIONAL_ID").path("id").asString();
@@ -168,7 +167,7 @@ class KycFlowIntegrationTest {
     @Test
     void aRejectedDocumentLeavesTheTierAloneAndTellsTheUserWhy() throws Exception {
         String userToken = registerAndLogin();
-        verifyEmailStep(userToken);
+        completeProfile(userToken);
 
         String documentId = submitDocument(userToken, "NATIONAL_ID").path("id").asString();
         String adminToken = createAdminAndLogin();
@@ -188,7 +187,7 @@ class KycFlowIntegrationTest {
     @Test
     void aRejectionMustStateAReason() throws Exception {
         String userToken = registerAndLogin();
-        verifyEmailStep(userToken);
+        completeProfile(userToken);
         String documentId = submitDocument(userToken, "NATIONAL_ID").path("id").asString();
 
         mockMvc.perform(post("/api/v1/admin/kyc/documents/" + documentId + "/review")
@@ -212,14 +211,48 @@ class KycFlowIntegrationTest {
     }
 
     @Test
-    void theWrongEmailCodeDoesNotRaiseTheTier() throws Exception {
+    void verifyingTheEmailGrantsNoTierBecauseEmailIsOptional() throws Exception {
         String userToken = registerAndLogin();
-        requestEmailCode(userToken);
 
-        verifyEmail(userToken, wrongCode(recorder.codes.get(EMAIL)), status().isBadRequest());
+        mockMvc.perform(post("/api/v1/auth/email/request-code")
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/email/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("code", recorder.codes.get(EMAIL))))
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk());
+
+        assertThat(userRepository.findByPhone(E164).orElseThrow().isEmailVerified()).isTrue();
         assertThat(kycStatus(userToken).path("tier").asString()).isEqualTo("TIER_0");
         assertThat(userRepository.findByPhone(E164).orElseThrow().getKycTier())
                 .isEqualTo(KycTier.TIER_0);
+    }
+
+    @Test
+    void anAccountWithNoEmailAtAllStillReachesTheCreditTier() throws Exception {
+        String userToken = registerAndLogin();
+        completeProfile(userToken);
+
+        String documentId = submitDocument(userToken, "NATIONAL_ID").path("id").asString();
+        approve(createAdminAndLogin(), documentId);
+
+        JsonNode status = kycStatus(userToken);
+        assertThat(status.path("tier").asString()).isEqualTo("TIER_2");
+        assertThat(status.path("limits").path("creditEligible").asBoolean()).isTrue();
+    }
+
+    @Test
+    void completingTheProfileFromTheUserEndpointMovesTheTier() throws Exception {
+        String userToken = registerAndLogin();
+        assertThat(kycStatus(userToken).path("tier").asString()).isEqualTo("TIER_0");
+
+        completeProfile(userToken);
+
+        // The promotion is driven by an event from the user module, not by a KYC call.
+        assertThat(userRepository.findByPhone(E164).orElseThrow().getKycTier())
+                .isEqualTo(KycTier.TIER_1);
     }
 
     @Test
@@ -314,24 +347,16 @@ class KycFlowIntegrationTest {
                 .andReturn()).path("accessToken").asString();
     }
 
-    private void verifyEmailStep(String userToken) throws Exception {
-        requestEmailCode(userToken);
-        verifyEmail(userToken, recorder.codes.get(EMAIL), status().isOk());
-    }
-
-    private void requestEmailCode(String userToken) throws Exception {
-        mockMvc.perform(post("/api/v1/kyc/email/request-code")
+    /** Fills in the declarative fields that TIER_1 asks for. */
+    private void completeProfile(String userToken) throws Exception {
+        mockMvc.perform(patch("/api/v1/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "address", "Rue de la Paix",
+                                "city", "Lome",
+                                "country", "TG")))
                         .header("Authorization", "Bearer " + userToken))
                 .andExpect(status().isOk());
-    }
-
-    private JsonNode verifyEmail(String userToken, String code, ResultMatcher expected) throws Exception {
-        return data(mockMvc.perform(post("/api/v1/kyc/email/verify")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("code", code)))
-                        .header("Authorization", "Bearer " + userToken))
-                .andExpect(expected)
-                .andReturn());
     }
 
     private JsonNode submitDocument(String userToken, String type) throws Exception {
@@ -362,10 +387,6 @@ class KycFlowIntegrationTest {
     private static MockMultipartFile idCardFile() {
         return new MockMultipartFile("file", "id-card.jpg", "image/jpeg",
                 "not a real photograph".getBytes());
-    }
-
-    private static String wrongCode(String realCode) {
-        return "000000".equals(realCode) ? "111111" : "000000";
     }
 
     private JsonNode data(MvcResult result) throws Exception {

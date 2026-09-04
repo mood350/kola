@@ -6,6 +6,7 @@ import com.dogaa.backend.modules.kyc.service.KycTierRules;
 import com.dogaa.backend.modules.user.entity.User;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -13,32 +14,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class KycTierRulesTest {
 
-    private static User user(boolean phoneVerified, boolean emailVerified) {
+    /** A registered user: identity declared at sign-up, nothing else filled in yet. */
+    private static User registered() {
         User user = new User();
-        user.setPhoneVerified(phoneVerified);
-        user.setEmailVerified(emailVerified);
+        user.setPhoneVerified(true);
+        user.setFirstName("Kossi");
+        user.setLastName("Adjo");
+        user.setDateOfBirth(LocalDate.of(1995, 4, 12));
+        return user;
+    }
+
+    private static User withCompleteProfile() {
+        User user = registered();
+        user.setAddress("Rue de la Paix");
+        user.setCity("Lome");
+        user.setCountry("TG");
         return user;
     }
 
     @Test
     void aVerifiedPhoneAloneIsTier0() {
-        assertThat(KycTierRules.resolve(user(true, false), Set.of())).isEqualTo(KycTier.TIER_0);
+        assertThat(KycTierRules.resolve(registered(), Set.of())).isEqualTo(KycTier.TIER_0);
     }
 
     @Test
-    void aVerifiedEmailReachesTier1() {
-        assertThat(KycTierRules.resolve(user(true, true), Set.of())).isEqualTo(KycTier.TIER_1);
+    void aCompleteProfileReachesTier1() {
+        assertThat(KycTierRules.resolve(withCompleteProfile(), Set.of())).isEqualTo(KycTier.TIER_1);
     }
 
     @Test
     void anApprovedIdentityDocumentReachesTier2() {
-        assertThat(KycTierRules.resolve(user(true, true), Set.of(KycDocumentType.NATIONAL_ID)))
+        assertThat(KycTierRules.resolve(withCompleteProfile(), Set.of(KycDocumentType.NATIONAL_ID)))
                 .isEqualTo(KycTier.TIER_2);
     }
 
     @Test
     void aVoterCardCountsAsIdentityBecauseItIsOftenTheOnlyOneHeld() {
-        assertThat(KycTierRules.resolve(user(true, true), Set.of(KycDocumentType.VOTER_CARD)))
+        assertThat(KycTierRules.resolve(withCompleteProfile(), Set.of(KycDocumentType.VOTER_CARD)))
                 .isEqualTo(KycTier.TIER_2);
     }
 
@@ -46,37 +58,67 @@ class KycTierRulesTest {
     void selfieAndProofOfAddressOnTopOfAnIdReachTier3() {
         Set<KycDocumentType> approved = EnumSet.of(KycDocumentType.PASSPORT,
                 KycDocumentType.SELFIE, KycDocumentType.PROOF_OF_ADDRESS);
-        assertThat(KycTierRules.resolve(user(true, true), approved)).isEqualTo(KycTier.TIER_3);
+        assertThat(KycTierRules.resolve(withCompleteProfile(), approved)).isEqualTo(KycTier.TIER_3);
     }
 
     @Test
-    void documentsDoNotSubstituteForTheEmailStep() {
-        // The tiers are cumulative: an approved ID without a verified email stays at tier 0.
-        Set<KycDocumentType> approved = EnumSet.of(KycDocumentType.NATIONAL_ID, KycDocumentType.SELFIE);
-        assertThat(KycTierRules.resolve(user(true, false), approved)).isEqualTo(KycTier.TIER_0);
+    void anApprovedDocumentCarriesAnIncompleteProfilePastTier1() {
+        // A verified document is stronger evidence than a declared address, so it does not wait
+        // for the declarative step to be filled in.
+        assertThat(KycTierRules.resolve(registered(), Set.of(KycDocumentType.NATIONAL_ID)))
+                .isEqualTo(KycTier.TIER_2);
+    }
+
+    @Test
+    void anUnverifiedEmailIsNoObstacleAtAnyLevel() {
+        User user = withCompleteProfile();
+        user.setEmail("kossi@example.com");
+        user.setEmailVerified(false);
+
+        Set<KycDocumentType> approved = EnumSet.of(KycDocumentType.PASSPORT,
+                KycDocumentType.SELFIE, KycDocumentType.PROOF_OF_ADDRESS);
+        assertThat(KycTierRules.resolve(user, approved)).isEqualTo(KycTier.TIER_3);
     }
 
     @Test
     void aSelfieWithoutAnIdentityDocumentDoesNotReachTier3() {
         Set<KycDocumentType> approved = EnumSet.of(KycDocumentType.SELFIE, KycDocumentType.PROOF_OF_ADDRESS);
-        assertThat(KycTierRules.resolve(user(true, true), approved)).isEqualTo(KycTier.TIER_1);
+        assertThat(KycTierRules.resolve(withCompleteProfile(), approved)).isEqualTo(KycTier.TIER_1);
     }
 
     @Test
     void anUnverifiedPhoneCannotClimbAtAll() {
+        User user = withCompleteProfile();
+        user.setPhoneVerified(false);
+
         Set<KycDocumentType> approved = EnumSet.of(KycDocumentType.PASSPORT,
                 KycDocumentType.SELFIE, KycDocumentType.PROOF_OF_ADDRESS);
-        assertThat(KycTierRules.resolve(user(false, true), approved)).isEqualTo(KycTier.TIER_0);
+        assertThat(KycTierRules.resolve(user, approved)).isEqualTo(KycTier.TIER_0);
+    }
+
+    @Test
+    void aProfileMissingOneFieldIsNotComplete() {
+        User user = withCompleteProfile();
+        user.setCity("   ");
+
+        assertThat(KycTierRules.isProfileComplete(user)).isFalse();
+        assertThat(KycTierRules.resolve(user, Set.of())).isEqualTo(KycTier.TIER_0);
     }
 
     @Test
     void theRequirementsDescribeTheNextStepOnly() {
-        assertThat(KycTierRules.requirementsForNextTier(user(true, false), Set.of()))
-                .containsExactly("Verify your email address");
-        assertThat(KycTierRules.requirementsForNextTier(user(true, true), Set.of()))
+        assertThat(KycTierRules.requirementsForNextTier(registered(), Set.of()))
+                .containsExactly("Complete your profile: address, city and country");
+
+        assertThat(KycTierRules.requirementsForNextTier(withCompleteProfile(), Set.of()))
                 .hasSize(1)
                 .allSatisfy(requirement -> assertThat(requirement).contains("identity document"));
-        assertThat(KycTierRules.requirementsForNextTier(user(true, true),
+
+        assertThat(KycTierRules.requirementsForNextTier(withCompleteProfile(),
+                Set.of(KycDocumentType.NATIONAL_ID, KycDocumentType.SELFIE)))
+                .containsExactly("Submit a proof of address");
+
+        assertThat(KycTierRules.requirementsForNextTier(withCompleteProfile(),
                 Set.of(KycDocumentType.NATIONAL_ID, KycDocumentType.SELFIE, KycDocumentType.PROOF_OF_ADDRESS)))
                 .isEmpty();
     }

@@ -8,7 +8,7 @@ import java.util.List;
 public record KycStatusResponse(KycTier tier,
                                 KycTier nextTier,
                                 boolean phoneVerified,
-                                boolean emailVerified,
+                                boolean profileComplete,
                                 boolean identityDocumentApproved,
                                 List<String> requirementsForNextTier,
                                 KycLimitsResponse limits,
