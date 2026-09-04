@@ -1,0 +1,199 @@
+package com.dogaa.backend.modules.auth.service;
+
+import com.dogaa.backend.common.enums.UserStatus;
+import com.dogaa.backend.common.util.PhoneNumbers;
+import com.dogaa.backend.config.AuthProperties;
+import com.dogaa.backend.exception.AccountLockedException;
+import com.dogaa.backend.exception.BadRequestException;
+import com.dogaa.backend.exception.ConflictException;
+import com.dogaa.backend.exception.UnauthorizedException;
+import com.dogaa.backend.modules.auth.dto.AuthResponse;
+import com.dogaa.backend.modules.auth.dto.ChangePinRequest;
+import com.dogaa.backend.modules.auth.dto.LoginRequest;
+import com.dogaa.backend.modules.auth.dto.RegisterRequest;
+import com.dogaa.backend.modules.auth.entity.RefreshToken;
+import com.dogaa.backend.modules.auth.security.JwtService;
+import com.dogaa.backend.modules.auth.security.PinPolicy;
+import com.dogaa.backend.modules.user.entity.User;
+import com.dogaa.backend.modules.user.mapper.UserMapper;
+import com.dogaa.backend.modules.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
+/**
+ * Phone + PIN authentication.
+ *
+ * <p>The identifier is the phone number in E.164 and the secret is a numeric PIN hashed with
+ * BCrypt. Because a PIN has a tiny key space, wrong attempts are counted and the account is
+ * locked for a cool-down period: that lockout, not the PIN length, is what makes the scheme
+ * usable for a wallet.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private static final int MINIMUM_AGE_YEARS = 18;
+
+    private final UserService userService;
+    private final UserMapper userMapper;
+    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthProperties authProperties;
+
+    @Transactional
+    public AuthResponse register(RegisterRequest request, String userAgent, String ip) {
+        String phone = PhoneNumbers.normalize(request.phone(), authProperties.getDefaultCallingCode());
+
+        if (!request.pin().equals(request.confirmPin())) {
+            throw new BadRequestException("PIN confirmation does not match");
+        }
+        PinPolicy.validate(request.pin());
+        requireAdult(request.dateOfBirth());
+
+        if (userService.phoneExists(phone)) {
+            throw new ConflictException("An account already exists for this phone number");
+        }
+        String email = request.email() == null || request.email().isBlank()
+                ? null
+                : request.email().trim().toLowerCase();
+        if (email != null && userService.emailExists(email)) {
+            throw new ConflictException("An account already exists for this email address");
+        }
+
+        User user = userService.save(User.builder()
+                .firstName(request.firstName().trim())
+                .lastName(request.lastName().trim())
+                .phone(phone)
+                .email(email)
+                .dateOfBirth(request.dateOfBirth())
+                .address(request.address())
+                .city(request.city())
+                .country(request.country())
+                .pinHash(passwordEncoder.encode(request.pin()))
+                .build());
+
+        log.info("Registered user {} ({})", user.getId(), PhoneNumbers.mask(phone));
+        return issueTokens(user, userAgent, ip);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest request, String userAgent, String ip) {
+        String phone = PhoneNumbers.normalize(request.phone(), authProperties.getDefaultCallingCode());
+
+        // Deliberately vague: never reveal whether the phone number is registered.
+        User user = userService.findByPhone(phone)
+                .orElseThrow(() -> new UnauthorizedException("INVALID_CREDENTIALS",
+                        "Invalid phone number or PIN"));
+
+        if (user.isLocked()) {
+            throw new AccountLockedException(user.getLockedUntil());
+        }
+        if (user.getStatus() == UserStatus.CLOSED) {
+            throw new UnauthorizedException("ACCOUNT_CLOSED", "This account has been closed");
+        }
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new UnauthorizedException("ACCOUNT_SUSPENDED", "This account is suspended");
+        }
+
+        if (!passwordEncoder.matches(request.pin(), user.getPinHash())) {
+            throw rejectWrongPin(user, "Invalid phone number or PIN");
+        }
+
+        user.setFailedPinAttempts(0);
+        user.setLockedUntil(null);
+        user.setLastLoginAt(Instant.now());
+        userService.save(user);
+
+        return issueTokens(user, userAgent, ip);
+    }
+
+    @Transactional
+    public AuthResponse refresh(String refreshToken, String userAgent, String ip) {
+        RefreshToken stored = refreshTokenService.verify(refreshToken);
+        User user = userService.getById(stored.getUserId());
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            refreshTokenService.revokeAllForUser(user.getId());
+            throw new UnauthorizedException("ACCOUNT_INACTIVE", "This account is no longer active");
+        }
+
+        String rotated = refreshTokenService.rotate(stored, userAgent, ip);
+        return AuthResponse.of(jwtService.generateAccessToken(user), rotated,
+                jwtService.accessTokenTtlSeconds(), userMapper.toResponse(user));
+    }
+
+    @Transactional
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
+    }
+
+    @Transactional
+    public void logoutEverywhere(UUID userId) {
+        refreshTokenService.revokeAllForUser(userId);
+    }
+
+    @Transactional
+    public void changePin(UUID userId, ChangePinRequest request) {
+        User user = userService.getById(userId);
+
+        if (!passwordEncoder.matches(request.currentPin(), user.getPinHash())) {
+            throw rejectWrongPin(user, "Current PIN is incorrect");
+        }
+        if (!request.newPin().equals(request.confirmPin())) {
+            throw new BadRequestException("PIN confirmation does not match");
+        }
+        if (request.newPin().equals(request.currentPin())) {
+            throw new BadRequestException("New PIN must differ from the current one");
+        }
+        PinPolicy.validate(request.newPin());
+
+        user.setPinHash(passwordEncoder.encode(request.newPin()));
+        user.setFailedPinAttempts(0);
+        user.setLockedUntil(null);
+        userService.save(user);
+
+        // A PIN change invalidates every session: if the old PIN leaked, the sessions did too.
+        refreshTokenService.revokeAllForUser(userId);
+        log.info("PIN changed for user {}", userId);
+    }
+
+    private AuthResponse issueTokens(User user, String userAgent, String ip) {
+        return AuthResponse.of(
+                jwtService.generateAccessToken(user),
+                refreshTokenService.issue(user.getId(), userAgent, ip),
+                jwtService.accessTokenTtlSeconds(),
+                userMapper.toResponse(user));
+    }
+
+    /**
+     * Records the wrong PIN, then throws: either the generic credentials error, or the lockout
+     * error when this attempt was the one that tripped the ceiling.
+     */
+    private RuntimeException rejectWrongPin(User user, String message) {
+        User updated = userService.registerFailedPinAttempt(user.getId(),
+                authProperties.getMaxPinAttempts(), authProperties.getLockDuration());
+
+        if (updated.isLocked()) {
+            log.warn("Locked user {} after {} wrong PIN attempts",
+                    user.getId(), authProperties.getMaxPinAttempts());
+            return new AccountLockedException(updated.getLockedUntil());
+        }
+        return new UnauthorizedException("INVALID_CREDENTIALS", message);
+    }
+
+    private void requireAdult(LocalDate dateOfBirth) {
+        if (ChronoUnit.YEARS.between(dateOfBirth, LocalDate.now()) < MINIMUM_AGE_YEARS) {
+            throw new BadRequestException("You must be at least " + MINIMUM_AGE_YEARS + " years old");
+        }
+    }
+}

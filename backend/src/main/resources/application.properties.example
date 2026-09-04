@@ -1,5 +1,6 @@
 # Copy to application.properties and fill in real values. Never commit application.properties.
 spring.application.name=backend
+server.server-header=
 
 # --- Datasource (PostgreSQL) ---
 spring.datasource.url=jdbc:postgresql://localhost:5432/dogaa
@@ -16,10 +17,19 @@ spring.jpa.open-in-view=false
 # --- Server ---
 server.port=8080
 
-# --- Security / JWT ---
-app.security.jwt.secret=CHANGE_ME_BASE64_SECRET
+# --- JWT ---
+# Base64 or raw passphrase; must decode to at least 32 bytes (HS256).
+# Generate one with: openssl rand -base64 48
+app.security.jwt.secret=CHANGE_ME_BASE64_SECRET_AT_LEAST_32_BYTES
+app.security.jwt.issuer=dogaa
 app.security.jwt.access-token-ttl=15m
 app.security.jwt.refresh-token-ttl=30d
+
+# --- Phone + PIN authentication ---
+# Calling code assumed when a user types a local number (228 = Togo).
+app.security.auth.default-calling-code=228
+app.security.auth.max-pin-attempts=5
+app.security.auth.lock-duration=15m
 
 # --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
 app.scheduling.enabled=true
