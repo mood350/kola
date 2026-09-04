@@ -42,6 +42,30 @@ app.security.otp.verification-token-ttl=15m
 # Comma-separated front-end origins allowed to call the API.
 app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000,http://10.0.2.2:8081
 
+# --- KYC (DOGAA.md 4.4). Amounts in XOF; an empty ceiling means unlimited. ---
+app.kyc.limits.TIER_0.per-transaction=25000
+app.kyc.limits.TIER_0.daily=50000
+app.kyc.limits.TIER_0.monthly=200000
+app.kyc.limits.TIER_0.balance-cap=100000
+app.kyc.limits.TIER_0.credit-eligible=false
+app.kyc.limits.TIER_1.per-transaction=100000
+app.kyc.limits.TIER_1.daily=300000
+app.kyc.limits.TIER_1.monthly=1500000
+app.kyc.limits.TIER_1.balance-cap=1000000
+app.kyc.limits.TIER_1.credit-eligible=false
+app.kyc.limits.TIER_2.per-transaction=1000000
+app.kyc.limits.TIER_2.daily=3000000
+app.kyc.limits.TIER_2.monthly=10000000
+app.kyc.limits.TIER_2.balance-cap=5000000
+app.kyc.limits.TIER_2.credit-eligible=true
+app.kyc.limits.TIER_3.credit-eligible=true
+app.kyc.upload.max-file-size=5MB
+app.kyc.upload.allowed-content-types=image/jpeg,image/png,image/webp,application/pdf
+app.kyc.upload.storage-directory=var/kyc-documents
+
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=6MB
+
 # --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
 app.scheduling.enabled=true
 app.scheduling.scheduled-transactions-cron=0 0 0 * * *

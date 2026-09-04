@@ -25,7 +25,7 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 @EnableConfigurationProperties({JwtProperties.class, AuthProperties.class,
-        CorsProperties.class, OtpProperties.class})
+        CorsProperties.class, OtpProperties.class, KycProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 

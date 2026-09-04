@@ -61,6 +61,28 @@ Phone + PIN, no passwords. Implemented across `modules/auth`, `modules/user` and
 - Controllers read the caller with `@AuthenticationPrincipal CurrentUser`; never trust a user id from
   the request body.
 
+## KYC
+
+Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `modules/kyc`.
+
+- **The tier is derived, never assigned.** `KycTierRules.resolve(user, approvedDocumentTypes)` is the
+  single source of truth, and every path that could move a user ends in `KycService.recomputeTier`.
+  An administrator approves a *document*; no endpoint hands out a tier. Revoking an approval therefore
+  demotes the account for free. Add a new requirement in `KycTierRules`, not in the calling endpoint.
+- **Ladder**: TIER_0 phone verified (registration) -> TIER_1 + email verified -> TIER_2 + an approved
+  identity document (national ID, passport, driving licence or voter card) -> TIER_3 + selfie and
+  proof of address. The tiers are cumulative: documents never substitute for the email step.
+- **Limits** live in `KycProperties` (`app.kyc.limits.<tier>.*`, XOF) and are enforced by
+  `KycLimitService`. A `null` ceiling means unlimited (TIER_3) and is not the same as zero.
+  `assertCanSend` takes the period totals as arguments rather than reaching into a wallet, so the REST
+  path and the midnight scheduler hit the same ceilings through the same code. TIER_2 is the credit gate.
+- **Documents**: only a storage key is persisted; files go through the `DocumentStorage` seam
+  (`LocalDocumentStorage` writes to `app.kyc.upload.storage-directory` and is a dev stub - no
+  encryption at rest, no access audit). Uploads are restricted to images and PDF, 5 MB. The file leaves
+  the server only through the admin download endpoint, as an attachment.
+- Email codes reuse the OTP machinery with `OtpChannel.EMAIL`; the row stays keyed by the account's
+  phone number, so one cooldown and one attempt counter cover the account.
+
 ## Stack notes
 
 - Spring Boot **4.1.1**, Java release target **17** (the installed JDK is 25 — do not assume language features above 17 compile).
