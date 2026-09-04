@@ -50,7 +50,7 @@ export type Loan={id:string;currency:string;principal:number;collateralAmount:nu
 
 export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true)};
 export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true)};
-export const vaultApi={list:()=>request<Vault[]>('/api/v1/vaults',{},true),deposit:(id:string,amount:number)=>request<Vault>(`/api/v1/vaults/${id}/deposit`,{method:'POST',body:JSON.stringify({amount})},true)};
+export const vaultApi={list:()=>request<Vault[]>('/api/v1/vaults',{},true),create:(payload:{name:string;targetAmount?:number;targetDate?:string;description?:string})=>request<Vault>('/api/v1/vaults',{method:'POST',body:JSON.stringify({...payload,currency:'XOF'})},true),deposit:(id:string,amount:number)=>request<Vault>(`/api/v1/vaults/${id}/deposit`,{method:'POST',body:JSON.stringify({amount})},true)};
 export const transactionApi={history:()=>request<{content:Transaction[]}>('/api/v1/transactions?size=100',{},true)};
 export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<Loan[]>('/api/v1/credit/loans',{},true)};
 export const schedulingApi={
