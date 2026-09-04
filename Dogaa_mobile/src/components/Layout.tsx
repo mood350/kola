@@ -10,7 +10,7 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export function AppHeader({navigate}:{navigate:(r:Route)=>void}) {
   return <View style={s.header}>
-    <Logo width={42}/>
+    <Logo width={72}/>
     <Text style={[s.logo,{marginLeft:7}]}>DOGAA</Text>
     <View style={s.spacer}/>
     <View style={s.tier}><Ionicons name="shield-checkmark-outline" size={13} color={c.green}/><Text style={s.tierText}>TIER 2</Text></View>
