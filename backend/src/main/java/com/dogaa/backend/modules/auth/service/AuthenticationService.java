@@ -19,6 +19,11 @@ import com.dogaa.backend.modules.user.mapper.UserMapper;
 import com.dogaa.backend.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +44,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AuthService {
+public class AuthenticationService {
 
     private static final int MINIMUM_AGE_YEARS = 18;
 
@@ -48,6 +53,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
     private final AuthProperties authProperties;
 
     @Transactional
@@ -90,25 +96,24 @@ public class AuthService {
     public AuthResponse login(LoginRequest request, String userAgent, String ip) {
         String phone = PhoneNumbers.normalize(request.phone(), authProperties.getDefaultCallingCode());
 
-        // Deliberately vague: never reveal whether the phone number is registered.
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(phone, request.pin()));
+        } catch (LockedException ex) {
+            throw new AccountLockedException(lockedUntil(phone));
+        } catch (DisabledException ex) {
+            throw inactiveAccount(phone);
+        } catch (BadCredentialsException ex) {
+            // Also raised for an unknown phone number: never say which of the two it was.
+            throw userService.findByPhone(phone)
+                    .map(user -> rejectWrongPin(user, "Invalid phone number or PIN"))
+                    .orElseGet(() -> new UnauthorizedException("INVALID_CREDENTIALS",
+                            "Invalid phone number or PIN"));
+        }
+
         User user = userService.findByPhone(phone)
                 .orElseThrow(() -> new UnauthorizedException("INVALID_CREDENTIALS",
                         "Invalid phone number or PIN"));
-
-        if (user.isLocked()) {
-            throw new AccountLockedException(user.getLockedUntil());
-        }
-        if (user.getStatus() == UserStatus.CLOSED) {
-            throw new UnauthorizedException("ACCOUNT_CLOSED", "This account has been closed");
-        }
-        if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new UnauthorizedException("ACCOUNT_SUSPENDED", "This account is suspended");
-        }
-
-        if (!passwordEncoder.matches(request.pin(), user.getPinHash())) {
-            throw rejectWrongPin(user, "Invalid phone number or PIN");
-        }
-
         user.setFailedPinAttempts(0);
         user.setLockedUntil(null);
         user.setLastLoginAt(Instant.now());
@@ -165,6 +170,21 @@ public class AuthService {
         // A PIN change invalidates every session: if the old PIN leaked, the sessions did too.
         refreshTokenService.revokeAllForUser(userId);
         log.info("PIN changed for user {}", userId);
+    }
+
+    private Instant lockedUntil(String phone) {
+        return userService.findByPhone(phone)
+                .map(User::getLockedUntil)
+                .orElse(Instant.now().plus(authProperties.getLockDuration()));
+    }
+
+    private UnauthorizedException inactiveAccount(String phone) {
+        UserStatus status = userService.findByPhone(phone)
+                .map(User::getStatus)
+                .orElse(UserStatus.CLOSED);
+        return status == UserStatus.SUSPENDED
+                ? new UnauthorizedException("ACCOUNT_SUSPENDED", "This account is suspended")
+                : new UnauthorizedException("ACCOUNT_CLOSED", "This account has been closed");
     }
 
     private AuthResponse issueTokens(User user, String userAgent, String ip) {

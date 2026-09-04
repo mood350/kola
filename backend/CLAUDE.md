@@ -36,6 +36,12 @@ Phone + PIN, no passwords. Implemented across `modules/auth`, `modules/user` and
   is `REQUIRES_NEW` precisely because the login path aborts by throwing; in the same transaction the
   rollback would erase the counter and the lockout would never fire. Any future "count the failure,
   then reject" path needs the same treatment.
+- **Wiring**: `config/BeansConfig` declares `PasswordEncoder`, the `DaoAuthenticationProvider` and the
+  `AuthenticationManager`; `config/SecurityConfig` only wires the filter chain. `DogaaUserDetails`
+  adapts a `User` (username = phone, password = PIN hash) and maps the lockout and account status onto
+  `isAccountNonLocked` / `isEnabled`, so the provider enforces them before comparing the PIN.
+  `AuthenticationService.login` calls the manager and translates `LockedException` /
+  `DisabledException` / `BadCredentialsException` into the API's error codes.
 - **Tokens**: a short-lived HS256 access JWT (`JwtService`) plus an opaque refresh token stored as a
   SHA-256 hash and rotated on every use (`RefreshTokenService`). Access tokens are not revocable by
   design — revocation happens on the refresh token, and a PIN change revokes every one of them.

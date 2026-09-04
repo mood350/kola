@@ -31,6 +31,10 @@ app.security.auth.default-calling-code=228
 app.security.auth.max-pin-attempts=5
 app.security.auth.lock-duration=15m
 
+# --- CORS ---
+# Comma-separated front-end origins allowed to call the API.
+app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000
+
 # --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
 app.scheduling.enabled=true
 app.scheduling.scheduled-transactions-cron=0 0 0 * * *

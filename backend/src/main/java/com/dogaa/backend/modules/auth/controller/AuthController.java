@@ -7,7 +7,7 @@ import com.dogaa.backend.modules.auth.dto.LoginRequest;
 import com.dogaa.backend.modules.auth.dto.RefreshTokenRequest;
 import com.dogaa.backend.modules.auth.dto.RegisterRequest;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
-import com.dogaa.backend.modules.auth.service.AuthService;
+import com.dogaa.backend.modules.auth.service.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,13 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Authentication", description = "Registration and phone + PIN login")
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthenticationService authenticationService;
 
     @PostMapping("/register")
     @Operation(summary = "Create an account with a phone number and a PIN")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request,
                                                               HttpServletRequest httpRequest) {
-        AuthResponse response = authService.register(request, userAgent(httpRequest), clientIp(httpRequest));
+        AuthResponse response = authenticationService.register(request, userAgent(httpRequest), clientIp(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Account created", response));
     }
@@ -44,7 +44,7 @@ public class AuthController {
     @Operation(summary = "Log in with a phone number and a PIN")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request,
                                                            HttpServletRequest httpRequest) {
-        AuthResponse response = authService.login(request, userAgent(httpRequest), clientIp(httpRequest));
+        AuthResponse response = authenticationService.login(request, userAgent(httpRequest), clientIp(httpRequest));
         return ResponseEntity.ok(ApiResponse.ok("Logged in", response));
     }
 
@@ -52,7 +52,7 @@ public class AuthController {
     @Operation(summary = "Exchange a refresh token for a new token pair")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request,
                                                              HttpServletRequest httpRequest) {
-        AuthResponse response = authService.refresh(request.refreshToken(),
+        AuthResponse response = authenticationService.refresh(request.refreshToken(),
                 userAgent(httpRequest), clientIp(httpRequest));
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
@@ -60,7 +60,7 @@ public class AuthController {
     @PostMapping("/logout")
     @Operation(summary = "Revoke the presented refresh token")
     public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request.refreshToken());
+        authenticationService.logout(request.refreshToken());
         return ResponseEntity.ok(ApiResponse.ok("Logged out"));
     }
 
@@ -68,7 +68,7 @@ public class AuthController {
     @Operation(summary = "Revoke every refresh token of the authenticated user")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Void>> logoutEverywhere(@AuthenticationPrincipal CurrentUser currentUser) {
-        authService.logoutEverywhere(currentUser.id());
+        authenticationService.logoutEverywhere(currentUser.id());
         return ResponseEntity.ok(ApiResponse.ok("Logged out from every device"));
     }
 
@@ -77,7 +77,7 @@ public class AuthController {
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Void>> changePin(@AuthenticationPrincipal CurrentUser currentUser,
                                                        @Valid @RequestBody ChangePinRequest request) {
-        authService.changePin(currentUser.id(), request);
+        authenticationService.changePin(currentUser.id(), request);
         return ResponseEntity.ok(ApiResponse.ok("PIN changed, please log in again"));
     }
 
