@@ -1,6 +1,8 @@
 package com.dogaa.backend.modules.transaction.controller;
 
 import com.dogaa.backend.common.dto.ApiResponse;
+import com.dogaa.backend.common.enums.TransactionStatus;
+import com.dogaa.backend.common.enums.TransactionType;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
 import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
@@ -10,6 +12,7 @@ import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.TransactionResponse;
 import com.dogaa.backend.modules.transaction.dto.TransferRequest;
 import com.dogaa.backend.modules.transaction.mapper.TransactionMapper;
+import com.dogaa.backend.modules.transaction.service.TransactionEventBroadcaster;
 import com.dogaa.backend.modules.transaction.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -20,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +33,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/v1/transactions")
@@ -41,15 +48,27 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
+    private final TransactionEventBroadcaster transactionEventBroadcaster;
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Live feed of my transaction events (Server-Sent Events) — DOGAA.md 4.5 real-time tracking")
+    public SseEmitter stream(@AuthenticationPrincipal CurrentUser currentUser) {
+        return transactionEventBroadcaster.subscribe(currentUser.id());
+    }
 
     @GetMapping
-    @Operation(summary = "My transaction history, newest first")
+    @Operation(summary = "My transaction history, newest first — filterable by type, status and date range")
     public ResponseEntity<ApiResponse<Page<TransactionResponse>>> history(
             @AuthenticationPrincipal CurrentUser currentUser,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) TransactionStatus status,
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
-        Page<TransactionResponse> history = transactionService.history(currentUser.id(), pageable)
+        Page<TransactionResponse> history = transactionService
+                .history(currentUser.id(), type, status, from, to, pageable)
                 .map(transactionMapper::toResponse);
         return ResponseEntity.ok(ApiResponse.ok(history));
     }

@@ -24,13 +24,27 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     Optional<Transaction> findByReference(String reference);
 
-    /** Everything the user was on either side of, newest first. */
+    /**
+     * Everything the user was on either side of, newest first, optionally narrowed by
+     * type, status and/or a creation-date window — any filter left {@code null} is
+     * ignored. Includes {@code FAILED} traces (scheduler misfires included), so this is
+     * the one place a user's transactional activity is fully visible.
+     */
     @Query("""
             select t from Transaction t
-            where t.senderId = :userId or t.recipientId = :userId
+            where (t.senderId = :userId or t.recipientId = :userId)
+              and (:type is null or t.type = :type)
+              and (:status is null or t.status = :status)
+              and (:from is null or t.createdAt >= :from)
+              and (:to is null or t.createdAt <= :to)
             order by t.createdAt desc
             """)
-    Page<Transaction> findForUser(@Param("userId") UUID userId, Pageable pageable);
+    Page<Transaction> findForUser(@Param("userId") UUID userId,
+                                  @Param("type") TransactionType type,
+                                  @Param("status") TransactionStatus status,
+                                  @Param("from") Instant from,
+                                  @Param("to") Instant to,
+                                  Pageable pageable);
 
     /**
      * Sum of what the user has already sent out today in one currency — the running total

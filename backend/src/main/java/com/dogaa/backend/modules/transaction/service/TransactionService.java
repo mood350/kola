@@ -57,6 +57,7 @@ public class TransactionService {
     private final KycLimitPolicy kycLimitPolicy;
     private final ExternalTransferGateway externalTransferGateway;
     private final AuthProperties authProperties;
+    private final TransactionEventBroadcaster eventBroadcaster;
 
     // --- Fee preview ---------------------------------------------------
 
@@ -67,6 +68,31 @@ public class TransactionService {
                 request.type(), request.amount(), request.currency(), user.getKycTier());
         return new FeeQuoteResponse(
                 request.currency(), request.amount(), fee, request.amount().add(fee));
+    }
+
+    // --- Cash-in (DOGAA.md 5.3.A) --------------------------------------
+
+    /**
+     * Credits the wallet and writes the matching {@code CASH_IN} trace — free by default
+     * (spec: a deliberate acquisition strategy), still routed through {@link FeeCalculator}
+     * so a configured {@code app.fees.cash-in-percent} is honoured if one is ever set.
+     */
+    @Transactional
+    public Transaction cashIn(UUID ownerId, Currency currency, BigDecimal amount) {
+        User owner = userService.getById(ownerId);
+        Wallet wallet = walletService.deposit(ownerId, currency, amount);
+        BigDecimal fee = feeCalculator.feeFor(TransactionType.CASH_IN, amount, currency, owner.getKycTier());
+
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.CASH_IN)
+                .currency(currency)
+                .amount(amount)
+                .fee(fee)
+                .recipientId(ownerId)
+                .destinationWalletId(wallet.getId())
+                .counterparty("EXTERNAL")
+                .description("Cash-in"));
     }
 
     // --- P2P transfer -------------------------------------------------
@@ -264,14 +290,23 @@ public class TransactionService {
                 .build();
         tx.setStatus(TransactionStatus.FAILED);
         tx.setFailureReason(command.failureReason());
-        return transactionRepository.save(tx);
+        Transaction saved = transactionRepository.save(tx);
+        eventBroadcaster.publish(saved);
+        return saved;
     }
 
     // --- History -------------------------------------------------
 
     @Transactional(readOnly = true)
     public Page<Transaction> history(UUID userId, Pageable pageable) {
-        return transactionRepository.findForUser(userId, pageable);
+        return history(userId, null, null, null, null, pageable);
+    }
+
+    /** Same as {@link #history(UUID, Pageable)}, narrowed by type/status/date window (any {@code null} is ignored). */
+    @Transactional(readOnly = true)
+    public Page<Transaction> history(UUID userId, TransactionType type, TransactionStatus status,
+                                     Instant from, Instant to, Pageable pageable) {
+        return transactionRepository.findForUser(userId, type, status, from, to, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -302,7 +337,9 @@ public class TransactionService {
         Transaction tx = trace.build();
         tx.setStatus(TransactionStatus.COMPLETED);
         tx.setCompletedAt(Instant.now());
-        return transactionRepository.save(tx);
+        Transaction saved = transactionRepository.save(tx);
+        eventBroadcaster.publish(saved);
+        return saved;
     }
 
     private Wallet walletInCurrency(UUID ownerId, Currency currency, String messageIfMissing) {

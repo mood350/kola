@@ -8,6 +8,7 @@ import com.dogaa.backend.modules.wallet.dto.DepositRequest;
 import com.dogaa.backend.modules.wallet.dto.WalletResponse;
 import com.dogaa.backend.modules.wallet.mapper.WalletMapper;
 import com.dogaa.backend.modules.wallet.service.WalletService;
+import com.dogaa.backend.modules.transaction.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,6 +35,7 @@ public class WalletController {
 
     private final WalletService walletService;
     private final WalletMapper walletMapper;
+    private final TransactionService transactionService;
 
     @GetMapping
     @Operation(summary = "List my wallets")
@@ -70,8 +72,11 @@ public class WalletController {
             @AuthenticationPrincipal CurrentUser currentUser,
             @PathVariable Currency currency,
             @Valid @RequestBody DepositRequest request) {
-        WalletResponse wallet = walletMapper.toResponse(
-                walletService.deposit(currentUser.id(), currency, request.amount()));
+        // Routed through TransactionService (not WalletService.deposit directly) so the
+        // cash-in leaves a CASH_IN trace in the transaction history, same as every other
+        // money movement.
+        transactionService.cashIn(currentUser.id(), currency, request.amount());
+        WalletResponse wallet = walletMapper.toResponse(walletService.getWallet(currentUser.id(), currency));
         return ResponseEntity.ok(ApiResponse.ok("Deposit completed", wallet));
     }
 }
