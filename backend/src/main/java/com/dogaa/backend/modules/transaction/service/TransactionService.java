@@ -180,6 +180,31 @@ public class TransactionService {
                 .description("Cash-out"));
     }
 
+    // --- Traces for movements owned by other modules ------------
+
+    /**
+     * Records a completed {@code VAULT_DEPOSIT} / {@code VAULT_WITHDRAWAL} trace. The vault
+     * module has already moved the money through {@link WalletService}; this only writes the
+     * history row so vault activity shows up in the user's transaction list (DOGAA.md 4.2).
+     */
+    @Transactional
+    public Transaction recordVaultMovement(TransactionType type, UUID ownerId, UUID walletId,
+                                           Currency currency, BigDecimal amount, String vaultName) {
+        boolean deposit = type == TransactionType.VAULT_DEPOSIT;
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(type)
+                .currency(currency)
+                .amount(amount)
+                .fee(BigDecimal.ZERO)
+                .senderId(ownerId)
+                .recipientId(ownerId)
+                .sourceWalletId(deposit ? walletId : null)
+                .destinationWalletId(deposit ? null : walletId)
+                .counterparty(vaultName)
+                .description(deposit ? "Vault deposit" : "Vault withdrawal"));
+    }
+
     // --- History -------------------------------------------------
 
     @Transactional(readOnly = true)
