@@ -7,6 +7,7 @@ import { c } from '../theme';
 import { Route } from '../types';
 import { useDogaaData } from '../context/DogaaDataContext';
 import { schedulingApi } from '../services/api';
+import DatePickerField from '../components/DatePickerField';
 
 type Destination = 'person' | 'vault';
 type ScheduledTransfer = { id:string; destination:Destination; recipient:string; phone?:string; vaultId?:string; amount:number; scheduledAt:string; status:'active'|'paused'|'history' };
@@ -63,7 +64,7 @@ export default function ScheduledScreen({navigate}:{navigate:(r:Route)=>void}){
       <Text style={s.label}>DESTINATION</Text><View style={s.segment}><Choice active={destination==='person'} icon="person-outline" label="Une personne" onPress={()=>setDestination('person')}/><Choice active={destination==='vault'} icon="lock-closed-outline" label="Mon coffre" onPress={()=>setDestination('vault')}/></View>
       {destination==='person'?<><Text style={s.label}>BÉNÉFICIAIRE</Text><View style={s.inputRow}><TextInput value={recipient} onChangeText={setRecipient} placeholder="Nom de la personne" placeholderTextColor={c.muted} style={[s.input,{flex:1}]}/><TouchableOpacity style={s.contactButton} onPress={openContacts}><Ionicons name="people-outline" size={22} color={c.primary}/></TouchableOpacity></View><TextInput value={phone} onChangeText={setPhone} placeholder="Numéro de téléphone" placeholderTextColor={c.muted} keyboardType="phone-pad" style={s.input}/></>:<><Text style={s.label}>COFFRE À ALIMENTER</Text>{vaults.map(v=><TouchableOpacity key={v.id} onPress={()=>setVaultId(v.id)} style={[s.vaultChoice,vaultId===v.id&&s.vaultActive]}><Ionicons name={vaultId===v.id?'radio-button-on':'radio-button-off'} size={19} color={c.primary}/><Text style={s.vaultText}>{v.name}</Text></TouchableOpacity>)}</>}
       <Text style={s.label}>MONTANT</Text><View style={s.moneyInput}><TextInput value={amount} onChangeText={setAmount} placeholder="0" placeholderTextColor={c.muted} keyboardType="number-pad" style={s.moneyField}/><Text style={s.currency}>FCFA</Text></View>
-      <Text style={s.label}>DATE ET HEURE</Text><View style={s.when}><View style={{flex:1}}><Text style={s.hint}>AAAA-MM-JJ</Text><TextInput value={date} onChangeText={setDate} style={s.input}/></View><View style={{width:105}}><Text style={s.hint}>HH:MM</Text><TextInput value={time} onChangeText={setTime} style={s.input}/></View></View>
+      <Text style={s.label}>DATE ET HEURE</Text><View style={s.when}><View style={{flex:1}}><Text style={s.hint}>DATE</Text><DatePickerField value={date} onChange={setDate} placeholder="Choisir" minimumDate={new Date()}/></View><View style={{width:125}}><Text style={s.hint}>HEURE</Text><DatePickerField value={time} onChange={setTime} mode="time" placeholder="Choisir"/></View></View>
       <View style={s.confirm}><Ionicons name="information-circle-outline" size={18} color={c.primary}/><Text style={s.confirmText}>L’ordre pourra être mis en pause avant son exécution.</Text></View><PrimaryButton onPress={submit}>Confirmer la programmation</PrimaryButton>
     </ScrollView></View></KeyboardAvoidingView></Modal>
 

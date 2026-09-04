@@ -6,6 +6,7 @@ import { useDogaaData } from '../context/DogaaDataContext';
 import { vaultApi } from '../services/api';
 import { c } from '../theme';
 import { Route } from '../types';
+import DatePickerField from '../components/DatePickerField';
 
 const money=(value:number)=>new Intl.NumberFormat('fr-FR').format(value);
 
@@ -36,7 +37,7 @@ export default function VaultsScreen({navigate}:{navigate:(r:Route)=>void}){
       <Label text="NOM DU COFFRE"/><TextInput value={name} onChangeText={setName} placeholder="Ex. Études, urgence, projet" placeholderTextColor={c.muted} style={s.input}/>
       <Label text="DESCRIPTION (FACULTATIVE)"/><TextInput value={description} onChangeText={setDescription} placeholder="À quoi servira cette épargne ?" placeholderTextColor={c.muted} style={s.input}/>
       <Label text="OBJECTIF EN FCFA (FACULTATIF)"/><TextInput value={target} onChangeText={value=>setTarget(value.replace(/\D/g,''))} keyboardType="number-pad" placeholder="500000" placeholderTextColor={c.muted} style={s.input}/>
-      <Label text="DATE CIBLE (FACULTATIVE)"/><TextInput value={date} onChangeText={setDate} placeholder="AAAA-MM-JJ" placeholderTextColor={c.muted} maxLength={10} style={s.input}/>
+      <Label text="DATE CIBLE (FACULTATIVE)"/><DatePickerField value={date} onChange={setDate} placeholder="Choisir une date" minimumDate={new Date()}/>
       <TouchableOpacity disabled={saving} onPress={create} style={[s.createButton,saving&&{opacity:.6}]}><Ionicons name={saving?'hourglass-outline':'checkmark-circle-outline'} size={21} color={c.primary}/><Text style={s.createText}>{saving?'Création…':'Créer le coffre'}</Text></TouchableOpacity>
     </ScrollView></View></KeyboardAvoidingView></Modal>
   </Screen>;
