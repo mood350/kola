@@ -4,18 +4,19 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Card, IconCircle, Pill, PrimaryButton, Progress, Screen, SectionTitle } from '../components/Layout';
 import { c } from '../theme';
 import { Route } from '../types';
+import { useDogaaData } from '../context/DogaaDataContext';
 
-const vaults=[
+const demoVaults=[
   {icon:'bus-outline' as const,title:'Réparation camion',sub:'Transport & logistique TPME',amount:'350 000',goal:'500 000',pct:70,plan:'25 000 FCFA le 15 du mois',tag:"Jusqu'au 30 Juin",right:'Dans 6 jours'},
   {icon:'school-outline' as const,title:'Scolarité des enfants',sub:'Rentrée scolaire & frais d’étude',amount:'120 000',goal:'200 000',pct:60,plan:'15 000 FCFA chaque lundi',tag:'Hebdomadaire',right:'Actif'},
   {icon:'archive-outline' as const,title:"Fonds d'urgence stock",sub:"Trésorerie d'exploitation",amount:'0',goal:'1 000 000',pct:0,plan:'Configurer le versement programmé',tag:'Inactif',right:''},
 ];
 
-export default function VaultsScreen({navigate}:{navigate:(r:Route)=>void}){return <Screen route="vaults" navigate={navigate}>
-  <View style={s.hero}><View style={s.heroHead}><View style={s.heroLabel}><Ionicons name="lock-closed-outline" color={c.yellow} size={18}/><Text style={s.heroOver}>ÉPARGNE TOTALE{`\n`}SÉCURISÉE</Text></View><Pill green>↗ +12 pts crédit</Pill></View><Text style={s.heroAmount}>470 000 <Text style={s.fcfa}>FCFA</Text></Text><Text style={s.heroCopy}>Fonds protégés et soustraits du solde courant pour garantir vos projets prioritaires et consolider votre solvabilité.</Text></View>
+export default function VaultsScreen({navigate}:{navigate:(r:Route)=>void}){const dogaa=useDogaaData();const vaults=dogaa.loading?demoVaults:dogaa.vaults.map(v=>({icon:'lock-closed-outline' as const,title:v.name,sub:v.description||'Coffre DOGAA',amount:new Intl.NumberFormat('fr-FR').format(v.balance),goal:new Intl.NumberFormat('fr-FR').format(v.targetAmount),pct:v.progressPercent||0,plan:v.targetDate?`Objectif au ${new Date(v.targetDate).toLocaleDateString('fr-FR')}`:'Objectif libre',tag:v.status,right:v.goalReached?'Atteint':'Actif'}));const total=dogaa.vaults.reduce((sum,v)=>sum+Number(v.balance),0);return <Screen route="vaults" navigate={navigate}>
+  <View style={s.hero}><View style={s.heroHead}><View style={s.heroLabel}><Ionicons name="lock-closed-outline" color={c.yellow} size={18}/><Text style={s.heroOver}>ÉPARGNE TOTALE{`\n`}SÉCURISÉE</Text></View><Pill green>↗ +12 pts crédit</Pill></View><Text style={s.heroAmount}>{new Intl.NumberFormat('fr-FR').format(total)} <Text style={s.fcfa}>FCFA</Text></Text><Text style={s.heroCopy}>Fonds protégés et soustraits du solde courant pour garantir vos projets prioritaires et consolider votre solvabilité.</Text></View>
   <View style={s.coach}><IconCircle name="sparkles-outline" bg="#FFF4C6" color={c.yellowDark}/><View style={{flex:1}}><Text style={s.coachTitle}>Discipline d'épargne reconnue</Text><Text style={s.coachText}>Chaque virement programmé vers vos coffres prouve votre discipline financière et booste votre score de crédit alternatif DOGAA.</Text></View></View>
   <PrimaryButton>⊕  Créer un nouveau coffre</PrimaryButton>
-  <SectionTitle title="Vos Coffres Actifs (3)" action="ZONE UEMOA"/>
+  <SectionTitle title={`Vos Coffres Actifs (${dogaa.vaults.length})`} action="ZONE UEMOA"/>
   {vaults.map(v=><Card key={v.title} style={s.vault}><View style={s.row}><IconCircle name={v.icon}/><View style={s.info}><Text style={s.title} numberOfLines={1}>{v.title}</Text><Text style={s.sub}>{v.sub}</Text></View><Pill>{v.tag}</Pill></View><View style={s.cumul}><Text style={s.cumulText}>Cumul : <Text style={s.bold}>{v.amount} FCFA</Text></Text><Text style={s.pct}>{v.pct}%</Text></View><Progress value={v.pct}/><View style={s.labels}><Text>0 FCFA</Text><Text>Objectif {v.goal} FCFA</Text></View><View style={s.plan}><Ionicons name="calendar-outline" size={16} color={c.green}/><Text style={s.planText}>{v.plan}</Text><Text style={s.planRight}>{v.right}</Text></View></Card>)}
   <View style={s.rules}><Text style={s.rulesTitle}>⚙  Règles & Impact sur le Score DOGAA</Text><Text style={s.rule}><Text style={s.bold}>🔒 Verrouillage strict :</Text> Les fonds placés dans un coffre verrouillé ne sont déblocables qu'à l'échéance convenue.</Text><Text style={s.rule}><Text style={s.bold}>🏆 +12 points acquis :</Text> Votre assiduité sur les 3 derniers mois a débloqué un palier supérieur.</Text></View>
   </Screen>}

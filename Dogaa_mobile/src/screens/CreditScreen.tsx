@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Card, IconCircle, Pill, Progress, Screen } from "../components/Layout";
 import { c } from "../theme";
 import { Route } from "../types";
+import { useDogaaData } from "../context/DogaaDataContext";
 
 const currentLoans = [
   {
@@ -37,6 +38,9 @@ export default function CreditScreen({
   navigate: (r: Route) => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const dogaa = useDogaaData();
+  const activeLoans = dogaa.loans.filter(loan=>!['REPAID','DEFAULTED'].includes(loan.status));
+  const outstanding = activeLoans.reduce((sum,loan)=>sum+Number(loan.outstanding||0),0);
   return (
     <Screen route="credit" navigate={navigate}>
       <View style={s.head}>
@@ -54,13 +58,13 @@ export default function CreditScreen({
       <View style={s.summary}>
         <View style={s.summaryItem}>
           <Text style={s.summaryLabel}>EN COURS</Text>
-          <Text style={s.summaryValue}>1</Text>
+          <Text style={s.summaryValue}>{activeLoans.length}</Text>
         </View>
         <View style={s.summaryDivider} />
         <View style={s.summaryItem}>
           <Text style={s.summaryLabel}>CAPITAL RESTANT</Text>
           <Text style={s.summaryAmount}>
-            108 000 <Text style={s.fcfa}>FCFA</Text>
+            {new Intl.NumberFormat('fr-FR').format(outstanding)} <Text style={s.fcfa}>FCFA</Text>
           </Text>
         </View>
       </View>
@@ -114,7 +118,7 @@ export default function CreditScreen({
       ))}
       <View style={s.section}>
         <Text style={s.sectionTitle}>Offre disponible</Text>
-        <Pill>Score 78/100</Pill>
+        <Pill>Score {dogaa.eligibility?.score??0}/100</Pill>
       </View>
       <TouchableOpacity onPress={() => navigate("loan")} style={s.offer}>
         <View style={s.offerTop}>
@@ -128,7 +132,7 @@ export default function CreditScreen({
         </View>
         <Text style={s.offerLabel}>JUSQU’À</Text>
         <Text style={s.offerAmount}>
-          300 000 <Text style={s.offerFcfa}>FCFA</Text>
+          {new Intl.NumberFormat('fr-FR').format(Number(dogaa.eligibility?.maxLoanAmount||0))} <Text style={s.offerFcfa}>FCFA</Text>
         </Text>
         <View style={s.offerButton}>
           <Text style={s.offerButtonText}>Simuler mon prêt</Text>

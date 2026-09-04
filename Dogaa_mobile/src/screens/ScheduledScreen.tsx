@@ -6,6 +6,8 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, T
 import { Card, IconCircle, Pill, PrimaryButton, Screen } from '../components/Layout';
 import { c } from '../theme';
 import { Route } from '../types';
+import { useDogaaData } from '../context/DogaaDataContext';
+import { schedulingApi } from '../services/api';
 
 type Destination = 'person' | 'vault';
 type ScheduledTransfer = { id:string; destination:Destination; recipient:string; phone?:string; vaultId?:string; amount:number; scheduledAt:string; status:'active'|'paused' };
@@ -21,6 +23,7 @@ const localDate=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).
 const localTime=(date:Date)=>`${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
 
 export default function ScheduledScreen({navigate}:{navigate:(r:Route)=>void}){
+  const dogaa=useDogaaData();
   const initial=new Date(Date.now()+86400000);
   const [tab,setTab]=useState(0),[formOpen,setFormOpen]=useState(false),[contactsOpen,setContactsOpen]=useState(false),[loaded,setLoaded]=useState(false);
   const [transfers,setTransfers]=useState<ScheduledTransfer[]>(examples);
@@ -30,12 +33,13 @@ export default function ScheduledScreen({navigate}:{navigate:(r:Route)=>void}){
 
   useEffect(()=>{AsyncStorage.getItem(STORAGE_KEY).then(raw=>{if(raw)setTransfers(JSON.parse(raw));}).catch(()=>{}).finally(()=>setLoaded(true));},[]);
   useEffect(()=>{if(loaded)AsyncStorage.setItem(STORAGE_KEY,JSON.stringify(transfers)).catch(()=>{});},[transfers,loaded]);
+  useEffect(()=>{if(!dogaa.loading)setTransfers(dogaa.scheduled.map(item=>({id:item.id,destination:item.type==='VAULT_DEPOSIT'?'vault':'person',recipient:item.beneficiaryReference,phone:item.type==='P2P_TRANSFER'?item.beneficiaryReference:undefined,vaultId:item.type==='VAULT_DEPOSIT'?item.beneficiaryReference:undefined,amount:Number(item.amount),scheduledAt:item.nextRunAt,status:item.status==='PAUSED'?'paused':'active'})));},[dogaa.loading,dogaa.scheduled]);
   const visible=useMemo(()=>transfers.filter(x=>tab===0?x.status==='active':tab===2?x.status==='paused':false),[transfers,tab]);
   const filteredContacts=useMemo(()=>contacts.filter(x=>`${x.name} ${x.phone}`.toLowerCase().includes(query.toLowerCase())),[contacts,query]);
   const resetForm=()=>{const next=new Date(Date.now()+86400000);setDestination('person');setRecipient('');setPhone('');setVaultId(vaults[0].id);setAmount('');setDate(localDate(next));setTime(localTime(next));};
   const closeForm=()=>{setFormOpen(false);resetForm();};
   const openContacts=async()=>{try{const permission=await Contacts.requestPermissionsAsync();if(permission.status!=='granted'){Alert.alert('Accès aux contacts refusé','Vous pouvez toujours saisir le numéro manuellement.');return;}const result=await Contacts.getContactsAsync({fields:[Contacts.Fields.PhoneNumbers],sort:Contacts.SortTypes.FirstName});setContacts(result.data.flatMap(contact=>{const number=contact.phoneNumbers?.[0]?.number;return number?[{id:contact.id,name:contact.name||'Sans nom',phone:number}]:[];}));setContactsOpen(true);}catch{Alert.alert('Contacts indisponibles','Saisissez le numéro manuellement.');}};
-  const submit=()=>{
+  const submit=async()=>{
     const numericAmount=Number(amount.replace(/[^0-9]/g,''));
     const scheduled=new Date(`${date}T${time}:00`);
     if(destination==='person'&&(!recipient.trim()||phone.replace(/\D/g,'').length<8)){Alert.alert('Bénéficiaire incomplet','Ajoutez un nom et un numéro de téléphone valide.');return;}
@@ -43,11 +47,9 @@ export default function ScheduledScreen({navigate}:{navigate:(r:Route)=>void}){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)||Number.isNaN(scheduled.getTime())){Alert.alert('Date invalide','Utilisez AAAA-MM-JJ et HH:MM.');return;}
     if(scheduled.getTime()<=Date.now()){Alert.alert('Date passée','Choisissez une date et une heure futures.');return;}
     const vault=vaults.find(x=>x.id===vaultId)!;
-    const transfer:ScheduledTransfer={id:`scheduled-${Date.now()}`,destination,recipient:destination==='vault'?vault.name:recipient.trim(),phone:destination==='person'?phone.trim():undefined,vaultId:destination==='vault'?vaultId:undefined,amount:numericAmount,scheduledAt:scheduled.toISOString(),status:'active'};
-    setTransfers(current=>[transfer,...current]);closeForm();
-    Alert.alert('Envoi programmé',`${money(numericAmount)} FCFA seront envoyés le ${dateLabel(transfer.scheduledAt)}.`);
+    try{const created=await schedulingApi.create({userId:dogaa.user!.id,type:destination==='vault'?'VAULT_DEPOSIT':'P2P_TRANSFER',frequency:'ONCE',amount:numericAmount,currency:'XOF',beneficiaryReference:destination==='vault'?vaultId:`+228${phone.replace(/\D/g,'').slice(-8)}`,firstRunAt:scheduled.toISOString()});const transfer:ScheduledTransfer={id:created.id,destination,recipient:destination==='vault'?vault.name:recipient.trim(),phone:destination==='person'?phone.trim():undefined,vaultId:destination==='vault'?vaultId:undefined,amount:numericAmount,scheduledAt:created.nextRunAt,status:'active'};setTransfers(current=>[transfer,...current]);await dogaa.refresh();closeForm();Alert.alert('Envoi programmé',`${money(numericAmount)} FCFA seront envoyés le ${dateLabel(transfer.scheduledAt)}.`);}catch(error){Alert.alert('Programmation impossible',error instanceof Error?error.message:'Erreur serveur.');}
   };
-  const toggle=(item:ScheduledTransfer)=>setTransfers(current=>current.map(x=>x.id===item.id?{...x,status:x.status==='active'?'paused':'active'}:x));
+  const toggle=async(item:ScheduledTransfer)=>{try{if(item.status==='active')await schedulingApi.pause(item.id);else await schedulingApi.resume(item.id);setTransfers(current=>current.map(x=>x.id===item.id?{...x,status:x.status==='active'?'paused':'active'}:x));await dogaa.refresh();}catch(error){Alert.alert('Action impossible',error instanceof Error?error.message:'Erreur serveur.');}};
 
   return <Screen route="scheduled" navigate={navigate}>
     <View style={s.titleRow}><Text style={s.title}>Envois programmés</Text><Pill green>● Automatisés</Pill></View>

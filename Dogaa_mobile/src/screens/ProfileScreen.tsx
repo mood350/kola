@@ -4,6 +4,7 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Card, IconCircle, Pill, Progress, Screen } from "../components/Layout";
 import { c } from "../theme";
 import { Route } from "../types";
+import { useDogaaData } from "../context/DogaaDataContext";
 
 const options = [
   {
@@ -40,6 +41,7 @@ export default function ProfileScreen({
   onLogout: () => void;
 }) {
   const [section, setSection] = useState<string | null>(null);
+  const dogaa = useDogaaData();
   return (
     <Screen route="profile" navigate={navigate}>
       <View style={s.profileHead}>
@@ -47,11 +49,11 @@ export default function ProfileScreen({
           <Ionicons name="person" size={34} color={c.white} />
         </View>
         <View style={s.identity}>
-          <Text style={s.name}>Kouassi Adjoua</Text>
-          <Text style={s.phone}>🇹🇬 +228 90 00 00 00</Text>
+          <Text style={s.name}>{dogaa.user?`${dogaa.user.firstName} ${dogaa.user.lastName}`:'Chargement…'}</Text>
+          <Text style={s.phone}>🇹🇬 {dogaa.user?.phone||'+228'}</Text>
           <View style={s.badges}>
             <Pill green>Compte vérifié</Pill>
-            <Pill>TIER 2</Pill>
+            <Pill>{dogaa.user?.kycTier||'TIER 0'}</Pill>
           </View>
         </View>
         <TouchableOpacity style={s.edit}>

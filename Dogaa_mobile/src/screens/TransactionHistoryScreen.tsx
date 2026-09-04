@@ -5,6 +5,7 @@ import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Card, IconCircle, Screen } from '../components/Layout';
 import { c } from '../theme';
 import { Route } from '../types';
+import { useDogaaData } from '../context/DogaaDataContext';
 
 type Transaction={id:string;title:string;detail:string;date:string;amount:number;kind:'in'|'out';icon:React.ComponentProps<typeof Ionicons>['name'];category:string;status:string};
 const base:Transaction[]=[
@@ -17,10 +18,12 @@ const base:Transaction[]=[
 const format=(value:number)=>new Intl.NumberFormat('fr-FR').format(Math.abs(value));
 
 export default function TransactionHistoryScreen({navigate}:{navigate:(r:Route)=>void}){
+  const dogaa=useDogaaData();
   const [filter,setFilter]=useState<'all'|'in'|'out'>('all');
   const [transactions,setTransactions]=useState(base);
   const [selected,setSelected]=useState<Transaction|null>(null);
   useEffect(()=>{AsyncStorage.getItem('dogaa.wallet.last-recharge').then(raw=>{if(!raw)return;const recharge=JSON.parse(raw) as {provider:string;amount:number};setTransactions(current=>[{id:'latest',title:`Recharge ${recharge.provider}`,detail:'Recharge Mobile Money',date:"Aujourd’hui",amount:recharge.amount,kind:'in',icon:'phone-portrait-outline',category:'Recharge',status:'Réussie'},...current]);}).catch(()=>{});},[]);
+  useEffect(()=>{if(!dogaa.loading)setTransactions(dogaa.transactions.map(tx=>{const incoming=['CASH_IN','REFUND','LOAN_DISBURSEMENT'].includes(tx.type);return {id:tx.reference,title:tx.counterparty||tx.description||tx.type,detail:tx.description||tx.type,date:new Date(tx.completedAt||tx.createdAt).toLocaleString('fr-FR'),amount:incoming?Number(tx.amount):-Number(tx.totalDebited||tx.amount),kind:incoming?'in' as const:'out' as const,icon:incoming?'arrow-down-outline' as const:'arrow-up-outline' as const,category:tx.type,status:tx.status};}));},[dogaa.loading,dogaa.transactions]);
   const visible=useMemo(()=>transactions.filter(t=>filter==='all'||t.kind===filter),[transactions,filter]);
   const incoming=transactions.filter(t=>t.amount>0).reduce((sum,t)=>sum+t.amount,0),outgoing=Math.abs(transactions.filter(t=>t.amount<0).reduce((sum,t)=>sum+t.amount,0));
   return <Screen route="transactionHistory" navigate={navigate}>

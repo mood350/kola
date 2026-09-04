@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { c, shadow } from '../theme';
 import { Route } from '../types';
 import Logo from './Logo';
+import { useDogaaData } from '../context/DogaaDataContext';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -36,7 +37,8 @@ export function BottomNav({ route, navigate }: {route:Route; navigate:(r:Route)=
 }
 
 export function Screen({ children, route, navigate }: {children:React.ReactNode;route:Route;navigate:(r:Route)=>void}) {
-  return <SafeAreaView style={s.safe} edges={['top']}><AppHeader navigate={navigate}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>{children}<View style={{height:90}}/></ScrollView><BottomNav route={route} navigate={navigate}/></SafeAreaView>;
+  const dogaa=useDogaaData();
+  return <SafeAreaView style={s.safe} edges={['top']}><AppHeader navigate={navigate}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>{dogaa.error&&<TouchableOpacity onPress={dogaa.refresh} style={s.apiError}><Ionicons name="cloud-offline-outline" size={16} color="#93000A"/><Text style={s.apiErrorText}>{dogaa.error} Touchez pour réessayer.</Text></TouchableOpacity>}{children}<View style={{height:90}}/></ScrollView><BottomNav route={route} navigate={navigate}/></SafeAreaView>;
 }
 
 export function SectionTitle({title,action,onPress}:{title:string;action?:string;onPress?:()=>void}) {
@@ -50,5 +52,6 @@ export function Progress({value,color=c.green}:{value:number;color?:string}){ret
 export function PrimaryButton({children,onPress,blue=false}:{children:React.ReactNode;onPress?:()=>void;blue?:boolean}){return <TouchableOpacity onPress={onPress} style={[s.primaryButton,blue&&s.blueButton]}><Text style={[s.primaryButtonText,blue&&s.blueButtonText]}>{children}</Text></TouchableOpacity>}
 
 const s=StyleSheet.create({
+  apiError:{padding:10,borderRadius:10,backgroundColor:'#FFDAD6',flexDirection:'row',alignItems:'center',gap:7,marginBottom:12},apiErrorText:{fontSize:9,lineHeight:13,color:'#93000A',flex:1},
   safe:{flex:1,backgroundColor:c.bg},header:{height:64,paddingHorizontal:20,flexDirection:'row',alignItems:'center',backgroundColor:'rgba(250,248,255,0.98)'},logoMark:{width:10,height:10,borderRadius:3,backgroundColor:c.primary,alignItems:'center',justifyContent:'center',marginRight:9},logoLetter:{fontSize:5,color:c.yellow,fontWeight:'900'},logo:{fontSize:17,fontWeight:'800',color:c.primary,letterSpacing:.4},spacer:{flex:1},tier:{height:27,paddingHorizontal:10,borderRadius:14,backgroundColor:c.pale2,flexDirection:'row',alignItems:'center',gap:4},tierText:{fontSize:9,fontWeight:'800',color:c.ink},iconButton:{width:37,height:40,alignItems:'center',justifyContent:'center',marginLeft:4},alert:{position:'absolute',top:6,right:7,width:7,height:7,borderRadius:4,backgroundColor:c.yellow},profile:{width:38,height:38,borderRadius:20,backgroundColor:c.primary,alignItems:'center',justifyContent:'center'},content:{paddingHorizontal:20,paddingTop:15},nav:{position:'absolute',left:0,right:0,bottom:0,height:74,backgroundColor:'rgba(255,255,255,0.98)',borderTopWidth:1,borderTopColor:'#EDF0F7',flexDirection:'row',alignItems:'center',paddingBottom:4,...shadow},navItem:{flex:1,alignItems:'center',justifyContent:'center',height:62},navLabel:{fontSize:9,color:c.ink,marginTop:4},navLabelActive:{fontWeight:'800',color:c.primary},scan:{flex:0,width:64,height:64,borderRadius:32,backgroundColor:c.yellow,marginTop:-27,marginHorizontal:4,shadowColor:c.yellow,shadowOpacity:.4,shadowRadius:12,elevation:8},sectionRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:24,marginBottom:13},sectionTitle:{fontSize:20,fontWeight:'800',color:c.ink,letterSpacing:-.3},action:{fontSize:10,fontWeight:'700',color:c.primary},card:{backgroundColor:c.white,borderRadius:16,padding:16,borderWidth:1,borderColor:'#EDF0F5',...shadow},iconCircle:{width:43,height:43,borderRadius:22,alignItems:'center',justifyContent:'center'},pill:{paddingHorizontal:8,paddingVertical:4,borderRadius:12,backgroundColor:c.pale2},pillText:{fontSize:8,fontWeight:'700',color:c.primary},pillGreen:{backgroundColor:'#DDFBED'},pillGreenText:{color:c.greenDark},progress:{height:7,borderRadius:4,backgroundColor:'#E0E5FA',overflow:'hidden'},progressFill:{height:'100%',borderRadius:4},primaryButton:{height:48,borderRadius:25,backgroundColor:c.yellow,alignItems:'center',justifyContent:'center',shadowColor:c.yellow,shadowOpacity:.25,shadowRadius:9,elevation:3},primaryButtonText:{fontSize:14,fontWeight:'800',color:c.primary},blueButton:{backgroundColor:c.primary},blueButtonText:{color:c.white}
 });

@@ -6,6 +6,8 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, T
 import { Card, IconCircle, PrimaryButton, Progress, Screen, SectionTitle } from '../components/Layout';
 import { c } from '../theme';
 import { Route } from '../types';
+import { useDogaaData } from '../context/DogaaDataContext';
+import { walletApi } from '../services/api';
 
 const actions = [
   ['cash-outline','Virement P2P','Instantané'],['storefront-outline','Marchand QR','0 FCFA frais'],
@@ -20,6 +22,7 @@ const txs = [
 ] as const;
 
 export default function HomeScreen({navigate}:{navigate:(r:Route)=>void}) {
+  const dogaa=useDogaaData();
   const [hidden,setHidden]=useState(false);
   const [balance,setBalance]=useState(425000);
   const [rechargeOpen,setRechargeOpen]=useState(false);
@@ -28,19 +31,17 @@ export default function HomeScreen({navigate}:{navigate:(r:Route)=>void}) {
   const [rechargeAmount,setRechargeAmount]=useState('');
   const [lastRecharge,setLastRecharge]=useState<{provider:string;amount:number}|null>(null);
   useEffect(()=>{Promise.all([AsyncStorage.getItem('dogaa.wallet.balance'),AsyncStorage.getItem('dogaa.wallet.last-recharge')]).then(([savedBalance,savedRecharge])=>{if(savedBalance)setBalance(Number(savedBalance));if(savedRecharge)setLastRecharge(JSON.parse(savedRecharge));}).catch(()=>{});},[]);
+  useEffect(()=>{const wallet=dogaa.wallets.find(item=>item.currency==='XOF');if(wallet)setBalance(Number(wallet.availableBalance));},[dogaa.wallets]);
   const closeRecharge=()=>{setRechargeOpen(false);setRechargeAmount('');setPhone('');};
   const confirmRecharge=async()=>{
     const value=Number(rechargeAmount.replace(/[^0-9]/g,''));
     if(phone.replace(/\D/g,'').length<8){Alert.alert('Numéro invalide','Saisissez un numéro Mobile Money valide.');return;}
     if(value<500){Alert.alert('Montant invalide','Le montant minimum est de 500 FCFA.');return;}
     if(value>1000000){Alert.alert('Plafond dépassé','Le montant maximum par recharge est de 1 000 000 FCFA.');return;}
-    const newBalance=balance+value;const recharge={provider,amount:value};
-    setBalance(newBalance);setLastRecharge(recharge);
-    await Promise.all([AsyncStorage.setItem('dogaa.wallet.balance',String(newBalance)),AsyncStorage.setItem('dogaa.wallet.last-recharge',JSON.stringify(recharge))]);
-    closeRecharge();Alert.alert('Recharge réussie',`${new Intl.NumberFormat('fr-FR').format(value)} FCFA ont été ajoutés à votre portefeuille.`);
+    try{const wallet=await walletApi.deposit(value);const recharge={provider,amount:value};setBalance(Number(wallet.availableBalance));setLastRecharge(recharge);await dogaa.refresh();closeRecharge();Alert.alert('Recharge réussie',`${new Intl.NumberFormat('fr-FR').format(value)} FCFA ont été ajoutés à votre portefeuille.`);}catch(error){Alert.alert('Recharge impossible',error instanceof Error?error.message:'Erreur serveur.');}
   };
   return <Screen route="home" navigate={navigate}>
-    <View style={s.welcome}><View><Text style={s.hello}>Bonjour, Kouassi ✌️</Text><Text style={s.active}><Text style={{color:c.green}}>●</Text> Compte Particulier Actif</Text></View><TouchableOpacity style={s.currency}><Text style={s.currencyText}>XOF⌄</Text></TouchableOpacity></View>
+    <View style={s.welcome}><View><Text style={s.hello}>Bonjour, {dogaa.user?.firstName||'Client'} ✌️</Text><Text style={s.active}><Text style={{color:c.green}}>●</Text> Compte Particulier Actif</Text></View><TouchableOpacity style={s.currency}><Text style={s.currencyText}>XOF⌄</Text></TouchableOpacity></View>
     <LinearGradient colors={[c.primary2,c.primary]} start={{x:0,y:0}} end={{x:1,y:1}} style={s.wallet}>
       <View style={s.walletHead}><View style={s.passIcon}><Text style={s.passD}>D</Text></View><View><Text style={s.pass}>DOGAA PASS VIP</Text><Text style={s.gim}>◉ GIM-UEMOA</Text></View><View style={{flex:1}}/><View style={s.qrMini}><Ionicons name="qr-code" size={15} color={c.yellow}/><Text style={s.qrMiniText}>Mon QR</Text></View></View>
       <View style={s.balanceLabel}><Text style={s.walletLight}>Solde disponible garanti</Text><TouchableOpacity onPress={()=>setHidden(v=>!v)}><Ionicons name={hidden?'eye-off-outline':'eye-outline'} size={21} color={c.white}/></TouchableOpacity></View>

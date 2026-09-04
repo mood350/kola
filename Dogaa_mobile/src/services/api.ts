@@ -13,16 +13,23 @@ export class ApiError extends Error{
   constructor(message:string,public status:number,public fieldErrors?:Record<string,string>){super(message);}
 }
 
-async function request<T>(path:string,options:RequestInit={}):Promise<T>{
+async function request<T>(path:string,options:RequestInit={},authenticated=false,retry=true):Promise<T>{
+  const saved=authenticated?await AsyncStorage.getItem('dogaa.session'):null;
+  const session=saved?JSON.parse(saved) as AuthSession:null;
   let response:Response;
   try{
-    response=await fetch(`${API_URL}${path}`,{...options,headers:{Accept:'application/json','Content-Type':'application/json',...options.headers}});
+    response=await fetch(`${API_URL}${path}`,{...options,headers:{Accept:'application/json','Content-Type':'application/json',...(session?{Authorization:`Bearer ${session.accessToken}`}:{ }),...options.headers}});
   }catch{
     throw new ApiError(`Serveur DOGAA inaccessible (${API_URL}). Vérifiez l'adresse EXPO_PUBLIC_API_URL.`,0);
   }
+  if(response.status===401&&authenticated&&retry&&session?.refreshToken){
+    const refreshed=await authApi.refresh(session.refreshToken);
+    await AsyncStorage.setItem('dogaa.session',JSON.stringify(refreshed));
+    return request<T>(path,options,true,false);
+  }
   const body=await response.json().catch(()=>({})) as ApiEnvelope<T>&ApiErrorBody;
   if(!response.ok)throw new ApiError(body.message||'Une erreur est survenue.',response.status,body.fieldErrors);
-  return body.data;
+  return Object.prototype.hasOwnProperty.call(body,'success')?body.data:body as T;
 }
 
 export const authApi={
@@ -30,7 +37,27 @@ export const authApi={
   verifyOtp:(phone:string,code:string)=>request<{verificationToken:string;expiresInSeconds:number}>('/api/v1/auth/register/verify-otp',{method:'POST',body:JSON.stringify({phone,code})}),
   register:(payload:{verificationToken:string;firstName:string;lastName:string;email?:string;dateOfBirth:string;pin:string;confirmPin:string;acceptedPrivacyPolicy:boolean})=>request<AuthSession>('/api/v1/auth/register',{method:'POST',body:JSON.stringify({...payload,country:'TG'})}),
   login:(phone:string,pin:string)=>request<AuthSession>('/api/v1/auth/login',{method:'POST',body:JSON.stringify({phone,pin})}),
+  refresh:(refreshToken:string)=>request<AuthSession>('/api/v1/auth/refresh',{method:'POST',body:JSON.stringify({refreshToken})}),
   logout:(refreshToken:string)=>request<void>('/api/v1/auth/logout',{method:'POST',body:JSON.stringify({refreshToken})}),
 };
 
+export type Wallet={id:string;currency:string;availableBalance:number;lockedBalance:number;totalBalance:number;status:string;createdAt:string};
+export type Vault={id:string;name:string;currency:string;balance:number;targetAmount:number;targetDate?:string;progressPercent:number;goalReached:boolean;status:string;description?:string;createdAt:string};
+export type Transaction={id:string;reference:string;type:string;status:string;currency:string;amount:number;fee:number;totalDebited:number;counterparty?:string;description?:string;failureReason?:string;completedAt?:string;createdAt:string};
+export type ScheduledTask={id:string;userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;status:string;nextRunAt:string;endDate?:string;maxOccurrences?:number;occurrencesCompleted:number;retryCount:number;lastFailureReason?:string};
+export type CreditEligibility={eligible:boolean;score:number;minimumScore:number;kycTier:string;currency:string;savingsBalance:number;leverageRatio:number;maxLoanAmount:number;monthlyRatePercent:number;totalRepayable:number;termDays:number;loansRepaid:number;blockers:string[]};
+
+export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true)};
+export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true)};
+export const vaultApi={list:()=>request<Vault[]>('/api/v1/vaults',{},true),deposit:(id:string,amount:number)=>request<Vault>(`/api/v1/vaults/${id}/deposit`,{method:'POST',body:JSON.stringify({amount})},true)};
+export const transactionApi={history:()=>request<{content:Transaction[]}>('/api/v1/transactions?size=100',{},true)};
+export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<any[]>('/api/v1/credit/loans',{},true)};
+export const schedulingApi={
+  list:(userId:string)=>request<ScheduledTask[]>(`/api/v1/scheduling/tasks/users/${userId}`,{},true),
+  create:(payload:{userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;firstRunAt:string})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),
+  pause:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/pause`,{method:'PATCH'},true),
+  resume:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/resume`,{method:'PATCH'},true),
+};
+
 export {API_URL};
+import AsyncStorage from '@react-native-async-storage/async-storage';
