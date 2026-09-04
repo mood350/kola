@@ -20,4 +20,10 @@ public class JwtProperties {
     private Duration accessTokenTtl = Duration.ofMinutes(15);
 
     private Duration refreshTokenTtl = Duration.ofDays(30);
+
+    /**
+     * Back-office sessions. Longer than a customer's access token because the admin front-end
+     * stores one token and has no refresh flow: a 15-minute life would sign staff out mid-review.
+     */
+    private Duration adminTokenTtl = Duration.ofHours(8);
 }

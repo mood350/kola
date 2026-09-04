@@ -1,6 +1,9 @@
 package com.dogaa.backend.modules.auth.security;
 
 import com.dogaa.backend.common.enums.Role;
+import com.dogaa.backend.modules.admin.entity.AdminAccount;
+import com.dogaa.backend.modules.admin.entity.AdminRole;
+import com.dogaa.backend.modules.admin.security.CurrentAdmin;
 import com.dogaa.backend.config.JwtProperties;
 import com.dogaa.backend.modules.user.entity.User;
 import io.jsonwebtoken.Claims;
@@ -29,6 +32,9 @@ public class JwtService {
     private static final String CLAIM_ROLE = "role";
     private static final String CLAIM_TYPE = "typ";
     private static final String TYPE_ACCESS = "access";
+    private static final String TYPE_ADMIN = "admin";
+    private static final String CLAIM_EMAIL = "email";
+    private static final String CLAIM_NAME = "name";
 
     private final SecretKey signingKey;
     private final JwtProperties properties;
@@ -57,27 +63,62 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * Token for a back-office session. Same signing key, different {@code typ} claim, so a
+     * customer token can never be presented as an administrator's and vice versa.
+     */
+    public String generateAdminToken(AdminAccount admin) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(admin.getId().toString())
+                .claim(CLAIM_EMAIL, admin.getEmail())
+                .claim(CLAIM_NAME, admin.getName())
+                .claim(CLAIM_ROLE, admin.getRole().name())
+                .claim(CLAIM_TYPE, TYPE_ADMIN)
+                .issuer(properties.getIssuer())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(properties.getAdminTokenTtl())))
+                .signWith(signingKey)
+                .compact();
+    }
+
+    /** @return the administrator carried by the token, or empty if it is not a valid admin token. */
+    public Optional<CurrentAdmin> parseAdminToken(String token) {
+        return claims(token)
+                .filter(claims -> TYPE_ADMIN.equals(claims.get(CLAIM_TYPE, String.class)))
+                .map(claims -> new CurrentAdmin(
+                        UUID.fromString(claims.getSubject()),
+                        claims.get(CLAIM_EMAIL, String.class),
+                        claims.get(CLAIM_NAME, String.class),
+                        AdminRole.valueOf(claims.get(CLAIM_ROLE, String.class))));
+    }
+
+    public long adminTokenTtlSeconds() {
+        return properties.getAdminTokenTtl().toSeconds();
+    }
+
     public long accessTokenTtlSeconds() {
         return properties.getAccessTokenTtl().toSeconds();
     }
 
     /** @return the principal carried by the token, or empty if the token is invalid or expired. */
     public Optional<CurrentUser> parseAccessToken(String token) {
+        return claims(token)
+                .filter(claims -> TYPE_ACCESS.equals(claims.get(CLAIM_TYPE, String.class)))
+                .map(claims -> new CurrentUser(
+                        UUID.fromString(claims.getSubject()),
+                        claims.get(CLAIM_PHONE, String.class),
+                        Role.valueOf(claims.get(CLAIM_ROLE, String.class))));
+    }
+
+    private Optional<Claims> claims(String token) {
         try {
-            Claims claims = Jwts.parser()
+            return Optional.of(Jwts.parser()
                     .verifyWith(signingKey)
                     .requireIssuer(properties.getIssuer())
                     .build()
                     .parseSignedClaims(token)
-                    .getPayload();
-
-            if (!TYPE_ACCESS.equals(claims.get(CLAIM_TYPE, String.class))) {
-                return Optional.empty();
-            }
-            return Optional.of(new CurrentUser(
-                    UUID.fromString(claims.getSubject()),
-                    claims.get(CLAIM_PHONE, String.class),
-                    Role.valueOf(claims.get(CLAIM_ROLE, String.class))));
+                    .getPayload());
         } catch (JwtException | IllegalArgumentException ex) {
             log.debug("Rejected JWT: {}", ex.getMessage());
             return Optional.empty();
