@@ -1,0 +1,9 @@
+node_modules/
+node_modules.sdk54/
+node_modules.incomplete/
+package-lock.incomplete.json
+.expo/
+.expo-smoke/
+dist/
+*.log
+.DS_Store

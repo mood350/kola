@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "DOGAA",
+    "slug": "dogaa-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": { "backgroundColor": "#FAF8FF" },
+    "android": {
+      "adaptiveIcon": { "backgroundColor": "#002353" },
+      "permissions": ["READ_CONTACTS"],
+      "blockedPermissions": ["android.permission.WRITE_CONTACTS"]
+    },
+    "ios": { "infoPlist": { "NSContactsUsageDescription": "DOGAA utilise vos contacts pour choisir un bénéficiaire." } },
+    "plugins": ["expo-contacts"]
+  }
+}
