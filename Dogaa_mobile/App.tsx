@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Image, StyleSheet, View } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import VaultsScreen from './src/screens/VaultsScreen';
 import CreditScreen from './src/screens/CreditScreen';
@@ -16,6 +15,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import ScheduledScreen from './src/screens/ScheduledScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import { Route } from './src/types';
+import SplashScreen from './src/screens/SplashScreen';
 
 export default function App(){
   const [route,setRoute]=useState<Route>('home');
@@ -25,6 +25,5 @@ export default function App(){
   const authenticate=async()=>{await AsyncStorage.setItem('dogaa.session','demo-session');setEntry('app');};
   const logout=async()=>{await AsyncStorage.removeItem('dogaa.session');setRoute('home');setEntry('auth');};
   const screens:Record<Route,React.ReactNode>={home:<HomeScreen navigate={setRoute}/>,vaults:<VaultsScreen navigate={setRoute}/>,scan:<ScanScreen navigate={setRoute}/>,credit:<CreditScreen navigate={setRoute}/>,loan:<LoanScreen navigate={setRoute}/>,loanDetail:<LoanDetailScreen navigate={setRoute}/>,profile:<ProfileScreen navigate={setRoute} onLogout={logout}/>,kyc:<KycScreen navigate={setRoute}/>,transactionHistory:<TransactionHistoryScreen navigate={setRoute}/>,scheduled:<ScheduledScreen navigate={setRoute}/>};
-  return <SafeAreaProvider><StatusBar style={entry==='loading'?'light':'dark'}/>{entry==='loading'?<View style={s.loading}><Image source={require('./assets/splash.gif')} style={s.splash} resizeMode="cover"/></View>:entry==='onboarding'?<OnboardingScreen onFinish={finishOnboarding}/>:entry==='auth'?<AuthScreen onAuthenticated={authenticate}/>:screens[route]}</SafeAreaProvider>;
+  return <SafeAreaProvider><StatusBar style={entry==='loading'?'light':'dark'}/>{entry==='loading'?<SplashScreen/>:entry==='onboarding'?<OnboardingScreen onFinish={finishOnboarding}/>:entry==='auth'?<AuthScreen onAuthenticated={authenticate}/>:screens[route]}</SafeAreaProvider>;
 }
-const s=StyleSheet.create({loading:{flex:1,backgroundColor:'#002353'},splash:{width:'100%',height:'100%'}});
