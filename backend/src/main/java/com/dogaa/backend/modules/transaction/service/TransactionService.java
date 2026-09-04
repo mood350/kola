@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -203,6 +204,35 @@ public class TransactionService {
                 .destinationWalletId(deposit ? null : walletId)
                 .counterparty(vaultName)
                 .description(deposit ? "Vault deposit" : "Vault withdrawal"));
+    }
+
+    /**
+     * Persists a {@code FAILED} trace for a due item the scheduler could not execute
+     * (DOGAA.md 4.6.3 step 4: "la transaction est marquée en échec, l'utilisateur est
+     * notifié").
+     *
+     * <p>Runs in its own transaction: the failed execution attempt is rolled back by its
+     * caller, but the trace has to survive so the user's dashboard and any retry can see it —
+     * same reason {@code UserService.registerFailedPinAttempt} uses {@code REQUIRES_NEW}.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Transaction recordFailed(FailedTransactionCommand command) {
+        Transaction tx = Transaction.builder()
+                .reference(newReference())
+                .type(command.type())
+                .currency(command.currency())
+                .amount(command.amount())
+                .fee(command.fee() == null ? BigDecimal.ZERO : command.fee())
+                .senderId(command.senderId())
+                .sourceWalletId(command.sourceWalletId())
+                .recipientId(command.recipientId())
+                .destinationWalletId(command.destinationWalletId())
+                .counterparty(command.counterparty())
+                .description(command.description())
+                .build();
+        tx.setStatus(TransactionStatus.FAILED);
+        tx.setFailureReason(command.failureReason());
+        return transactionRepository.save(tx);
     }
 
     // --- History -------------------------------------------------
