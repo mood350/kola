@@ -54,6 +54,7 @@ class VaultFlowIntegrationTest {
                 .phone("+22890" + (100000 + (int) (Math.random() * 899999)))
                 .pinHash("x")
                 .dateOfBirth(LocalDate.of(1990, 1, 1))
+                .privacyPolicyAcceptedAt(java.time.Instant.now())
                 .build());
         ownerId = user.getId();
         Wallet wallet = walletService.createWallet(ownerId, Currency.XOF);

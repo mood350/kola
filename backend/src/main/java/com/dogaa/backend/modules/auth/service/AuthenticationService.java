@@ -126,6 +126,9 @@ public class AuthenticationService {
                 .pinHash(passwordEncoder.encode(request.pin()))
                 // The number was proved in step 2; this is what TIER_0 means (DOGAA.md 4.4).
                 .phoneVerified(true)
+                // Bean validation already rejects a false/missing value; recorded for the
+                // compliance trail (DOGAA.md does not cover this, added on request).
+                .privacyPolicyAcceptedAt(Instant.now())
                 .build());
 
         log.info("Registered user {} ({})", user.getId(), PhoneNumbers.mask(phone));

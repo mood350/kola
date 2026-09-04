@@ -1,6 +1,7 @@
 package com.dogaa.backend.modules.scheduling.entity;
 
 import com.dogaa.backend.common.audit.BaseEntity;
+import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.ScheduleFrequency;
 import com.dogaa.backend.common.enums.ScheduledTaskStatus;
 import com.dogaa.backend.common.enums.ScheduledTaskType;
@@ -38,8 +39,9 @@ public class ScheduledTask extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private String currency;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 3)
+    private Currency currency;
 
     @Column(name = "beneficiary_reference", nullable = false)
     private String beneficiaryReference;

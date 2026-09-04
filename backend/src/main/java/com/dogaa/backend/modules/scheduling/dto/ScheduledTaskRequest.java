@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.scheduling.dto;
 
+import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.ScheduleFrequency;
 import com.dogaa.backend.common.enums.ScheduledTaskType;
 import jakarta.validation.constraints.NotBlank;
@@ -15,7 +16,7 @@ public record ScheduledTaskRequest(
         @NotNull ScheduledTaskType type,
         @NotNull ScheduleFrequency frequency,
         @NotNull @Positive BigDecimal amount,
-        @NotBlank String currency,
+        @NotNull Currency currency,
         @NotBlank String beneficiaryReference,
         @NotNull Instant firstRunAt,
         Instant endDate,
