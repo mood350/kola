@@ -1,0 +1,25 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: #E8ECF4;
+  -webkit-font-smoothing: antialiased;
+  font-family: Manrope, Helvetica, sans-serif;
+}
+
+a { color: #0F2A6B; text-decoration: none; }
+a:hover { color: #F5B301; }
+
+button, input { font-family: inherit; }
+
+@keyframes kUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes kIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kPop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes kPulse { 0%,100% { opacity: .35; transform: scale(1); } 50% { opacity: .9; transform: scale(1.35); } }
+@keyframes kFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: #C3CCDE; border-radius: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
