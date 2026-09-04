@@ -500,6 +500,49 @@ Le journal renvoie `{ id, admin, action, diff, time }`, plus récent d'abord. `d
 `"avant → après"` côté serveur. Les exports renvoient `url: null` : la génération de fichier n'est
 pas implémentée.
 
+### Utilisateurs et file KYC
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/users` | `ClientUser[]` — table complète, filtrage côté client |
+| `GET` | `/admin/users/{id}` | `ClientUser` |
+| `POST` | `/admin/users/{id}/unblock` | `ClientUser` |
+| `POST` | `/admin/users/{id}/force-close-vault` | `ClientUser` |
+| `GET` | `/admin/users/kyc-queue` | `KycSubmission[]` |
+| `POST` | `/admin/users/kyc-queue/{id}/approve` | `204` |
+| `POST` | `/admin/users/kyc-queue/{id}/reject` | `204` |
+
+Tout est **pré-formaté** : `age` en `"14 mois"`, `loan` en `"100 000 XOF"` ou `"Aucun"`,
+`state` en `"Actif"` / `"Gelé"`. Le front n'a aucune logique de formatage.
+
+⚠️ **`id` est un UUID (chaîne), pas un `number`** comme le typedef l'annonce. Nos utilisateurs
+n'ont jamais eu d'identifiant numérique. Ça fonctionne tel quel pour les clés React et les URL ;
+seule une opération arithmétique sur l'id casserait. À corriger dans `models/*.js`.
+
+Deux autres écarts assumés : `force-close-vault` ferme **le plus ancien coffre ouvert** faute de
+`vaultId` dans le contrat, et `"Litige"` n'est jamais renvoyé tant que le module litiges n'existe pas
+(un compte clos lit `"Gelé"`).
+
+`toTier` de la file KYC est **calculé par les règles de niveau**, pas supposé être « le suivant » :
+un selfie seul renvoie `fromTier == toTier`, ce qui évite d'annoncer une promotion qui n'aura pas lieu.
+
+### Dashboard
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/dashboard/metrics` | `Metric[]` — 5 tuiles, dans l'ordre |
+| `GET` | `/admin/dashboard/transaction-volume?period=14d\|30d` | `ChartPoint[]` |
+| `GET` | `/admin/dashboard/alerts` | `Alert[]` |
+| `GET` | `/admin/dashboard/loan-book-summary` | `LoanBookSummary` |
+
+Ordre imposé des tuiles : volume 24 h, solde global, croissance utilisateurs, encours de prêts,
+taux de défaut.
+
+Tout est calculé sur les tables réelles. **Une base vide renvoie des zéros, jamais des valeurs
+inventées** — et `alerts` renvoie une liste vide quand rien ne va mal, ce qui est une réponse
+valide et non une erreur. Le « solde global » ne concerne que le XOF : additionner des devises
+différentes produirait un nombre sans signification.
+
 ### Autres routes admin
 
 
