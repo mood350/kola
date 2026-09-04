@@ -4,9 +4,11 @@ import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.user.dto.UpdateProfileRequest;
 import com.dogaa.backend.modules.user.dto.UserResponse;
 import com.dogaa.backend.modules.user.entity.User;
+import com.dogaa.backend.modules.user.event.UserProfileUpdatedEvent;
 import com.dogaa.backend.modules.user.mapper.UserMapper;
 import com.dogaa.backend.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public User getById(UUID id) {
@@ -116,6 +119,9 @@ public class UserService {
         if (request.country() != null) {
             user.setCountry(request.country().toUpperCase());
         }
-        return userMapper.toResponse(userRepository.save(user));
+        UserResponse response = userMapper.toResponse(userRepository.save(user));
+        // Address, city and country decide KYC tier 1, so a profile edit can move the tier.
+        eventPublisher.publishEvent(new UserProfileUpdatedEvent(id));
+        return response;
     }
 }

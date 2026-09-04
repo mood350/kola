@@ -41,6 +41,18 @@ public class OtpCode extends BaseEntity {
     @Column(nullable = false, length = 20)
     private OtpPurpose purpose;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private OtpChannel channel = OtpChannel.SMS;
+
+    /**
+     * Where the code was actually sent: the phone number for SMS, the address for email.
+     * The row stays keyed by {@code phone} because that is what identifies the account.
+     */
+    @Column(nullable = false, length = 160)
+    private String destination;
+
     /** BCrypt hash: a 6-digit code is only a million guesses, so it needs a slow hash. */
     @Column(name = "code_hash", nullable = false, length = 100)
     private String codeHash;

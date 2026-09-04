@@ -5,9 +5,11 @@ import com.dogaa.backend.common.util.Tokens;
 import com.dogaa.backend.config.OtpProperties;
 import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.TooManyRequestsException;
+import com.dogaa.backend.modules.auth.entity.OtpChannel;
 import com.dogaa.backend.modules.auth.entity.OtpCode;
 import com.dogaa.backend.modules.auth.entity.OtpPurpose;
 import com.dogaa.backend.modules.auth.repository.OtpCodeRepository;
+import com.dogaa.backend.modules.notification.service.EmailOtpSender;
 import com.dogaa.backend.modules.notification.service.OtpSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,7 @@ public class OtpService {
 
     private final OtpCodeRepository otpCodeRepository;
     private final OtpSender otpSender;
+    private final EmailOtpSender emailOtpSender;
     private final PasswordEncoder passwordEncoder;
     private final OtpProperties otpProperties;
 
@@ -45,6 +48,16 @@ public class OtpService {
      */
     @Transactional
     public Instant requestCode(String phone, OtpPurpose purpose) {
+        return requestCode(phone, purpose, OtpChannel.SMS, phone);
+    }
+
+    /**
+     * Same challenge, delivered over the given channel. The row stays keyed by the account phone
+     * number even when the code travels by email, so one cooldown and one attempt counter cover
+     * the account rather than the address of the day.
+     */
+    @Transactional
+    public Instant requestCode(String phone, OtpPurpose purpose, OtpChannel channel, String destination) {
         otpCodeRepository.findFirstByPhoneAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(phone, purpose)
                 .filter(previous -> previous.getCreatedAt() != null)
                 .ifPresent(previous -> {
@@ -64,9 +77,11 @@ public class OtpService {
                 .purpose(purpose)
                 .codeHash(passwordEncoder.encode(code))
                 .expiresAt(Instant.now().plus(otpProperties.getTtl()))
+                .channel(channel)
+                .destination(destination)
                 .build());
 
-        otpSender.sendOtp(phone, code, otpProperties.getTtl());
+        deliver(channel, destination, code);
         log.info("OTP issued for {} ({})", PhoneNumbers.mask(phone), purpose);
         return Instant.now().plus(otpProperties.getResendCooldown());
     }
@@ -123,6 +138,13 @@ public class OtpService {
         otp.setConsumedAt(Instant.now());
         otpCodeRepository.save(otp);
         return otp.getPhone();
+    }
+
+    private void deliver(OtpChannel channel, String destination, String code) {
+        switch (channel) {
+            case SMS -> otpSender.sendOtp(destination, code, otpProperties.getTtl());
+            case EMAIL -> emailOtpSender.sendOtp(destination, code, otpProperties.getTtl());
+        }
     }
 
     public Duration codeTtl() {
