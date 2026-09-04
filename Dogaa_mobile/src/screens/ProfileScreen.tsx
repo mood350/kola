@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Card, IconCircle, Pill, Progress, Screen } from "../components/Layout";
 import { c } from "../theme";
 import { Route } from "../types";
@@ -34,8 +34,10 @@ const options = [
 
 export default function ProfileScreen({
   navigate,
+  onLogout,
 }: {
   navigate: (r: Route) => void;
+  onLogout: () => void;
 }) {
   const [section, setSection] = useState<string | null>(null);
   return (
@@ -46,7 +48,7 @@ export default function ProfileScreen({
         </View>
         <View style={s.identity}>
           <Text style={s.name}>Kouassi Adjoua</Text>
-          <Text style={s.phone}>+225 07 00 00 00 00</Text>
+          <Text style={s.phone}>🇹🇬 +228 90 00 00 00</Text>
           <View style={s.badges}>
             <Pill green>Compte vérifié</Pill>
             <Pill>TIER 2</Pill>
@@ -109,6 +111,10 @@ export default function ProfileScreen({
         <Ionicons name="card-outline" size={20} color={c.yellow} />
         <Text style={s.creditText}>Voir mes crédits et mes prêts</Text>
         <Ionicons name="arrow-forward" size={18} color={c.white} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={()=>Alert.alert("Déconnexion","Voulez-vous vraiment vous déconnecter ?",[{text:"Annuler",style:"cancel"},{text:"Se déconnecter",style:"destructive",onPress:onLogout}])} style={s.logout}>
+        <Ionicons name="log-out-outline" size={20} color="#BA1A1A" />
+        <Text style={s.logoutText}>Se déconnecter</Text>
       </TouchableOpacity>
     </Screen>
   );
@@ -256,4 +262,6 @@ const s = StyleSheet.create({
     gap: 9,
   },
   creditText: { fontSize: 12, fontWeight: "800", color: c.white, flex: 1 },
+  logout: {height:52,borderRadius:26,borderWidth:1,borderColor:"#F0B8B8",marginTop:12,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8,backgroundColor:"#FFF8F8"},
+  logoutText: {fontSize:12,fontWeight:"800",color:"#BA1A1A"},
 });
