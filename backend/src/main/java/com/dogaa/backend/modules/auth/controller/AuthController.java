@@ -4,6 +4,10 @@ import com.dogaa.backend.common.dto.ApiResponse;
 import com.dogaa.backend.modules.auth.dto.AuthResponse;
 import com.dogaa.backend.modules.auth.dto.ChangePinRequest;
 import com.dogaa.backend.modules.auth.dto.LoginRequest;
+import com.dogaa.backend.modules.auth.dto.OtpRequestedResponse;
+import com.dogaa.backend.modules.auth.dto.OtpVerifiedResponse;
+import com.dogaa.backend.modules.auth.dto.RequestOtpRequest;
+import com.dogaa.backend.modules.auth.dto.VerifyOtpRequest;
 import com.dogaa.backend.modules.auth.dto.RefreshTokenRequest;
 import com.dogaa.backend.modules.auth.dto.RegisterRequest;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
@@ -31,8 +35,24 @@ public class AuthController {
 
     private final AuthenticationService authenticationService;
 
+    @PostMapping("/register/request-otp")
+    @Operation(summary = "Step 1: send a one-time code to a phone number")
+    public ResponseEntity<ApiResponse<OtpRequestedResponse>> requestRegistrationOtp(
+            @Valid @RequestBody RequestOtpRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Code sent by SMS",
+                authenticationService.requestRegistrationOtp(request)));
+    }
+
+    @PostMapping("/register/verify-otp")
+    @Operation(summary = "Step 2: check the code and obtain the verification token")
+    public ResponseEntity<ApiResponse<OtpVerifiedResponse>> verifyRegistrationOtp(
+            @Valid @RequestBody VerifyOtpRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Phone number verified",
+                authenticationService.verifyRegistrationOtp(request)));
+    }
+
     @PostMapping("/register")
-    @Operation(summary = "Create an account with a phone number and a PIN")
+    @Operation(summary = "Step 3: set the identity and the PIN, using the verification token")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request,
                                                               HttpServletRequest httpRequest) {
         AuthResponse response = authenticationService.register(request, userAgent(httpRequest), clientIp(httpRequest));

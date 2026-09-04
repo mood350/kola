@@ -8,9 +8,14 @@ import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.UnauthorizedException;
 import com.dogaa.backend.modules.auth.dto.AuthResponse;
+import com.dogaa.backend.modules.auth.dto.OtpRequestedResponse;
+import com.dogaa.backend.modules.auth.dto.OtpVerifiedResponse;
+import com.dogaa.backend.modules.auth.dto.RequestOtpRequest;
+import com.dogaa.backend.modules.auth.dto.VerifyOtpRequest;
 import com.dogaa.backend.modules.auth.dto.ChangePinRequest;
 import com.dogaa.backend.modules.auth.dto.LoginRequest;
 import com.dogaa.backend.modules.auth.dto.RegisterRequest;
+import com.dogaa.backend.modules.auth.entity.OtpPurpose;
 import com.dogaa.backend.modules.auth.entity.RefreshToken;
 import com.dogaa.backend.modules.auth.security.JwtService;
 import com.dogaa.backend.modules.auth.security.PinPolicy;
@@ -52,13 +57,46 @@ public class AuthenticationService {
     private final UserMapper userMapper;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final OtpService otpService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final AuthProperties authProperties;
 
+    /**
+     * Step 1: send a one-time code to the number. Refuses numbers that already have an account,
+     * so the flow cannot be used to text arbitrary people.
+     */
+    @Transactional
+    public OtpRequestedResponse requestRegistrationOtp(RequestOtpRequest request) {
+        String phone = PhoneNumbers.normalize(request.phone(), authProperties.getDefaultCallingCode());
+
+        if (userService.phoneExists(phone)) {
+            throw new ConflictException("An account already exists for this phone number");
+        }
+
+        Instant resendAvailableAt = otpService.requestCode(phone, OtpPurpose.REGISTRATION);
+        return new OtpRequestedResponse(PhoneNumbers.mask(phone),
+                otpService.codeTtl().toSeconds(), resendAvailableAt);
+    }
+
+    /** Step 2: check the code and hand back the single-use proof needed by {@link #register}. */
+    public OtpVerifiedResponse verifyRegistrationOtp(VerifyOtpRequest request) {
+        String phone = PhoneNumbers.normalize(request.phone(), authProperties.getDefaultCallingCode());
+        String token = otpService.verify(phone, request.code(), OtpPurpose.REGISTRATION);
+        return new OtpVerifiedResponse(token, otpService.verificationTokenTtl().toSeconds());
+    }
+
+    /**
+     * Step 3: create the account and its PIN.
+     *
+     * <p>The phone number is taken from the verification token, never from the payload. Without a
+     * token issued against a correct OTP there is no number to register at all, so this step is
+     * unreachable — that is what makes the OTP mandatory rather than merely expected.
+     */
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent, String ip) {
-        String phone = PhoneNumbers.normalize(request.phone(), authProperties.getDefaultCallingCode());
+        String phone = otpService.consumeVerificationToken(
+                request.verificationToken(), OtpPurpose.REGISTRATION);
 
         if (!request.pin().equals(request.confirmPin())) {
             throw new BadRequestException("PIN confirmation does not match");
@@ -86,6 +124,8 @@ public class AuthenticationService {
                 .city(request.city())
                 .country(request.country())
                 .pinHash(passwordEncoder.encode(request.pin()))
+                // The number was proved in step 2; this is what TIER_0 means (DOGAA.md 4.4).
+                .phoneVerified(true)
                 .build());
 
         log.info("Registered user {} ({})", user.getId(), PhoneNumbers.mask(phone));

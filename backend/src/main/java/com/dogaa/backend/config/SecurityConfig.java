@@ -24,7 +24,8 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, AuthProperties.class, CorsProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, AuthProperties.class,
+        CorsProperties.class, OtpProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -66,6 +67,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/register",
+                                "/api/v1/auth/register/request-otp",
+                                "/api/v1/auth/register/verify-otp",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/logout"

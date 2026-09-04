@@ -26,6 +26,17 @@ No lint/format plugin is configured.
 
 Phone + PIN, no passwords. Implemented across `modules/auth`, `modules/user` and `config/SecurityConfig`.
 
+- **Registration is three steps, and the OTP is structurally mandatory**:
+  `POST /register/request-otp` {phone} sends a 6-digit code (5 min TTL, 60 s resend cooldown, refused
+  if the number already has an account) -> `POST /register/verify-otp` {phone, code} returns a
+  single-use verification token (15 min) -> `POST /register` {verificationToken, identity, pin}.
+  **`RegisterRequest` has no phone field on purpose**: `AuthenticationService.register` reads the
+  number from `OtpService.consumeVerificationToken`. Skipping the OTP does not weaken the check, it
+  leaves the endpoint with no number to register at all. Never add a phone field back to that DTO.
+  The code is stored BCrypt-hashed (a 6-digit code is only a million guesses), burned after 5 wrong
+  attempts, and never returned by the API — it travels only through `OtpSender`.
+- **`OtpSender`** (`modules/notification`) is the SMS seam. The only implementation today is
+  `LoggingOtpSender`, which prints the code in the log and must not reach production.
 - **Identifier**: the phone number, normalised to E.164 by `common/util/PhoneNumbers` before it ever
   reaches the database. `90123456`, `+228 90 12 34 56` and `0022890123456` are the same account.
   Normalise at the edge of every new feature that accepts a phone number.

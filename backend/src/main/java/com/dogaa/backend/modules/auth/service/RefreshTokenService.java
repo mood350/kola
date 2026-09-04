@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.auth.service;
 
+import com.dogaa.backend.common.util.Tokens;
 import com.dogaa.backend.config.JwtProperties;
 import com.dogaa.backend.exception.UnauthorizedException;
 import com.dogaa.backend.modules.auth.entity.RefreshToken;
@@ -9,13 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.UUID;
 
 /** Issues, rotates and revokes opaque refresh tokens. */
@@ -24,7 +19,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
     private static final int TOKEN_BYTES = 48;
 
     private final RefreshTokenRepository refreshTokenRepository;
@@ -33,9 +27,7 @@ public class RefreshTokenService {
     /** @return the clear-text token; only its hash is persisted. */
     @Transactional
     public String issue(UUID userId, String userAgent, String ipAddress) {
-        byte[] raw = new byte[TOKEN_BYTES];
-        RANDOM.nextBytes(raw);
-        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
+        String token = Tokens.random(TOKEN_BYTES);
 
         refreshTokenRepository.save(RefreshToken.builder()
                 .userId(userId)
@@ -87,12 +79,7 @@ public class RefreshTokenService {
     }
 
     static String hash(String token) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 is required but unavailable", ex);
-        }
+        return Tokens.sha256(token);
     }
 
     private static String truncate(String value, int max) {

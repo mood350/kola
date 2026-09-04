@@ -9,12 +9,15 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
+/**
+ * Step 3: identity and PIN. There is deliberately no phone field — the number comes from
+ * {@code verificationToken}, so an account can only ever be created on a verified number.
+ */
 public record RegisterRequest(
+        @NotBlank String verificationToken,
+
         @NotBlank @Size(min = 2, max = 80) String firstName,
         @NotBlank @Size(min = 2, max = 80) String lastName,
-
-        /** Any local or international format; normalised to E.164 before storage. */
-        @NotBlank @Size(max = 20) String phone,
 
         @Email @Size(max = 160) String email,
 
