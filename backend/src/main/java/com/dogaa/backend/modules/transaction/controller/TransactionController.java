@@ -2,6 +2,7 @@ package com.dogaa.backend.modules.transaction.controller;
 
 import com.dogaa.backend.common.dto.ApiResponse;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
+import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
@@ -98,5 +99,15 @@ public class TransactionController {
         TransactionResponse tx = transactionMapper.toResponse(
                 transactionService.cashOut(currentUser.id(), request));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Cash-out completed", tx));
+    }
+
+    @PostMapping("/bill-payment")
+    @Operation(summary = "Pay a utility bill (electricity, water, telecom, early loan repayment)")
+    public ResponseEntity<ApiResponse<TransactionResponse>> payBill(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @Valid @RequestBody BillPaymentRequest request) {
+        TransactionResponse tx = transactionMapper.toResponse(
+                transactionService.payBill(currentUser.id(), request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Bill payment completed", tx));
     }
 }

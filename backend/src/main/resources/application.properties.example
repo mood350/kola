@@ -73,8 +73,10 @@ app.scheduling.credit-scoring-cron=0 30 0 * * *
 
 # --- Business rules (see DOGAA.md) ---
 app.fees.p2p-percent=1.5
+app.fees.merchant-percent=1.0
 app.fees.cash-out-percent=1.0
 app.fees.cash-in-percent=0.0
+app.fees.bill-payment-percent=1.0
 app.credit.monthly-interest-percent=8.0
 
 # --- OpenAPI ---

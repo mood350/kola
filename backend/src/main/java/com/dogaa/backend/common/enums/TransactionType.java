@@ -13,6 +13,8 @@ public enum TransactionType {
     P2P_TRANSFER,
     /** Payment to a partner merchant. Charged a fixed or variable commission. */
     MERCHANT_PAYMENT,
+    /** Utility bill payment (electricity, water, telecom, early loan repayment). Charged ~1% (DOGAA.md 4.6.1). */
+    BILL_PAYMENT,
     /** Move from a wallet's available balance into a vault (locked balance). Free. */
     VAULT_DEPOSIT,
     /** Release from a vault back to the available balance. Free. */
@@ -26,10 +28,10 @@ public enum TransactionType {
 
     public boolean isOutgoing() {
         return this == CASH_OUT || this == P2P_TRANSFER || this == MERCHANT_PAYMENT
-                || this == LOAN_REPAYMENT;
+                || this == BILL_PAYMENT || this == LOAN_REPAYMENT;
     }
 
     public boolean chargesFee() {
-        return this == CASH_OUT || this == P2P_TRANSFER || this == MERCHANT_PAYMENT;
+        return this == CASH_OUT || this == P2P_TRANSFER || this == MERCHANT_PAYMENT || this == BILL_PAYMENT;
     }
 }

@@ -9,6 +9,7 @@ import com.dogaa.backend.common.util.Tokens;
 import com.dogaa.backend.config.AuthProperties;
 import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
+import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
@@ -181,6 +182,35 @@ public class TransactionService {
                 .sourceWalletId(source.getId())
                 .counterparty(request.provider() == null ? phone : request.provider() + ":" + phone)
                 .description("Cash-out"));
+    }
+
+    // --- Bill payment (DOGAA.md 4.6.1) ------------------------------
+
+    @Transactional
+    public Transaction payBill(UUID payerId, BillPaymentRequest request) {
+        User payer = userService.getById(payerId);
+        Currency currency = request.currency();
+        BigDecimal amount = request.amount();
+
+        Wallet source = walletService.getWallet(payerId, currency);
+        BigDecimal fee = feeCalculator.feeFor(
+                TransactionType.BILL_PAYMENT, amount, currency, payer.getKycTier());
+        kycLimitPolicy.checkDailySendLimit(payerId, payer.getKycTier(), currency, amount);
+
+        String reference = newReference();
+        walletService.debit(source.getId(), amount.add(fee));
+        externalTransferGateway.payout(request.billerReference(), amount, currency, reference);
+
+        return complete(Transaction.builder()
+                .reference(reference)
+                .type(TransactionType.BILL_PAYMENT)
+                .currency(currency)
+                .amount(amount)
+                .fee(fee)
+                .senderId(payerId)
+                .sourceWalletId(source.getId())
+                .counterparty(request.billerReference())
+                .description(request.description() == null ? "Bill payment" : request.description()));
     }
 
     // --- Traces for movements owned by other modules ------------

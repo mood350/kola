@@ -22,6 +22,9 @@ public class FeeProperties {
     /** Partner-merchant payment. Spec: "fixed or variable" — 1% taken as the default. */
     private BigDecimal merchantPercent = new BigDecimal("1.0");
 
+    /** Utility bill payment (DOGAA.md 4.6.1) — not quoted in the spec; treated like cash-out. */
+    private BigDecimal billPaymentPercent = new BigDecimal("1.0");
+
     /** Cash-out to another Mobile Money network. Spec: 1%. */
     private BigDecimal cashOutPercent = new BigDecimal("1.0");
 

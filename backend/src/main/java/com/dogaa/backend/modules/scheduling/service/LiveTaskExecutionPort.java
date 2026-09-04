@@ -2,6 +2,7 @@ package com.dogaa.backend.modules.scheduling.service;
 
 import com.dogaa.backend.exception.ApiException;
 import com.dogaa.backend.modules.scheduling.entity.ScheduledTask;
+import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.TransferRequest;
 import com.dogaa.backend.modules.transaction.service.TransactionService;
@@ -44,7 +45,7 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
                 case P2P_TRANSFER -> executeP2p(task);
                 case MERCHANT_PAYMENT -> executeMerchantPayment(task);
                 case VAULT_DEPOSIT -> executeVaultDeposit(task);
-                case BILL_PAYMENT -> unsupported(task);
+                case BILL_PAYMENT -> executeBillPayment(task);
             };
         } catch (ApiException ex) {
             log.warn("Scheduled task {} refused: {}", task.getId(), ex.getMessage());
@@ -79,8 +80,9 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
         return true;
     }
 
-    private boolean unsupported(ScheduledTask task) {
-        log.warn("BILL_PAYMENT has no dogaa-transaction implementation yet - failing task {}", task.getId());
-        return false;
+    private boolean executeBillPayment(ScheduledTask task) {
+        transactionService.payBill(task.getUserId(), new BillPaymentRequest(
+                task.getCurrency(), task.getAmount(), task.getBeneficiaryReference(), "Scheduled bill payment"));
+        return true;
     }
 }

@@ -51,6 +51,14 @@ class FeeCalculatorTest {
     }
 
     @Test
+    void billPaymentChargesOnePercent() {
+        BigDecimal fee = calculator.feeFor(
+                TransactionType.BILL_PAYMENT, new BigDecimal("20000"), Currency.XOF, KycTier.TIER_0);
+
+        assertThat(fee).isEqualByComparingTo("200");
+    }
+
+    @Test
     void freeMovementTypesNeverChargeAFee() {
         BigDecimal fee = calculator.feeFor(
                 TransactionType.VAULT_DEPOSIT, new BigDecimal("50000"), Currency.USD, KycTier.TIER_1);

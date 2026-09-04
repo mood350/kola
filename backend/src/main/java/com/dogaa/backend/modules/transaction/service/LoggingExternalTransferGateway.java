@@ -16,8 +16,8 @@ import java.math.BigDecimal;
 public class LoggingExternalTransferGateway implements ExternalTransferGateway {
 
     @Override
-    public void payout(String phone, BigDecimal amount, Currency currency, String reference) {
+    public void payout(String destination, BigDecimal amount, Currency currency, String reference) {
         log.info("External payout {} {} to {} (ref {})",
-                amount.toPlainString(), currency, PhoneNumbers.mask(phone), reference);
+                amount.toPlainString(), currency, PhoneNumbers.mask(destination), reference);
     }
 }

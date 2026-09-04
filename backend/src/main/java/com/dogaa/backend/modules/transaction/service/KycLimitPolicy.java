@@ -39,7 +39,8 @@ public class KycLimitPolicy {
     // TIER_3 intentionally absent -> unlimited.
 
     private static final List<TransactionType> OUTGOING =
-            List.of(TransactionType.P2P_TRANSFER, TransactionType.MERCHANT_PAYMENT, TransactionType.CASH_OUT);
+            List.of(TransactionType.P2P_TRANSFER, TransactionType.MERCHANT_PAYMENT,
+                    TransactionType.CASH_OUT, TransactionType.BILL_PAYMENT);
 
     private final TransactionRepository transactionRepository;
 

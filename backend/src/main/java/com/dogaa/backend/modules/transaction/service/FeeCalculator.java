@@ -49,6 +49,7 @@ public class FeeCalculator {
         return switch (type) {
             case P2P_TRANSFER -> feeProperties.getP2pPercent();
             case MERCHANT_PAYMENT -> feeProperties.getMerchantPercent();
+            case BILL_PAYMENT -> feeProperties.getBillPaymentPercent();
             case CASH_OUT -> feeProperties.getCashOutPercent();
             case CASH_IN -> feeProperties.getCashInPercent();
             default -> BigDecimal.ZERO;
