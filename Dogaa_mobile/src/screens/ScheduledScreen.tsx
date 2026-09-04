@@ -12,7 +12,7 @@ import DatePickerField from '../components/DatePickerField';
 type Destination = 'person' | 'vault';
 type ScheduledTransfer = { id:string; destination:Destination; recipient:string; phone?:string; vaultId?:string; amount:number; scheduledAt:string; status:'active'|'paused'|'history' };
 const money=(value:number)=>new Intl.NumberFormat('fr-FR').format(value);
-const dateLabel=(iso:string)=>new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
+const dateLabel=(iso:string)=>new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'Africa/Lome'}).format(new Date(iso));
 const localDate=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 const localTime=(date:Date)=>`${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
 
@@ -37,7 +37,9 @@ export default function ScheduledScreen({navigate}:{navigate:(r:Route)=>void}){
   const openContacts=async()=>{try{const permission=await Contacts.requestPermissionsAsync();if(permission.status!=='granted'){Alert.alert('Accès aux contacts refusé','Vous pouvez toujours saisir le numéro manuellement.');return;}const result=await Contacts.getContactsAsync({fields:[Contacts.Fields.PhoneNumbers],sort:Contacts.SortTypes.FirstName});setContacts(result.data.flatMap(contact=>{const number=contact.phoneNumbers?.[0]?.number;return number?[{id:contact.id,name:contact.name||'Sans nom',phone:number}]:[];}));setContactsOpen(true);}catch{Alert.alert('Contacts indisponibles','Saisissez le numéro manuellement.');}};
   const submit=async()=>{
     const numericAmount=Number(amount.replace(/[^0-9]/g,''));
-    const scheduled=new Date(`${date}T${time}:00`);
+    // Le Togo utilise UTC toute l'année : le choix reste identique quel que soit
+    // le fuseau horaire configuré sur le téléphone.
+    const scheduled=new Date(`${date}T${time}:00Z`);
     if(destination==='person'&&(!recipient.trim()||phone.replace(/\D/g,'').length<8)){Alert.alert('Bénéficiaire incomplet','Ajoutez un nom et un numéro de téléphone valide.');return;}
     if(destination==='vault'&&!vaultId){Alert.alert('Aucun coffre','Créez d’abord un coffre avant de programmer une épargne.');return;}
     if(!numericAmount){Alert.alert('Montant invalide','Saisissez un montant supérieur à 0 FCFA.');return;}
