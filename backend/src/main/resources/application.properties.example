@@ -80,5 +80,8 @@ app.credit.monthly-interest-percent=8.0
 # --- OpenAPI ---
 springdoc.swagger-ui.path=/swagger-ui.html
 
+# --- Actuator (only health + info are exposed; SecurityConfig permits them anonymously) ---
+management.endpoints.web.exposure.include=health,info
+
 # --- Logging ---
 logging.level.com.dogaa.backend=INFO
