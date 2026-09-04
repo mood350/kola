@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -10,13 +9,7 @@ import { useDogaaData } from '../context/DogaaDataContext';
 import { schedulingApi } from '../services/api';
 
 type Destination = 'person' | 'vault';
-type ScheduledTransfer = { id:string; destination:Destination; recipient:string; phone?:string; vaultId?:string; amount:number; scheduledAt:string; status:'active'|'paused' };
-const STORAGE_KEY='dogaa.scheduled-transfers.v1';
-const vaults=[{id:'truck',name:'Réparation camion'},{id:'school',name:'Scolarité des enfants'},{id:'emergency',name:"Fonds d'urgence stock"}];
-const examples:ScheduledTransfer[]=[
-  {id:'demo-rent',destination:'person',recipient:'SCI Agence Centrale',phone:'Marchand N° 8842',amount:75000,scheduledAt:'2026-10-05T09:00:00',status:'active'},
-  {id:'demo-vault',destination:'vault',recipient:'Réparation camion',vaultId:'truck',amount:25000,scheduledAt:'2026-10-15T08:00:00',status:'active'},
-];
+type ScheduledTransfer = { id:string; destination:Destination; recipient:string; phone?:string; vaultId?:string; amount:number; scheduledAt:string; status:'active'|'paused'|'history' };
 const money=(value:number)=>new Intl.NumberFormat('fr-FR').format(value);
 const dateLabel=(iso:string)=>new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
 const localDate=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
@@ -24,42 +17,45 @@ const localTime=(date:Date)=>`${String(date.getHours()).padStart(2,'0')}:${Strin
 
 export default function ScheduledScreen({navigate}:{navigate:(r:Route)=>void}){
   const dogaa=useDogaaData();
+  const vaults=dogaa.vaults.map(v=>({id:v.id,name:v.name}));
   const initial=new Date(Date.now()+86400000);
-  const [tab,setTab]=useState(0),[formOpen,setFormOpen]=useState(false),[contactsOpen,setContactsOpen]=useState(false),[loaded,setLoaded]=useState(false);
-  const [transfers,setTransfers]=useState<ScheduledTransfer[]>(examples);
-  const [destination,setDestination]=useState<Destination>('person'),[recipient,setRecipient]=useState(''),[phone,setPhone]=useState(''),[vaultId,setVaultId]=useState(vaults[0].id),[amount,setAmount]=useState('');
+  const [tab,setTab]=useState(0),[formOpen,setFormOpen]=useState(false),[contactsOpen,setContactsOpen]=useState(false);
+  const [transfers,setTransfers]=useState<ScheduledTransfer[]>([]);
+  const [destination,setDestination]=useState<Destination>('person'),[recipient,setRecipient]=useState(''),[phone,setPhone]=useState(''),[vaultId,setVaultId]=useState(''),[amount,setAmount]=useState('');
   const [date,setDate]=useState(localDate(initial)),[time,setTime]=useState(localTime(initial));
   const [contacts,setContacts]=useState<{id:string;name:string;phone:string}[]>([]),[query,setQuery]=useState('');
 
-  useEffect(()=>{AsyncStorage.getItem(STORAGE_KEY).then(raw=>{if(raw)setTransfers(JSON.parse(raw));}).catch(()=>{}).finally(()=>setLoaded(true));},[]);
-  useEffect(()=>{if(loaded)AsyncStorage.setItem(STORAGE_KEY,JSON.stringify(transfers)).catch(()=>{});},[transfers,loaded]);
-  useEffect(()=>{if(!dogaa.loading)setTransfers(dogaa.scheduled.map(item=>({id:item.id,destination:item.type==='VAULT_DEPOSIT'?'vault':'person',recipient:item.beneficiaryReference,phone:item.type==='P2P_TRANSFER'?item.beneficiaryReference:undefined,vaultId:item.type==='VAULT_DEPOSIT'?item.beneficiaryReference:undefined,amount:Number(item.amount),scheduledAt:item.nextRunAt,status:item.status==='PAUSED'?'paused':'active'})));},[dogaa.loading,dogaa.scheduled]);
-  const visible=useMemo(()=>transfers.filter(x=>tab===0?x.status==='active':tab===2?x.status==='paused':false),[transfers,tab]);
+  useEffect(()=>{if(!vaultId&&vaults[0])setVaultId(vaults[0].id);},[vaultId,vaults]);
+  useEffect(()=>{if(!dogaa.loading)setTransfers(dogaa.scheduled.map(item=>({id:item.id,destination:item.type==='VAULT_DEPOSIT'?'vault':'person',recipient:item.type==='VAULT_DEPOSIT'?(dogaa.vaults.find(v=>v.id===item.beneficiaryReference)?.name||'Coffre DOGAA'):item.beneficiaryReference,phone:item.type==='P2P_TRANSFER'?item.beneficiaryReference:undefined,vaultId:item.type==='VAULT_DEPOSIT'?item.beneficiaryReference:undefined,amount:Number(item.amount),scheduledAt:item.nextRunAt,status:item.status==='PAUSED'?'paused':['ACTIVE','RETRY_PENDING'].includes(item.status)?'active':'history'})));},[dogaa.loading,dogaa.scheduled,dogaa.vaults]);
+  const visible=useMemo(()=>transfers.filter(x=>tab===0?x.status==='active':tab===2?x.status==='paused':x.status==='history'),[transfers,tab]);
+  const nextActive=transfers.filter(x=>x.status==='active').sort((a,b)=>new Date(a.scheduledAt).getTime()-new Date(b.scheduledAt).getTime())[0];
+  const reminder=nextActive?`J-${Math.max(0,Math.ceil((new Date(nextActive.scheduledAt).getTime()-Date.now())/86400000))}`:'—';
   const filteredContacts=useMemo(()=>contacts.filter(x=>`${x.name} ${x.phone}`.toLowerCase().includes(query.toLowerCase())),[contacts,query]);
-  const resetForm=()=>{const next=new Date(Date.now()+86400000);setDestination('person');setRecipient('');setPhone('');setVaultId(vaults[0].id);setAmount('');setDate(localDate(next));setTime(localTime(next));};
+  const resetForm=()=>{const next=new Date(Date.now()+86400000);setDestination('person');setRecipient('');setPhone('');setVaultId(vaults[0]?.id||'');setAmount('');setDate(localDate(next));setTime(localTime(next));};
   const closeForm=()=>{setFormOpen(false);resetForm();};
   const openContacts=async()=>{try{const permission=await Contacts.requestPermissionsAsync();if(permission.status!=='granted'){Alert.alert('Accès aux contacts refusé','Vous pouvez toujours saisir le numéro manuellement.');return;}const result=await Contacts.getContactsAsync({fields:[Contacts.Fields.PhoneNumbers],sort:Contacts.SortTypes.FirstName});setContacts(result.data.flatMap(contact=>{const number=contact.phoneNumbers?.[0]?.number;return number?[{id:contact.id,name:contact.name||'Sans nom',phone:number}]:[];}));setContactsOpen(true);}catch{Alert.alert('Contacts indisponibles','Saisissez le numéro manuellement.');}};
   const submit=async()=>{
     const numericAmount=Number(amount.replace(/[^0-9]/g,''));
     const scheduled=new Date(`${date}T${time}:00`);
     if(destination==='person'&&(!recipient.trim()||phone.replace(/\D/g,'').length<8)){Alert.alert('Bénéficiaire incomplet','Ajoutez un nom et un numéro de téléphone valide.');return;}
+    if(destination==='vault'&&!vaultId){Alert.alert('Aucun coffre','Créez d’abord un coffre avant de programmer une épargne.');return;}
     if(!numericAmount){Alert.alert('Montant invalide','Saisissez un montant supérieur à 0 FCFA.');return;}
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)||Number.isNaN(scheduled.getTime())){Alert.alert('Date invalide','Utilisez AAAA-MM-JJ et HH:MM.');return;}
     if(scheduled.getTime()<=Date.now()){Alert.alert('Date passée','Choisissez une date et une heure futures.');return;}
-    const vault=vaults.find(x=>x.id===vaultId)!;
-    try{const created=await schedulingApi.create({userId:dogaa.user!.id,type:destination==='vault'?'VAULT_DEPOSIT':'P2P_TRANSFER',frequency:'ONCE',amount:numericAmount,currency:'XOF',beneficiaryReference:destination==='vault'?vaultId:`+228${phone.replace(/\D/g,'').slice(-8)}`,firstRunAt:scheduled.toISOString()});const transfer:ScheduledTransfer={id:created.id,destination,recipient:destination==='vault'?vault.name:recipient.trim(),phone:destination==='person'?phone.trim():undefined,vaultId:destination==='vault'?vaultId:undefined,amount:numericAmount,scheduledAt:created.nextRunAt,status:'active'};setTransfers(current=>[transfer,...current]);await dogaa.refresh();closeForm();Alert.alert('Envoi programmé',`${money(numericAmount)} FCFA seront envoyés le ${dateLabel(transfer.scheduledAt)}.`);}catch(error){Alert.alert('Programmation impossible',error instanceof Error?error.message:'Erreur serveur.');}
+    const vault=vaults.find(x=>x.id===vaultId);
+    try{const created=await schedulingApi.create({userId:dogaa.user!.id,type:destination==='vault'?'VAULT_DEPOSIT':'P2P_TRANSFER',frequency:'ONCE',amount:numericAmount,currency:'XOF',beneficiaryReference:destination==='vault'?vaultId:`+228${phone.replace(/\D/g,'').slice(-8)}`,firstRunAt:scheduled.toISOString()});const transfer:ScheduledTransfer={id:created.id,destination,recipient:destination==='vault'?(vault?.name||'Coffre DOGAA'):recipient.trim(),phone:destination==='person'?phone.trim():undefined,vaultId:destination==='vault'?vaultId:undefined,amount:numericAmount,scheduledAt:created.nextRunAt,status:'active'};setTransfers(current=>[transfer,...current]);await dogaa.refresh();closeForm();Alert.alert('Envoi programmé',`${money(numericAmount)} FCFA seront envoyés le ${dateLabel(transfer.scheduledAt)}.`);}catch(error){Alert.alert('Programmation impossible',error instanceof Error?error.message:'Erreur serveur.');}
   };
   const toggle=async(item:ScheduledTransfer)=>{try{if(item.status==='active')await schedulingApi.pause(item.id);else await schedulingApi.resume(item.id);setTransfers(current=>current.map(x=>x.id===item.id?{...x,status:x.status==='active'?'paused':'active'}:x));await dogaa.refresh();}catch(error){Alert.alert('Action impossible',error instanceof Error?error.message:'Erreur serveur.');}};
 
   return <Screen route="scheduled" navigate={navigate}>
     <View style={s.titleRow}><Text style={s.title}>Envois programmés</Text><Pill green>● Automatisés</Pill></View>
     <View style={s.scheduler}><Ionicons name="shield-checkmark-outline" size={15} color={c.green}/><Text style={s.schedulerText}>Ordres enregistrés et contrôlables à tout moment</Text></View>
-    <View style={s.summary}><Stat value={transfers.filter(x=>x.status==='active').length.toString()} label="ACTIFS" color={c.yellow}/><Stat value={transfers.filter(x=>x.status==='paused').length.toString()} label="EN PAUSE"/><Stat value="J-1" label="RAPPEL" color={c.mint}/></View>
+    <View style={s.summary}><Stat value={transfers.filter(x=>x.status==='active').length.toString()} label="ACTIFS" color={c.yellow}/><Stat value={transfers.filter(x=>x.status==='paused').length.toString()} label="EN PAUSE"/><Stat value={reminder} label="PROCHAIN" color={c.mint}/></View>
     <PrimaryButton onPress={()=>setFormOpen(true)}>⊕  Programmer un envoi</PrimaryButton>
     <View style={s.tabs}>{[`À venir (${transfers.filter(x=>x.status==='active').length})`,'Historique',`En pause (${transfers.filter(x=>x.status==='paused').length})`].map((x,i)=><TouchableOpacity onPress={()=>setTab(i)} key={x} style={[s.tab,tab===i&&s.tabActive]}><Text style={s.tabText}>{x}</Text></TouchableOpacity>)}</View>
-    {tab===1?<Empty icon="receipt-outline" text="Aucun envoi exécuté"/>:visible.length===0?<Empty icon="calendar-outline" text={tab===2?'Aucun envoi en pause':'Aucun envoi programmé'}/>:visible.map(item=><Card key={item.id} style={s.schedule}>
-      <View style={s.itemHead}><IconCircle name={item.destination==='vault'?'lock-closed-outline':'person-outline'}/><View style={s.info}><Text style={s.itemTitle}>{item.recipient}</Text><Pill>{item.destination==='vault'?'Coffre':'Personne'}</Pill><Text style={s.sub}>{item.destination==='vault'?'Épargne sécurisée':item.phone}</Text></View><TouchableOpacity onPress={()=>toggle(item)} style={s.pause}><Ionicons name={item.status==='active'?'pause':'play'} size={18} color={c.primary}/></TouchableOpacity></View>
-      <Text style={s.amount}>{money(item.amount)}<Text style={s.fcfa}> FCFA</Text></Text><View style={s.status}><Ionicons name="calendar-outline" size={15} color={c.green}/><Text style={s.statusText}>{dateLabel(item.scheduledAt)}</Text><Text style={s.note}>{item.status==='active'?'Actif':'En pause'}</Text></View>
+    {visible.length===0?<Empty icon={tab===1?'receipt-outline':'calendar-outline'} text={tab===1?'Aucun envoi exécuté':tab===2?'Aucun envoi en pause':'Aucun envoi programmé'}/>:visible.map(item=><Card key={item.id} style={s.schedule}>
+      <View style={s.itemHead}><IconCircle name={item.destination==='vault'?'lock-closed-outline':'person-outline'}/><View style={s.info}><Text style={s.itemTitle}>{item.recipient}</Text><Pill>{item.destination==='vault'?'Coffre':'Personne'}</Pill><Text style={s.sub}>{item.destination==='vault'?'Épargne sécurisée':item.phone}</Text></View>{item.status!=='history'&&<TouchableOpacity onPress={()=>toggle(item)} style={s.pause}><Ionicons name={item.status==='active'?'pause':'play'} size={18} color={c.primary}/></TouchableOpacity>}</View>
+      <Text style={s.amount}>{money(item.amount)}<Text style={s.fcfa}> FCFA</Text></Text><View style={s.status}><Ionicons name="calendar-outline" size={15} color={c.green}/><Text style={s.statusText}>{dateLabel(item.scheduledAt)}</Text><Text style={s.note}>{item.status==='active'?'Actif':item.status==='paused'?'En pause':'Terminé'}</Text></View>
     </Card>)}
     <View style={s.notice}><IconCircle name="notifications-outline" bg={c.yellow} color={c.primary}/><View style={{flex:1}}><Text style={s.noticeTitle}>Rappel avant l’envoi</Text><Text style={s.noticeText}>Vous pourrez suspendre l’ordre avant son exécution. Le transfert final sera sécurisé par DOGAA.</Text></View></View>
 
