@@ -1,0 +1,17 @@
+package com.dogaa.backend.modules.vault.repository;
+
+import com.dogaa.backend.modules.vault.entity.Vault;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface VaultRepository extends JpaRepository<Vault, UUID> {
+
+    List<Vault> findByOwnerIdOrderByCreatedAtDesc(UUID ownerId);
+
+    Optional<Vault> findByIdAndOwnerId(UUID id, UUID ownerId);
+}
