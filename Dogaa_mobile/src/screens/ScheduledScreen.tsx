@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Contacts from 'expo-contacts';
+import * as Contacts from 'expo-contacts/legacy';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card, IconCircle, Pill, PrimaryButton, Screen } from '../components/Layout';
