@@ -28,7 +28,7 @@ const tabs: {route:Route; label:string; icon:IconName}[] = [
 
 export function BottomNav({ route, navigate }: {route:Route; navigate:(r:Route)=>void}) {
   return <View style={s.nav}>{tabs.map((item,index)=>{
-    const active=route===item.route||((route==='loan'||route==='loanDetail')&&item.route==='credit');
+    const active=route===item.route||((route==='loan'||route==='loanDetail')&&item.route==='credit')||(route==='vaultDetail'&&item.route==='vaults');
     return <TouchableOpacity key={item.route} onPress={()=>navigate(item.route)} style={[s.navItem,index===2&&s.scan]}>
       <Ionicons name={item.icon} size={index===2?27:23} color={index===2?c.primary:active?c.primary:c.ink}/>
       {!!item.label&&<Text style={[s.navLabel,active&&s.navLabelActive]}>{item.label}</Text>}
