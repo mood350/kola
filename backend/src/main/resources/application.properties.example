@@ -1,0 +1,39 @@
+# Copy to application.properties and fill in real values. Never commit application.properties.
+spring.application.name=backend
+
+# --- Datasource (PostgreSQL) ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/dogaa
+spring.datasource.username=CHANGE_ME
+spring.datasource.password=CHANGE_ME
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# --- JPA / Hibernate ---
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.open-in-view=false
+
+# --- Server ---
+server.port=8080
+
+# --- Security / JWT ---
+app.security.jwt.secret=CHANGE_ME_BASE64_SECRET
+app.security.jwt.access-token-ttl=15m
+app.security.jwt.refresh-token-ttl=30d
+
+# --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
+app.scheduling.enabled=true
+app.scheduling.scheduled-transactions-cron=0 0 0 * * *
+app.scheduling.credit-scoring-cron=0 30 0 * * *
+
+# --- Business rules (see DOGAA.md) ---
+app.fees.p2p-percent=1.5
+app.fees.cash-out-percent=1.0
+app.fees.cash-in-percent=0.0
+app.credit.monthly-interest-percent=8.0
+
+# --- OpenAPI ---
+springdoc.swagger-ui.path=/swagger-ui.html
+
+# --- Logging ---
+logging.level.com.dogaa.backend=INFO
