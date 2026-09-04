@@ -46,12 +46,13 @@ export type Vault={id:string;name:string;currency:string;balance:number;targetAm
 export type Transaction={id:string;reference:string;type:string;status:string;currency:string;amount:number;fee:number;totalDebited:number;counterparty?:string;description?:string;failureReason?:string;completedAt?:string;createdAt:string};
 export type ScheduledTask={id:string;userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;status:string;nextRunAt:string;endDate?:string;maxOccurrences?:number;occurrencesCompleted:number;retryCount:number;lastFailureReason?:string};
 export type CreditEligibility={eligible:boolean;score:number;minimumScore:number;kycTier:string;currency:string;savingsBalance:number;leverageRatio:number;maxLoanAmount:number;monthlyRatePercent:number;totalRepayable:number;termDays:number;loansRepaid:number;blockers:string[]};
+export type Loan={id:string;currency:string;principal:number;collateralAmount:number;leverageRatio:number;monthlyRatePercent:number;interestAmount:number;penaltyAmount:number;totalDue:number;amountRepaid:number;outstanding:number;shortfallAmount:number;status:string;scoreAtGrant:number;disbursedAt:string;dueAt:string;settledAt?:string};
 
 export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true)};
 export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true)};
 export const vaultApi={list:()=>request<Vault[]>('/api/v1/vaults',{},true),deposit:(id:string,amount:number)=>request<Vault>(`/api/v1/vaults/${id}/deposit`,{method:'POST',body:JSON.stringify({amount})},true)};
 export const transactionApi={history:()=>request<{content:Transaction[]}>('/api/v1/transactions?size=100',{},true)};
-export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<any[]>('/api/v1/credit/loans',{},true)};
+export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<Loan[]>('/api/v1/credit/loans',{},true)};
 export const schedulingApi={
   list:(userId:string)=>request<ScheduledTask[]>(`/api/v1/scheduling/tasks/users/${userId}`,{},true),
   create:(payload:{userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;firstRunAt:string})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),

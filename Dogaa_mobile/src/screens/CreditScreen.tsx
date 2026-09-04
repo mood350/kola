@@ -6,32 +6,6 @@ import { c } from "../theme";
 import { Route } from "../types";
 import { useDogaaData } from "../context/DogaaDataContext";
 
-const currentLoans = [
-  {
-    title: "Prêt activité commerciale",
-    amount: "150 000",
-    remaining: "108 000",
-    paid: 28,
-    next: "15 oct. 2026",
-    installment: "36 000 FCFA",
-    icon: "storefront-outline" as const,
-  },
-];
-const history = [
-  {
-    title: "Prêt équipement",
-    amount: "80 000",
-    date: "Remboursé le 12 août 2026",
-    icon: "checkmark-circle-outline" as const,
-  },
-  {
-    title: "Avance trésorerie",
-    amount: "50 000",
-    date: "Remboursée le 3 juin 2026",
-    icon: "checkmark-circle-outline" as const,
-  },
-];
-
 export default function CreditScreen({
   navigate,
 }: {
@@ -41,6 +15,8 @@ export default function CreditScreen({
   const dogaa = useDogaaData();
   const activeLoans = dogaa.loans.filter(loan=>!['REPAID','DEFAULTED'].includes(loan.status));
   const outstanding = activeLoans.reduce((sum,loan)=>sum+Number(loan.outstanding||0),0);
+  const currentLoans = activeLoans.map(loan=>({title:`Prêt DOGAA ${loan.id.slice(0,8)}`,amount:new Intl.NumberFormat('fr-FR').format(Number(loan.principal)),remaining:new Intl.NumberFormat('fr-FR').format(Number(loan.outstanding)),paid:loan.totalDue?Math.round(Number(loan.amountRepaid)/Number(loan.totalDue)*100):0,next:new Date(loan.dueAt).toLocaleDateString('fr-FR'),installment:`${new Intl.NumberFormat('fr-FR').format(Number(loan.outstanding))} FCFA`,icon:'cash-outline' as const}));
+  const history = dogaa.loans.filter(loan=>['REPAID','DEFAULTED'].includes(loan.status)).map(loan=>({title:`Prêt DOGAA ${loan.id.slice(0,8)}`,amount:new Intl.NumberFormat('fr-FR').format(Number(loan.principal)),date:loan.settledAt?`Terminé le ${new Date(loan.settledAt).toLocaleDateString('fr-FR')}`:loan.status,icon:loan.status==='REPAID'?'checkmark-circle-outline' as const:'alert-circle-outline' as const}));
   return (
     <Screen route="credit" navigate={navigate}>
       <View style={s.head}>
@@ -116,18 +92,19 @@ export default function CreditScreen({
           </Card>
         </TouchableOpacity>
       ))}
+      {!dogaa.loading&&currentLoans.length===0&&<Card style={s.emptyCard}><Ionicons name="document-text-outline" size={30} color={c.muted}/><Text style={s.emptyTitle}>Aucun prêt en cours</Text><Text style={s.emptyText}>Vos futurs prêts apparaîtront ici.</Text></Card>}
       <View style={s.section}>
-        <Text style={s.sectionTitle}>Offre disponible</Text>
+        <Text style={s.sectionTitle}>{dogaa.eligibility?.eligible?'Offre disponible':'Accès au crédit'}</Text>
         <Pill>Score {dogaa.eligibility?.score??0}/100</Pill>
       </View>
-      <TouchableOpacity onPress={() => navigate("loan")} style={s.offer}>
+      <TouchableOpacity disabled={!dogaa.eligibility?.eligible} onPress={() => navigate("loan")} style={[s.offer,!dogaa.eligibility?.eligible&&{opacity:.72}]}>
         <View style={s.offerTop}>
           <View style={s.offerIcon}>
             <Ionicons name="flash-outline" size={24} color={c.primary} />
           </View>
           <View style={s.offerCopy}>
-            <Text style={s.offerTitle}>Prêt Express pré-approuvé</Text>
-            <Text style={s.offerSub}>Sans caution • Réponse immédiate</Text>
+            <Text style={s.offerTitle}>{dogaa.eligibility?.eligible?'Prêt Express pré-approuvé':'Crédit non disponible'}</Text>
+            <Text style={s.offerSub}>{dogaa.eligibility?.eligible?'Sans caution • Réponse immédiate':dogaa.eligibility?.blockers?.[0]||'Calcul de l’éligibilité indisponible'}</Text>
           </View>
         </View>
         <Text style={s.offerLabel}>JUSQU’À</Text>
@@ -135,7 +112,7 @@ export default function CreditScreen({
           {new Intl.NumberFormat('fr-FR').format(Number(dogaa.eligibility?.maxLoanAmount||0))} <Text style={s.offerFcfa}>FCFA</Text>
         </Text>
         <View style={s.offerButton}>
-          <Text style={s.offerButtonText}>Simuler mon prêt</Text>
+          <Text style={s.offerButtonText}>{dogaa.eligibility?.eligible?'Simuler mon prêt':'Conditions non remplies'}</Text>
           <Ionicons name="arrow-forward" size={18} color={c.primary} />
         </View>
       </TouchableOpacity>
@@ -155,6 +132,7 @@ export default function CreditScreen({
       </TouchableOpacity>
       {historyOpen && (
         <Card style={s.historyCard}>
+          {history.length===0&&<View style={s.emptyHistory}><Text style={s.emptyText}>Aucun ancien prêt.</Text></View>}
           {history.map((loan, index) => (
             <TouchableOpacity
               key={loan.title}
@@ -324,4 +302,8 @@ const s = StyleSheet.create({
   historyName: { fontSize: 12, fontWeight: "700", color: c.ink },
   historyDate: { fontSize: 8, color: c.muted, marginTop: 3 },
   historyAmount: { fontSize: 11, fontWeight: "800", color: c.primary },
+  emptyCard: { alignItems: "center", paddingVertical: 25 },
+  emptyTitle: { fontSize: 14, fontWeight: "800", color: c.ink, marginTop: 8 },
+  emptyText: { fontSize: 10, color: c.muted, marginTop: 4, textAlign: "center" },
+  emptyHistory: { paddingVertical: 20, alignItems: "center" },
 });

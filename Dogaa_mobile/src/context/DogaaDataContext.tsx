@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { creditApi, CreditEligibility, DogaaUser, schedulingApi, ScheduledTask, transactionApi, Transaction, userApi, Vault, vaultApi, Wallet, walletApi } from '../services/api';
+import { creditApi, CreditEligibility, DogaaUser, Loan, schedulingApi, ScheduledTask, transactionApi, Transaction, userApi, Vault, vaultApi, Wallet, walletApi } from '../services/api';
 
-type Data={user:DogaaUser|null;wallets:Wallet[];vaults:Vault[];transactions:Transaction[];eligibility:CreditEligibility|null;loans:any[];scheduled:ScheduledTask[];loading:boolean;error:string|null;refresh:()=>Promise<void>};
+type Data={user:DogaaUser|null;wallets:Wallet[];vaults:Vault[];transactions:Transaction[];eligibility:CreditEligibility|null;loans:Loan[];scheduled:ScheduledTask[];loading:boolean;error:string|null;refresh:()=>Promise<void>};
 const Context=createContext<Data|null>(null);
 
 export function DogaaDataProvider({children}:{children:React.ReactNode}){
