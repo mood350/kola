@@ -60,6 +60,20 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    // --- Admin aggregates (DOGAA.md 4.5) --------------------------
+
+    /** Total accounts. Read-only metric for dogaa-admin. */
+    @Transactional(readOnly = true)
+    public long totalUsers() {
+        return userRepository.count();
+    }
+
+    /** New accounts since a point in time — "croissance des utilisateurs". */
+    @Transactional(readOnly = true)
+    public long newUsersSince(Instant since) {
+        return userRepository.countByCreatedAtAfter(since);
+    }
+
     /**
      * Counts a wrong PIN and locks the account once the ceiling is reached.
      *

@@ -3,6 +3,7 @@ package com.dogaa.backend.modules.transaction.repository;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.TransactionStatus;
 import com.dogaa.backend.common.enums.TransactionType;
+import com.dogaa.backend.modules.transaction.dto.TransactionAggregate;
 import com.dogaa.backend.modules.transaction.entity.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,4 +49,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
                             @Param("status") TransactionStatus status,
                             @Param("types") Collection<TransactionType> types,
                             @Param("since") Instant since);
+
+    /**
+     * Transaction count, total amount moved and total fees collected, one row per
+     * currency (DOGAA.md 4.5: "Volume de transactions"). Consumed by dogaa-admin
+     * through {@code TransactionService}, never directly.
+     */
+    @Query("""
+            select new com.dogaa.backend.modules.transaction.dto.TransactionAggregate(
+                t.currency, count(t), coalesce(sum(t.amount), 0), coalesce(sum(t.fee), 0))
+            from Transaction t
+            where t.status = :status
+            group by t.currency
+            """)
+    List<TransactionAggregate> aggregateByCurrency(@Param("status") TransactionStatus status);
 }

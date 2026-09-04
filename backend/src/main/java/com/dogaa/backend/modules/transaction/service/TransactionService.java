@@ -13,6 +13,7 @@ import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
 import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
+import com.dogaa.backend.modules.transaction.dto.TransactionAggregate;
 import com.dogaa.backend.modules.transaction.dto.TransferRequest;
 import com.dogaa.backend.modules.transaction.entity.Transaction;
 import com.dogaa.backend.modules.transaction.repository.TransactionRepository;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -250,6 +252,18 @@ public class TransactionService {
             throw new ResourceNotFoundException("Transaction not found: " + reference);
         }
         return tx;
+    }
+
+    // --- Admin aggregates (DOGAA.md 4.5) --------------------------
+
+    /**
+     * Transaction volume and fees collected, one row per currency. Read-only
+     * metric for dogaa-admin — go through this method, never
+     * {@code TransactionRepository} directly.
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionAggregate> aggregateByCurrency(TransactionStatus status) {
+        return transactionRepository.aggregateByCurrency(status);
     }
 
     // --- Helpers -----------------------------------------------

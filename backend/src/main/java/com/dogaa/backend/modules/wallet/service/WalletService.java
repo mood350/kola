@@ -6,6 +6,7 @@ import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.InsufficientFundsException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.user.service.UserService;
+import com.dogaa.backend.modules.wallet.dto.WalletAggregate;
 import com.dogaa.backend.modules.wallet.entity.Wallet;
 import com.dogaa.backend.modules.wallet.entity.WalletStatus;
 import com.dogaa.backend.modules.wallet.repository.WalletRepository;
@@ -131,6 +132,18 @@ public class WalletService {
         wallet.setLockedBalance(wallet.getLockedBalance().subtract(amount));
         wallet.setAvailableBalance(wallet.getAvailableBalance().add(amount));
         return wallet;
+    }
+
+    // --- Admin aggregates (DOGAA.md 4.5) --------------------------
+
+    /**
+     * Wallet count and total available/locked balance, one row per currency
+     * ("solde global"). Read-only metric for dogaa-admin — go through this
+     * method, never {@code WalletRepository} directly.
+     */
+    @Transactional(readOnly = true)
+    public List<WalletAggregate> aggregateByCurrency() {
+        return walletRepository.aggregateByCurrency();
     }
 
     // --- Guards ---------------------------------------------------------
