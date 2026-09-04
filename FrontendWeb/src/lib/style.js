@@ -28,16 +28,29 @@ export const badge = (bg, fg) => ({
   color: fg,
 });
 
-export const OK = badge('#E6F5EE', '#0E8A5F');
-export const PEND = badge('#FFF4DA', '#96690A');
-export const KO = badge('#FDEBEC', '#B3262F');
-export const NEUT = badge('#EEF2FA', '#5C6B8E');
+export const OK = badge('rgba(16,185,129,.12)', '#005236');
+export const PEND = badge('rgba(255,203,5,.2)', '#745B00');
+export const KO = badge('rgba(186,26,26,.1)', '#BA1A1A');
+export const NEUT = badge('#E2E7FF', '#596171');
 
 export const delta = (up) => ({
   fontSize: 11,
   fontWeight: 700,
   marginTop: 6,
-  color: up ? '#0E8A5F' : '#B3262F',
+  color: up ? '#005236' : '#BA1A1A',
 });
 
-export const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+export const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+// React warns when a style transitions between a `border` shorthand and a
+// longhand like `borderColor` across renders (as happens on hover/focus when
+// only the color changes). Expanding the shorthand up front keeps both
+// states on the same longhand keys so that transition never occurs.
+export function expandBorder(style) {
+  const border = style && style.border;
+  if (typeof border !== 'string') return style;
+  const m = border.match(/^(\S+)\s+(\S+)\s+(\S+)$/);
+  if (!m) return style;
+  const { border: _drop, ...rest } = style;
+  return { borderWidth: m[1], borderStyle: m[2], borderColor: m[3], ...rest };
+}

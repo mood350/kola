@@ -1,14 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
+import { AuthProvider } from './auth/AuthContext';
+import ProtectedRoute from './auth/ProtectedRoute';
 import Login from './auth/Login';
-
-import KolaLayout from './kola/KolaLayout';
-import Dashboard from './kola/pages/Dashboard';
-import WalletPage from './kola/pages/Wallet';
-import Vaults from './kola/pages/Vaults';
-import Credit from './kola/pages/Credit';
-import Kyc from './kola/pages/Kyc';
-import AdminLite from './kola/pages/AdminLite';
+import ForgotPassword from './auth/ForgotPassword';
 
 import AdminLayout from './admin/AdminLayout';
 import AdminDashboard from './admin/pages/Dashboard';
@@ -20,38 +15,37 @@ import Config from './admin/pages/Config';
 import Audit from './admin/pages/Audit';
 import Roles from './admin/pages/Roles';
 import Support from './admin/pages/Support';
+import Profile from './admin/pages/Profile';
+import NotFound from './pages/NotFound';
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        <Route path="/app" element={<KolaLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="wallet" element={<WalletPage />} />
-          <Route path="vaults" element={<Vaults />} />
-          <Route path="credit" element={<Credit />} />
-          <Route path="kyc" element={<Kyc />} />
-          <Route path="admin" element={<AdminLite />} />
-        </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="users" element={<Users />} />
+              <Route path="credit" element={<AdminCredit />} />
+              <Route path="finance" element={<Finance />} />
+              <Route path="disputes" element={<Disputes />} />
+              <Route path="config" element={<Config />} />
+              <Route path="audit" element={<Audit />} />
+              <Route path="roles" element={<Roles />} />
+              <Route path="support" element={<Support />} />
+              <Route path="profile" element={<Profile />} />
+            </Route>
+          </Route>
 
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<Users />} />
-          <Route path="credit" element={<AdminCredit />} />
-          <Route path="finance" element={<Finance />} />
-          <Route path="disputes" element={<Disputes />} />
-          <Route path="config" element={<Config />} />
-          <Route path="audit" element={<Audit />} />
-          <Route path="roles" element={<Roles />} />
-          <Route path="support" element={<Support />} />
-        </Route>
-
-        <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

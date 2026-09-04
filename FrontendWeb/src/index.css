@@ -4,13 +4,13 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: #E8ECF4;
+  background: #FAF8FF;
   -webkit-font-smoothing: antialiased;
   font-family: Manrope, Helvetica, sans-serif;
 }
 
-a { color: #0F2A6B; text-decoration: none; }
-a:hover { color: #F5B301; }
+a { color: #0F3875; text-decoration: none; }
+a:hover { color: #FFCB05; }
 
 button, input { font-family: inherit; }
 
@@ -21,5 +21,5 @@ button, input { font-family: inherit; }
 @keyframes kFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-thumb { background: #C3CCDE; border-radius: 9px; }
+::-webkit-scrollbar-thumb { background: rgba(0,35,83,.18); border-radius: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }

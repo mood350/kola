@@ -17,5 +17,12 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // Standard convention: a leading underscore marks a parameter that's
+      // part of an interface/contract but unused by this particular
+      // implementation (e.g. a Mock*Repository method matching its Http*
+      // sibling's signature).
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
   },
 ])
