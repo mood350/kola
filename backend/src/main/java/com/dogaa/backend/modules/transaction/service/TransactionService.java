@@ -1,0 +1,228 @@
+package com.dogaa.backend.modules.transaction.service;
+
+import com.dogaa.backend.common.enums.Currency;
+import com.dogaa.backend.common.enums.Role;
+import com.dogaa.backend.common.enums.TransactionStatus;
+import com.dogaa.backend.common.enums.TransactionType;
+import com.dogaa.backend.common.util.PhoneNumbers;
+import com.dogaa.backend.common.util.Tokens;
+import com.dogaa.backend.config.AuthProperties;
+import com.dogaa.backend.exception.BadRequestException;
+import com.dogaa.backend.exception.ResourceNotFoundException;
+import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
+import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
+import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
+import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
+import com.dogaa.backend.modules.transaction.dto.TransferRequest;
+import com.dogaa.backend.modules.transaction.entity.Transaction;
+import com.dogaa.backend.modules.transaction.repository.TransactionRepository;
+import com.dogaa.backend.modules.user.entity.User;
+import com.dogaa.backend.modules.user.service.UserService;
+import com.dogaa.backend.modules.wallet.entity.Wallet;
+import com.dogaa.backend.modules.wallet.service.WalletService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Runs the outgoing money movements of DOGAA.md 4.1 — P2P transfer, merchant payment,
+ * cash-out — and writes the trace for each one.
+ *
+ * <p>Each operation is one transaction: the wallet debit, the matching credit (or external
+ * payout) and the saved {@link Transaction} row either all happen or none do. Money moves
+ * only through {@link WalletService}; users are resolved only through {@link UserService}.
+ * A refused move (insufficient funds, KYC limit, frozen wallet) rolls the whole thing back
+ * and surfaces as a 4xx — the {@code FAILED} trace status is produced by the scheduler
+ * (DOGAA.md 4.6), not this path.
+ */
+@Service
+@RequiredArgsConstructor
+public class TransactionService {
+
+    private final TransactionRepository transactionRepository;
+    private final WalletService walletService;
+    private final UserService userService;
+    private final FeeCalculator feeCalculator;
+    private final KycLimitPolicy kycLimitPolicy;
+    private final ExternalTransferGateway externalTransferGateway;
+    private final AuthProperties authProperties;
+
+    // --- Fee preview ---------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public FeeQuoteResponse quote(UUID userId, FeeQuoteRequest request) {
+        User user = userService.getById(userId);
+        BigDecimal fee = feeCalculator.feeFor(
+                request.type(), request.amount(), request.currency(), user.getKycTier());
+        return new FeeQuoteResponse(
+                request.currency(), request.amount(), fee, request.amount().add(fee));
+    }
+
+    // --- P2P transfer -------------------------------------------------
+
+    @Transactional
+    public Transaction transfer(UUID senderId, TransferRequest request) {
+        User sender = userService.getById(senderId);
+        Currency currency = request.currency();
+        BigDecimal amount = request.amount();
+        String recipientPhone = normalize(request.recipientPhone());
+
+        Wallet source = walletService.getWallet(senderId, currency);
+        BigDecimal fee = feeCalculator.feeFor(
+                TransactionType.P2P_TRANSFER, amount, currency, sender.getKycTier());
+        kycLimitPolicy.checkDailySendLimit(senderId, sender.getKycTier(), currency, amount);
+
+        String reference = newReference();
+        Transaction.TransactionBuilder trace = Transaction.builder()
+                .reference(reference)
+                .type(TransactionType.P2P_TRANSFER)
+                .currency(currency)
+                .amount(amount)
+                .fee(fee)
+                .senderId(senderId)
+                .sourceWalletId(source.getId())
+                .counterparty(recipientPhone)
+                .description(request.description());
+
+        Optional<User> recipient = userService.findByPhone(recipientPhone);
+        if (recipient.isPresent()) {
+            User r = recipient.get();
+            if (r.getId().equals(senderId)) {
+                throw new BadRequestException("You cannot transfer to yourself");
+            }
+            Wallet destination = walletInCurrency(r.getId(), currency,
+                    "Recipient has no " + currency + " wallet");
+            walletService.debit(source.getId(), amount.add(fee));
+            walletService.credit(destination.getId(), amount);
+            trace.recipientId(r.getId()).destinationWalletId(destination.getId());
+        } else {
+            // Unknown number -> pay it out through Mobile Money.
+            walletService.debit(source.getId(), amount.add(fee));
+            externalTransferGateway.payout(recipientPhone, amount, currency, reference);
+        }
+        return complete(trace);
+    }
+
+    // --- Merchant payment -------------------------------------------
+
+    @Transactional
+    public Transaction payMerchant(UUID payerId, MerchantPaymentRequest request) {
+        User payer = userService.getById(payerId);
+        Currency currency = request.currency();
+        BigDecimal amount = request.amount();
+
+        User merchant = userService.findByPhone(normalize(request.merchantCode()))
+                .filter(u -> u.getRole() == Role.MERCHANT)
+                .orElseThrow(() -> new BadRequestException(
+                        "No registered merchant for code " + request.merchantCode()));
+        if (merchant.getId().equals(payerId)) {
+            throw new BadRequestException("You cannot pay yourself");
+        }
+
+        Wallet source = walletService.getWallet(payerId, currency);
+        Wallet destination = walletInCurrency(merchant.getId(), currency,
+                "Merchant has no " + currency + " wallet");
+        BigDecimal fee = feeCalculator.feeFor(
+                TransactionType.MERCHANT_PAYMENT, amount, currency, payer.getKycTier());
+        kycLimitPolicy.checkDailySendLimit(payerId, payer.getKycTier(), currency, amount);
+
+        walletService.debit(source.getId(), amount.add(fee));
+        walletService.credit(destination.getId(), amount);
+
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.MERCHANT_PAYMENT)
+                .currency(currency)
+                .amount(amount)
+                .fee(fee)
+                .senderId(payerId)
+                .sourceWalletId(source.getId())
+                .recipientId(merchant.getId())
+                .destinationWalletId(destination.getId())
+                .counterparty(request.merchantCode())
+                .description(request.description()));
+    }
+
+    // --- Cash-out --------------------------------------------------
+
+    @Transactional
+    public Transaction cashOut(UUID userId, CashOutRequest request) {
+        User user = userService.getById(userId);
+        Currency currency = request.currency();
+        BigDecimal amount = request.amount();
+        String phone = normalize(request.phoneNumber());
+
+        Wallet source = walletService.getWallet(userId, currency);
+        BigDecimal fee = feeCalculator.feeFor(
+                TransactionType.CASH_OUT, amount, currency, user.getKycTier());
+        kycLimitPolicy.checkDailySendLimit(userId, user.getKycTier(), currency, amount);
+
+        String reference = newReference();
+        walletService.debit(source.getId(), amount.add(fee));
+        externalTransferGateway.payout(phone, amount, currency, reference);
+
+        return complete(Transaction.builder()
+                .reference(reference)
+                .type(TransactionType.CASH_OUT)
+                .currency(currency)
+                .amount(amount)
+                .fee(fee)
+                .senderId(userId)
+                .sourceWalletId(source.getId())
+                .counterparty(request.provider() == null ? phone : request.provider() + ":" + phone)
+                .description("Cash-out"));
+    }
+
+    // --- History -------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public Page<Transaction> history(UUID userId, Pageable pageable) {
+        return transactionRepository.findForUser(userId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Transaction getForUser(UUID userId, String reference) {
+        Transaction tx = transactionRepository.findByReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + reference));
+        if (!userId.equals(tx.getSenderId()) && !userId.equals(tx.getRecipientId())) {
+            throw new ResourceNotFoundException("Transaction not found: " + reference);
+        }
+        return tx;
+    }
+
+    // --- Helpers -----------------------------------------------
+
+    private Transaction complete(Transaction.TransactionBuilder trace) {
+        Transaction tx = trace.build();
+        tx.setStatus(TransactionStatus.COMPLETED);
+        tx.setCompletedAt(Instant.now());
+        return transactionRepository.save(tx);
+    }
+
+    private Wallet walletInCurrency(UUID ownerId, Currency currency, String messageIfMissing) {
+        try {
+            return walletService.getWallet(ownerId, currency);
+        } catch (ResourceNotFoundException ex) {
+            throw new BadRequestException(messageIfMissing);
+        }
+    }
+
+    private String normalize(String rawPhone) {
+        try {
+            return PhoneNumbers.normalize(rawPhone, authProperties.getDefaultCallingCode());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException(ex.getMessage());
+        }
+    }
+
+    private String newReference() {
+        return "TXN-" + com.dogaa.backend.common.util.Tokens.numericCode(10);
+    }
+}
