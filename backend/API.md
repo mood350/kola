@@ -433,6 +433,11 @@ Le prêt est **garanti par le compte épargne**. Pas d'épargne, pas de prêt.
 
 Un premier prêt est plafonné au montant de l'épargne. Le levier se gagne en remboursant.
 
+⚠️ **Ce tableau est la valeur de départ, pas une constante.** Le back-office édite l'échelle
+(`PUT /admin/credit/tier-config`, §12) et la version enregistrée prend effet immédiatement pour
+tous les prêts accordés ensuite. Lisez `GET /credit/eligibility` plutôt que de recopier ces
+chiffres dans le front.
+
 ### Ce qui se passe au décaissement
 
 Le montant arrive sur le **compte courant**, et **tout le compte épargne passe en `lockedBalance`** :
@@ -519,9 +524,10 @@ Tout est **pré-formaté** : `age` en `"14 mois"`, `loan` en `"100 000 XOF"` ou 
 n'ont jamais eu d'identifiant numérique. Ça fonctionne tel quel pour les clés React et les URL ;
 seule une opération arithmétique sur l'id casserait. À corriger dans `models/*.js`.
 
-Deux autres écarts assumés : `force-close-vault` ferme **le plus ancien coffre ouvert** faute de
-`vaultId` dans le contrat, et `"Litige"` n'est jamais renvoyé tant que le module litiges n'existe pas
-(un compte clos lit `"Gelé"`).
+Deux écarts assumés : `force-close-vault` ferme **le plus ancien coffre ouvert** faute de
+`vaultId` dans le contrat, et `state` ne renvoie toujours que `"Actif"` / `"Gelé"` — le module
+litiges existe désormais (voir plus bas) mais n'est pas encore branché sur l'état du compte, donc
+`"Litige"` n'apparaît jamais.
 
 `toTier` de la file KYC est **calculé par les règles de niveau**, pas supposé être « le suivant » :
 un selfie seul renvoie `fromTier == toTier`, ce qui évite d'annoncer une promotion qui n'aura pas lieu.
@@ -542,6 +548,130 @@ Tout est calculé sur les tables réelles. **Une base vide renvoie des zéros, j
 inventées** — et `alerts` renvoie une liste vide quand rien ne va mal, ce qui est une réponse
 valide et non une erreur. Le « solde global » ne concerne que le XOF : additionner des devises
 différentes produirait un nombre sans signification.
+
+### Crédit — portefeuille, barème et défauts
+
+| Méthode | Route | Corps | Réponse |
+|---|---|---|---|
+| `GET` | `/admin/credit/stats` | — | `{ outstandingTotal, defaultRate, lateLoans }` |
+| `GET` | `/admin/credit/tier-config` | — | `TierConfig[]` — l'échelle, du bas vers le haut |
+| `PUT` | `/admin/credit/tier-config` | `{ tiers: TierConfig[] }` | l'échelle enregistrée |
+| `GET` | `/admin/credit/defaults` | — | `LoanDefault[]` — prêts en retard ou en défaut |
+| `POST` | `/admin/credit/defaults/{loanId}/remind` | — | `204` |
+
+```jsonc
+// TierConfig — montants et taux voyagent en chaînes d'affichage,
+// l'écran les édite en texte libre et le serveur les reparse.
+{ "name": "TIER 1", "minScore": 60, "maxAmount": "150 000 XOF", "monthlyRate": "8 %/mois" }
+
+// LoanDefault
+{ "id": "uuid", "borrowerName": "Koffi M.", "amount": "120 000 XOF", "daysLate": 17 }
+```
+
+**`PUT /tier-config` est réservé au Super-admin** (403 sinon) et l'échelle doit garder son nombre
+de paliers — en envoyer plus ou moins renvoie 400. Un montant ou un taux illisible renvoie 400 avec
+la valeur fautive citée, plutôt qu'un zéro enregistré en silence.
+
+**L'édition n'écrase jamais : elle empile une version.** `CreditLadderService` charge la dernière
+version au démarrage et remplace le barème en vigueur à chaque sauvegarde, si bien que les prêts
+déjà accordés restent lisibles avec les conditions de leur époque. La version 1 est la première
+sauvegarde back-office, pas le barème de configuration — celui-ci reste dans
+`application.properties` et sert tant que personne n'a rien enregistré.
+
+`remind` envoie un SMS au retardataire et l'inscrit au journal d'audit : une relance est un contact
+client. Un prêt déjà soldé renvoie 400.
+
+### Litiges & chargebacks
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/disputes` | `Dispute[]` |
+| `GET` | `/admin/disputes/{ref}` | `DisputeDetail` |
+| `POST` | `/admin/disputes/{ref}/chargeback` | `Dispute` — ouvre la procédure |
+| `POST` | `/admin/disputes/{ref}/reject` | `Dispute` — classe sans suite |
+| `POST` | `/admin/disputes/{ref}/validate` | `DisputeDetail` — signe une validation |
+
+```jsonc
+// Dispute
+{ "ref": "TX-8821", "tag": "fraud", "tagLabel": "Fraude", "amount": "450 000 XOF",
+  "title": "Débit contesté vers un marchand inconnu",
+  "meta": "Ouvert il y a 2 h · TIER_2 · Lomé", "status": "chargeback_pending" }
+
+// DisputeDetail
+{ "ref": "TX-8821", "debitedAccount": "…", "creditedAccount": "…", "amount": "450 000 XOF",
+  "validationsRequired": 2, "validationsDone": 1,
+  "lastValidationNote": "1re validation : Sena A. — en attente d'un 2e admin conformité" }
+```
+
+`tag` vaut `fraud`, `double_debit` ou `p2p` ; `status` vaut `open`, `chargeback_pending`,
+`resolved` ou `rejected`. Ce sont les valeurs de fil, en minuscules — la console s'en sert pour
+choisir ses styles.
+
+**La double validation est réelle, pas déclarative.** Le même admin ne peut pas signer deux fois :
+la seconde tentative renvoie **403** en le disant. Le renversement des fonds s'exécute dans la même
+transaction que la validation qui le déclenche — si le portefeuille du bénéficiaire ne peut plus le
+couvrir, la validation est annulée avec lui. Un litige marqué résolu alors que l'argent n'a pas bougé
+serait pire qu'un litige encore en attente. Valider un litige sans chargeback en cours renvoie 409.
+
+### Suivi financier
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/finance/liquidity` | `LiquidityBucket[]` — les parts totalisent 100 |
+| `GET` | `/admin/finance/revenue` | `{ lines: RevenueLine[], total }` |
+| `GET` | `/admin/finance/operator-reconciliation` | `OperatorStatus[]` |
+
+```jsonc
+{ "label": "Portefeuilles clients", "value": "48 200 000 XOF", "note": "…", "pct": 62 }
+{ "label": "Commissions P2P", "value": "820 000 XOF", "pct": 41 }
+{ "name": "Moov Money", "status": "reconciled" }   // ou "discrepancy"
+```
+
+Lecture seule, tout agrégé sur les tables réelles. Comme le dashboard, une base vide renvoie des
+zéros.
+
+### Configuration — frais & marchands
+
+| Méthode | Route | Corps | Réponse |
+|---|---|---|---|
+| `GET` | `/admin/config/fees` | — | `FeeConfig[]` — une ligne par palier KYC |
+| `PUT` | `/admin/config/fees` | `{ fees: FeeConfig[] }` | la grille enregistrée |
+| `GET` | `/admin/config/merchants` | — | `Merchant[]` |
+| `PATCH` | `/admin/config/merchants/{id}/status` | `{ status }` | `Merchant` |
+
+```jsonc
+{ "tier": "TIER_2", "p2p": "1,20 %", "merchant": "0,80 %", "cashout": "1,00 %" }
+{ "id": "uuid", "name": "Alimentation Adjo", "category": "Commerce", "status": "active" }
+```
+
+**`PUT /config/fees` est réservé au Super-admin** (403 sinon) et exige une ligne par palier KYC —
+ni plus ni moins, sinon 400. Un taux illisible ou hors bornes renvoie 400.
+
+Une grille enregistrée ici **prime sur le taux de base configuré** : elle est déjà exprimée par
+palier, donc la remise de palier ne s'applique pas une seconde fois par-dessus. Tant que rien n'est
+enregistré, le calcul retombe sur `app.fees.*` × multiplicateur de palier.
+
+Statuts marchands : `pending`, `active`, `suspended`. Les transitions sont contraintes —
+`pending → active|suspended`, `active → suspended`, `suspended → active` ; tout le reste renvoie
+**409**, comme le fait de réappliquer le statut courant.
+
+### Support client
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/support/tickets` | `SupportTicket[]` |
+| `GET` | `/admin/support/manual-actions` | `ManualAction[]` |
+| `POST` | `/admin/support/tickets/{ref}/take-charge` | `SupportTicket` |
+| `POST` | `/admin/support/tickets/{ref}/resolve` | `SupportTicket` |
+
+```jsonc
+{ "ref": "#8821", "subject": "Retrait bloqué", "userName": "Aya D.", "status": "open" }
+{ "id": "uuid", "action": "Déblocage de compte", "by": "Prisca L.", "time": "Il y a 2 h" }
+```
+
+`status` vaut `open`, `in_progress` ou `resolved`. Prendre en charge un ticket déjà pris, ou
+résoudre un ticket déjà résolu, renvoie **409** : deux agents qui cliquent en même temps ne doivent
+pas se voler le ticket en silence.
 
 ### Autres routes admin
 
@@ -591,5 +721,8 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
 - **Rotation du refresh token** : conservez systématiquement le dernier reçu.
 - **`ddl-auto=update`** : le schéma peut bouger entre deux versions du backend.
 - Aucun endpoint de **suppression de compte** ni de **réinitialisation du PIN oublié** n'existe encore.
+- **Les barèmes sont modifiables à chaud** : l'échelle de prêt (§12) et la grille de frais (§12)
+  vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
+- **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
 
 Questions ou champ manquant → ouvrez une issue sur le dépôt, ou consultez Swagger qui reflète toujours le code déployé.

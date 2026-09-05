@@ -5,6 +5,12 @@
 > code frontend (`src/models`, `src/repositories`, `src/services`, `src/hooks`,
 > `src/admin/pages`) au 2026-09-04, sur la branche `Bienvenu`.
 >
+> **Le backend Spring implémente désormais les sections 4 à 13** — voir §14 pour
+> la carte des classes, les écarts restants et les arbitrages rendus. Les sections
+> qui suivent gardent le point de vue d'origine (« ce que le mock fait, ce qu'un vrai
+> backend doit corriger ») parce qu'elles restent le contrat ; les corrections
+> effectivement apportées sont annotées **✅**.
+>
 > Tant que `VITE_API_BASE_URL` (voir `.env.example`) n'est pas défini,
 > l'application tourne entièrement sur des données en mémoire
 > (`Mock*Repository`). Dès que la variable est définie, **chaque** repository
@@ -78,9 +84,11 @@ pages/*.jsx  →  hooks/use*.js  →  services/*.js  →  repositories/index.js 
 
 Ces 4 comptes doivent probablement devenir les premières lignes d'une table `admin_account` réelle (avec mot de passe haché — le mock ne vérifie **aucun** mot de passe, ce n'est évidemment pas acceptable en prod).
 
-### 4.3 Matrice de permissions par rôle (à réimplémenter côté serveur !)
+✅ **Fait** : `AdminAccountSeeder` crée ces 4 lignes au premier démarrage si la table est vide, mot de passe BCrypt commun `DogaaAdmin2026!`. Désactiver avec `app.admin.seed.enabled=false` avant la prod.
 
-C'est aujourd'hui `admin/permissions.js`, appliquée **uniquement côté client** (elle cache des liens de menu, rien de plus — un rôle non autorisé qui appelle directement l'API aujourd'hui ne serait bloqué par rien). Le backend doit reproduire **exactement** cette matrice en autorisation serveur (403 si le rôle n'a pas accès au module) :
+### 4.3 Matrice de permissions par rôle — ✅ appliquée côté serveur
+
+C'est `admin/permissions.js` côté client (elle cache des liens de menu, rien de plus). ✅ Le backend reproduit désormais **exactement** cette matrice en autorisation serveur — 403 si le rôle n'a pas accès au module, jamais 401, pour que la redirection vers `/login` ne se déclenche pas à tort :
 
 | Rôle | Modules autorisés |
 |---|---|
@@ -174,6 +182,8 @@ LoanDefault  { id: string, borrowerName: string, amount: string, daysLate: numbe
 - `remind(loanId)` déclenche une relance (SMS/notification) — aucune réponse attendue côté UI au-delà d'un succès HTTP ; à brancher sur `modules/notification`.
 - `TierConfig[]` correspond au paramétrage utilisé par `modules/scoring` (paliers de score / plafond de prêt) — probablement à stocker comme config versionnée plutôt que dans l'entité `CreditScore` elle-même.
 
+✅ **Fait** : `CreditTierConfig` + `CreditLadderService`. L'édition est réservée au Super-admin (403 sinon), refuse une échelle qui n'a pas le bon nombre de paliers (400) et **empile une version au lieu d'écraser** — les conditions d'un prêt déjà accordé restent lisibles. Le service charge la dernière version au démarrage dans `CreditProperties`, si bien que `CreditPolicy` reste de l'arithmétique pure qui ignore l'existence d'une base. Tant que rien n'est enregistré, `application.properties` fait foi : la version 1 est la première sauvegarde back-office, pas le barème de départ. `remind(loanId)` envoie un SMS via `modules/notification` et écrit au journal — une relance est un contact client.
+
 ## 8. Suivi financier (lecture seule)
 
 | Méthode | Chemin | Réponse |
@@ -221,6 +231,13 @@ DisputeDetail {
 - `reject(ref)` → `status → 'rejected'` (classé sans suite).
 - `validate(ref)` → incrémente `validationsDone` (jamais au-delà de `validationsRequired`) ; quand `validationsDone >= validationsRequired`, le litige passe `status → 'resolved'` et `lastValidationNote` doit indiquer que le chargeback a été exécuté. Le bouton "Valider" est désactivé côté UI dès que le seuil est atteint.
 - L'UI affiche systématiquement *"⭑ double validation requise"* sur chaque litige — **le mock ne vérifie absolument pas que les deux validations viennent de deux admins différents** (`validationsDone` est juste un compteur). ⚠️ **C'est le point le plus important à corriger dans le vrai backend** : la 2ᵉ validation doit être refusée (403 ou erreur métier) si elle vient du même compte admin que la 1ʳᵉ. `lastValidationNote` doit citer l'identité de l'admin qui vient de valider (le seed montre le format attendu : `"1re validation : Sena A. — en attente d'un 2e admin conformité"`).
+
+  ✅ **Fait, et structurellement** : `DisputeValidation` porte l'identité du signataire avec une
+  contrainte d'unicité `(disputeId, adminId)` — le même admin qui resigne reçoit un **403** qui le
+  dit. Le renversement des fonds s'exécute dans la transaction de la validation qui l'atteint : si
+  le portefeuille du bénéficiaire ne peut plus le couvrir, la validation est annulée avec lui,
+  plutôt que de laisser un litige « résolu » sans mouvement d'argent. Valider sans chargeback en
+  cours renvoie **409**.
 - Chaque validation/chargeback/rejet est une action sensible → doit alimenter le journal d'audit (`AuditLogEntry`).
 
 ## 10. Configuration (frais & marchands)
@@ -249,6 +266,10 @@ Le frontend envoie directement le statut cible calculé — le backend doit néa
 
 L'UI marque la page frais comme *"super-admin uniquement"* → `PUT /config/fees` doit être restreint au rôle Super-admin côté serveur (comme `/credit/tier-config`).
 
+✅ **Fait** : `MerchantStatus.canTransitionTo` revalide la transition côté serveur — `pending → active|suspended`, `active → suspended`, `suspended → active`, tout le reste renvoie **409**, y compris le fait de réappliquer le statut courant. `PUT /config/fees` exige le Super-admin (403) et une ligne par palier KYC, ni plus ni moins (400).
+
+✅ **Et la grille sert vraiment** : `FeeScheduleEntry` + `FeeScheduleService` alimentent `FeeCalculator`. Une grille enregistrée ici **prime sur `app.fees.*`** — elle est déjà exprimée par palier, donc le multiplicateur de palier ne s'applique pas une seconde fois par-dessus. Tant que rien n'est enregistré, le calcul retombe sur le taux de base × multiplicateur.
+
 ## 11. Conformité & Audit
 
 | Méthode | Chemin | Réponse |
@@ -267,7 +288,9 @@ ComplianceReport { id: string, name: string, period: string }
 - Le journal est explicitement décrit comme **immuable** et *"filtrable par admin, action ou période"* dans l'UI (le filtrage n'est pas encore câblé côté frontend actuel, mais l'intention est claire — prévoir les paramètres de requête si vous les ajoutez).
 - `diff` est une chaîne déjà formatée "avant → après" (ex. `"Gelé → Actif"`, `"8 % → 7 %/mois"`) — c'est le backend qui doit la construire, le frontend ne fait aucune transformation.
 - **Ce log est le journal central référencé par tout le reste de l'admin** : chaque badge "⭑ action tracée" (déblocage compte, fermeture coffre forcée, modification des paliers de crédit, chargeback/validation, changement de statut marchand, modification de permissions admin, prise en charge/résolution de ticket) doit produire une entrée ici. C'est donc un composant transverse à construire tôt (ex. un `AuditService.record(admin, action, diff)` appelé par tous les autres services), pas un module isolé.
-- Export : le mock renvoie `{ url: null }` — un vrai backend générera probablement un fichier (CSV/PDF) et une URL de téléchargement signée/temporaire.
+
+  ✅ **Fait** : `modules/audit` expose exactement ce `AuditService.record(...)`, et il a été branché en deuxième, avant les modules qui y écrivent. `/support/manual-actions` est d'ailleurs **dérivé** de ce journal plutôt que stocké à part : une intervention manuelle *est* une ligne d'audit.
+- Export : le mock renvoie `{ url: null }` — un vrai backend générera probablement un fichier (CSV/PDF) et une URL de téléchargement signée/temporaire. ⚠️ **Toujours ouvert** : le backend renvoie lui aussi `{ url: null }`, la génération de fichier n'est pas implémentée.
 - Les rapports de conformité seedés (*"Rapport mensuel AML"*, *"Déclarations de soupçon"*, *"Seuils de transactions suspectes"*) donnent le type de rapports réglementaires UEMOA/BCEAO attendus.
 
 ## 12. Rôles admin
@@ -303,44 +326,80 @@ ManualAction  { id: string, action: string, by: string, time: string }
 - Le bouton "Prendre en charge" n'apparaît que si `status === 'open'` ; "Marquer résolu" apparaît tant que `status !== 'resolved'` (donc utilisable directement depuis `open`, sans passer par `in_progress`).
 - `manual-actions` est un flux d'audit **local à Support**, distinct du journal d'audit global (section 11) mais avec le même esprit — les deux pourraient à terme être unifiés côté backend (même table, filtrée par module) plutôt que dupliqués.
 
-## 14. Récapitulatif — état du backend Spring existant
+✅ **Unifiés, comme suggéré** : `manual-actions` est une **projection du journal d'audit**, pas une seconde table. Une intervention manuelle *est* une ligne d'audit ; en stocker une copie aurait créé deux vérités qui divergent. Côté concurrence, prendre en charge un ticket déjà pris ou résoudre un ticket déjà résolu renvoie **409** — deux agents qui cliquent en même temps ne se volent pas le ticket en silence.
 
-Le module `backend/src/main/java/com/dogaa/backend/modules/admin/` existe déjà mais ne couvre **que** :
-- `AdminController` / `AdminService(Impl)` / `AdminDashboardResponse` — un point d'entrée dashboard, à comparer/aligner avec la section 5 ci-dessus.
-- Aucune entité admin (`entity/`, `repository/`, `mapper/` sont vides — juste des `.gitkeep`).
+## 14. État d'implémentation côté backend Spring
 
-Tout le reste (users admin actions, credit tier-config, finance, disputes, config, audit, roles, support) **reste à construire**. Bonne nouvelle : les entités métier sous-jacentes existent déjà ailleurs dans le monolithe et doivent être **réutilisées**, pas dupliquées :
+**Les sections 4 à 13 sont livrées.** Ce document reste le contrat de référence, mais il n'est plus
+une liste de choses à construire : il décrit ce que le backend expose aujourd'hui. Les écarts
+résiduels sont signalés en fin de section.
 
-| Domaine admin | Entité(s) backend déjà existante(s) à brancher |
+| Section | Statut | Où |
+|---|---|---|
+| 4 — Auth & permissions | ✅ | `admin/{entity/AdminAccount,security/CurrentAdmin,service/AdminAccountService}`, `AdminAuthController` |
+| 5 — Dashboard | ✅ | `AdminDashboardController`, `AdminDashboardMetricsService` |
+| 6 — Utilisateurs & file KYC | ✅ | `AdminUserController`, `AdminUserService` |
+| 7 — Crédit | ✅ | `AdminCreditController`, `AdminCreditService`, `credit/service/CreditLadderService` |
+| 8 — Suivi financier | ✅ | `AdminFinanceController`, `AdminFinanceService` |
+| 9 — Litiges & chargebacks | ✅ | `AdminDisputeController`, `AdminDisputeService` |
+| 10 — Configuration | ✅ | `AdminConfigController`, `AdminConfigService`, `transaction/service/FeeScheduleService` |
+| 11 — Conformité & audit | ✅ | `modules/audit/*` |
+| 12 — Rôles admin | ✅ | `AdminRolesController` |
+| 13 — Support client | ✅ | `AdminSupportController`, `AdminSupportService` |
+
+### Entités créées pour le back-office
+
+| Entité | Module | Rôle |
+|---|---|---|
+| `AdminAccount`, `AdminRole`, `AdminModule` | `admin/entity` | comptes back-office et matrice de permissions |
+| `Dispute`, `DisputeStatus`, `DisputeTag`, `DisputeValidation` | `admin/entity` | litiges et signatures de chargeback |
+| `Merchant`, `MerchantStatus` | `admin/entity` | marchands partenaires et machine à états |
+| `SupportTicket`, `SupportTicketStatus` | `admin/entity` | file de tickets |
+| `AuditLogEntry` | `audit/entity` | journal transverse |
+| `CreditTierConfig` | `credit/entity` | échelle de prêt **versionnée** |
+| `FeeScheduleEntry` | `transaction/entity` | grille de frais par palier KYC |
+
+Les entités métier existantes ont bien été **réutilisées et non dupliquées** : `User`, `KycDocument`,
+`Loan`, `CreditScore`, `Vault`, `Wallet`, `Transaction`, `modules/notification`.
+
+### Trois choses que le mock ne disait pas et que le backend fait
+
+- **La double validation est structurelle.** `DisputeValidation` porte l'identité de l'admin
+  signataire et une contrainte d'unicité `(disputeId, adminId)` : le même admin ne peut pas signer
+  deux fois, la seconde tentative renvoie 403. Le renversement des fonds s'exécute dans la
+  transaction de la validation qui le déclenche, donc un litige ne peut pas être marqué résolu
+  pendant que l'argent reste en place.
+- **Les barèmes s'empilent, ils ne s'écrasent pas.** `CreditLadderService` enregistre une nouvelle
+  version à chaque édition et charge la dernière au démarrage ; les conditions d'un prêt accordé
+  restent lisibles après coup. Tant qu'aucune sauvegarde n'existe, c'est `application.properties`
+  qui fait foi — la version 1 est la première sauvegarde back-office, pas le barème de départ.
+- **`manual-actions` n'a pas d'entité.** La liste est dérivée du journal d'audit : une intervention
+  manuelle *est* une ligne d'audit, en stocker une copie aurait créé deux vérités.
+
+### Ce qui reste ouvert
+
+- **`ClientUser.state` ne renvoie jamais `"Litige"`** — le module litiges existe mais n'est pas
+  branché sur l'état du compte (`AdminUserService.state`).
+- **Les exports** (`/audit/log/export`, `/audit/reports/{id}/export`) renvoient `{ url: null }` : la
+  génération de fichier n'est pas implémentée.
+- **`force-close-vault`** ferme le plus ancien coffre ouvert, faute de `vaultId` dans le contrat.
+- **Le filtrage reste côté client** pour `/users`, `/disputes` et `/support/tickets`.
+- **Les comptes de seed** (`app.admin.seed.enabled`) partagent un mot de passe commun : à désactiver
+  avant la prod.
+
+## 15. Ordre d'implémentation — historique
+
+L'ordre suivi a été celui-ci, et il s'est vérifié : auth admin → journal d'audit → utilisateurs/KYC
+→ crédit → litiges → configuration/support/rôles → dashboard/finance. Brancher l'audit en deuxième
+plutôt qu'en dernier était le bon pari : presque tous les modules suivants y écrivent, et le faire
+après coup aurait voulu dire repasser dans chacun d'eux.
+
+## 16. Points ouverts — arbitrages rendus
+
+| Point | Décision |
 |---|---|
-| Utilisateurs / KYC | `modules/user/entity/User.java`, `modules/kyc/entity/KycDocument.java` (+`KycDocumentStatus`, `KycDocumentType`) |
-| Crédit | `modules/credit/entity/Loan.java`, `modules/scoring/entity/CreditScore.java` |
-| Coffres (force-close-vault) | `modules/vault/entity/Vault.java` (+`VaultStatus`) |
-| Finance / liquidité | `modules/wallet/entity/Wallet.java` (+`WalletStatus`), `modules/vault`, `modules/credit` |
-| Transactions / litiges | `modules/transaction/entity/Transaction.java` |
-| Notifications (relances, KYC) | `modules/notification` |
-
-À créer entièrement (pas d'équivalent existant) :
-- `AdminAccount` / rôles & permissions admin (section 4 & 12).
-- `Dispute` / `DisputeValidation` (avec identité de l'admin par validation — section 9).
-- `Merchant` + `FeeConfig` (section 10).
-- `AuditLogEntry` (transverse — section 11), idéalement introduit tôt puisque presque tous les autres modules doivent y écrire.
-- `SupportTicket` / `ManualAction` (section 13).
-
-## 15. Ordre d'implémentation suggéré
-
-1. **Auth admin réel** (table `AdminAccount`, hash de mot de passe, JWT, `/auth/*`) — bloque tout le reste, y compris les tests manuels du front avec `VITE_API_BASE_URL` renseigné.
-2. **Journal d'audit** (`/audit/log` + service interne `record(...)`) — transverse, à brancher au fur et à mesure dans les modules suivants plutôt qu'après coup.
-3. **Utilisateurs + KYC** (`/users*`) — plus gros volume de règles métier, réutilise `User`/`KycDocument` déjà existants.
-4. **Crédit** (`/credit/*`) — réutilise `Loan`/`CreditScore`.
-5. **Litiges** (`/disputes/*`) — nouveau, avec la vraie règle de double validation par 2 admins distincts.
-6. **Configuration** (`/config/*`), **Support** (`/support/*`), **Rôles** (`/roles/*`) — CRUD plus simples.
-7. **Dashboard** (`/dashboard/*`) et **Finance** (`/finance/*`) — agrégations en lecture seule, naturellement en dernier puisqu'elles peuvent lire tout ce qui a été construit avant.
-
-## 16. Points ouverts à trancher avant/pendant l'implémentation
-
-- **Double validation des chargebacks** : imposer explicitement 2 admins distincts (section 9) — actuellement non garanti même dans l'intention du mock.
-- **`force-close-vault` sans `vaultId`** : le contrat actuel ferme "un coffre" sans le désigner ; à clarifier avec le produit avant d'exposer un vrai bouton par coffre (section 6).
-- **Granularité des permissions "Support" (lecture seule)** : la matrice de nav actuelle ne distingue pas lecture/écriture (section 4.3).
-- **Motif de rejet KYC** : actuellement aucun champ de raison côté UI/API — à ajouter si le compliance l'exige.
-- **Filtrage serveur** de `/users`, `/disputes`, `/support/tickets` : pas nécessaire tant que le volume reste raisonnable (tout est filtré côté client aujourd'hui), mais à revisiter si la base d'utilisateurs grossit.
+| Double validation des chargebacks | **Tranché** : 2 admins distincts, garanti par l'unicité `(disputeId, adminId)` et un 403 explicite. |
+| `force-close-vault` sans `vaultId` | **Non tranché** : le backend ferme le plus ancien coffre ouvert, en attendant un contrat par coffre. |
+| Granularité des permissions « Support » | **Non tranché** : la matrice reste par module, sans distinction lecture/écriture. Les écritures sensibles (barème de prêt, grille de frais) sont en revanche réservées au Super-admin. |
+| Motif de rejet KYC | **Non tranché côté back-office** : `/admin/kyc/documents/{id}/review` exige un `rejectionReason`, mais `/admin/users/kyc-queue/{id}/reject` n'en prend pas. |
+| Filtrage serveur | **Non tranché** : filtrage client conservé, à revisiter quand le volume l'imposera. |
