@@ -14,7 +14,8 @@
         "backgroundColor": "#002353"
       },
       "permissions": [
-        "READ_CONTACTS"
+        "READ_CONTACTS",
+        "CAMERA"
       ],
       "blockedPermissions": [
         "android.permission.WRITE_CONTACTS"
@@ -22,12 +23,20 @@
     },
     "ios": {
       "infoPlist": {
-        "NSContactsUsageDescription": "DOGAA utilise vos contacts pour choisir un bénéficiaire."
+        "NSContactsUsageDescription": "DOGAA utilise vos contacts pour choisir un bénéficiaire.",
+        "NSCameraUsageDescription": "DOGAA utilise la caméra pour scanner les QR codes de paiement."
       }
     },
     "plugins": [
       "expo-contacts",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorisez DOGAA à utiliser la caméra pour scanner les QR codes de paiement.",
+          "recordAudioAndroid": false
+        }
+      ]
     ]
   }
 }
