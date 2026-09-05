@@ -110,18 +110,22 @@ app.credit.ladder[0].min-loans-repaid=3
 app.credit.ladder[0].min-score=85
 app.credit.ladder[0].leverage=1.6
 app.credit.ladder[0].monthly-rate-percent=6.0
+app.credit.ladder[0].max-amount=750000
 app.credit.ladder[1].min-loans-repaid=2
 app.credit.ladder[1].min-score=75
 app.credit.ladder[1].leverage=1.4
 app.credit.ladder[1].monthly-rate-percent=6.5
+app.credit.ladder[1].max-amount=300000
 app.credit.ladder[2].min-loans-repaid=1
 app.credit.ladder[2].min-score=60
 app.credit.ladder[2].leverage=1.2
 app.credit.ladder[2].monthly-rate-percent=7.0
+app.credit.ladder[2].max-amount=150000
 app.credit.ladder[3].min-loans-repaid=0
 app.credit.ladder[3].min-score=60
 app.credit.ladder[3].leverage=1.0
 app.credit.ladder[3].monthly-rate-percent=8.0
+app.credit.ladder[3].max-amount=50000
 
 # --- Accounts ---
 app.wallet.default-currency=XOF

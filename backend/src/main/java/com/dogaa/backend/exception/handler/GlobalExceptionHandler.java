@@ -17,6 +17,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -90,10 +91,9 @@ public class GlobalExceptionHandler {
                         request.getRequestURI()));
     }
 
-    /** A malformed path variable or query parameter is the caller's mistake, not ours. */
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class,
-            HttpMessageNotReadableException.class})
-    public ResponseEntity<ErrorResponse> handleUnreadableRequest(Exception ex,
+    /** A body that will not parse at all is the caller's mistake, not ours. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableRequest(HttpMessageNotReadableException ex,
                                                                  HttpServletRequest request) {
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of("BAD_REQUEST", "Requête illisible ou paramètre invalide",

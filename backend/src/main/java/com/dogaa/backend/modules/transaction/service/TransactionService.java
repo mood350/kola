@@ -8,6 +8,7 @@ import com.dogaa.backend.common.util.PhoneNumbers;
 import com.dogaa.backend.common.util.Tokens;
 import com.dogaa.backend.config.AuthProperties;
 import com.dogaa.backend.exception.BadRequestException;
+import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
@@ -342,6 +343,66 @@ public class TransactionService {
             throw new ResourceNotFoundException("Transaction not found: " + reference);
         }
         return tx;
+    }
+
+    // --- Chargeback (DOGAA.md 4.5) --------------------------------
+
+    /** The trace behind a public reference, for the back-office. */
+    @Transactional(readOnly = true)
+    public Transaction getByReference(String reference) {
+        return transactionRepository.findByReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + reference));
+    }
+
+    /**
+     * Undoes a completed movement and writes the counter-entry (DOGAA.md 4.5).
+     *
+     * <p>The payer is made whole for what they actually parted with — amount <em>and</em> fee —
+     * while the beneficiary gives back only the amount they received: the commission was Dogaa's,
+     * so Dogaa is what absorbs it. Reversing is deliberately not free for the platform.
+     *
+     * <p>Two rows come out of it: the original flips to {@code REVERSED} and a new
+     * {@code CHARGEBACK} trace records the money going the other way. Editing the original alone
+     * would erase the fact that it ever completed, and the customer's history would lose a movement
+     * that really happened.
+     *
+     * <p>When the beneficiary has already spent the money the debit fails and the whole reversal
+     * rolls back — deliberately. Handing the payer money that was never recovered is a decision for
+     * a human, not a side effect of clicking "valider".
+     */
+    @Transactional
+    public Transaction reverse(Transaction original, String description) {
+        if (original.getStatus() != TransactionStatus.COMPLETED) {
+            throw new ConflictException("Only a completed transaction can be reversed; this one is "
+                    + original.getStatus().name().toLowerCase());
+        }
+        if (original.getType() == TransactionType.CHARGEBACK) {
+            throw new ConflictException("A chargeback cannot itself be charged back");
+        }
+
+        if (original.getDestinationWalletId() != null) {
+            walletService.debit(original.getDestinationWalletId(), original.getAmount());
+        }
+        if (original.getSourceWalletId() != null) {
+            walletService.credit(original.getSourceWalletId(), original.getTotalDebited());
+        }
+
+        original.setStatus(TransactionStatus.REVERSED);
+        transactionRepository.save(original);
+
+        // Sides swapped: the money travels back the way it came.
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.CHARGEBACK)
+                .currency(original.getCurrency())
+                .amount(original.getTotalDebited())
+                .fee(BigDecimal.ZERO)
+                .senderId(original.getRecipientId())
+                .sourceWalletId(original.getDestinationWalletId())
+                .recipientId(original.getSenderId())
+                .destinationWalletId(original.getSourceWalletId())
+                .counterparty(original.getReference())
+                .description(description));
     }
 
     // --- Admin aggregates (DOGAA.md 4.5) --------------------------
