@@ -83,6 +83,15 @@ Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `m
   `KycLimitService`. A `null` ceiling means unlimited (TIER_3) and is not the same as zero.
   `assertCanSend` takes the period totals as arguments rather than reaching into a wallet, so the REST
   path and the midnight scheduler hit the same ceilings through the same code. TIER_2 is the credit gate.
+- **The split is deliberate: `KycLimitPolicy` measures, `KycLimitService` decides.** The policy reads
+  the transaction history for the day and the month and hands the totals over; it holds no ceiling of
+  its own. It used to, as a hard-coded table, and the two sets of numbers had already drifted — TIER_1
+  was shown 300 000 while 500 000 went through, and the per-transaction, monthly and balance ceilings
+  were configured, displayed and enforced nowhere. Never put a limit back in the policy.
+- The balance ceiling is checked on **cash-in** only, where "raise your KYC level" is the user's own
+  to act on. It is deliberately not checked on an incoming transfer: bouncing a payment because the
+  recipient is near their ceiling punishes the sender for someone else's paperwork. That is a product
+  call, so revisit it with product rather than in passing.
 - **Documents**: only a storage key is persisted; files go through the `DocumentStorage` seam
   (`LocalDocumentStorage` writes to `app.kyc.upload.storage-directory` and is a dev stub - no
   encryption at rest, no access audit). Uploads are restricted to images and PDF, 5 MB. The file leaves
@@ -97,6 +106,21 @@ Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `m
 loans. They are the same `Wallet` entity with a `WalletType`, which is deliberate — freezing the
 collateral needs no new rule, it just moves the savings balance into `lockedBalance`, so withdrawals
 are refused by the existing code while deposits still land.
+
+**Funding savings is what makes credit reachable at all.** `TransactionService.depositToSavings` /
+`withdrawFromSavings` (`POST /api/v1/wallets/savings/{deposit,withdraw}`) move money between the two
+accounts. Until they existed the savings wallet was provisioned and then unreachable: no route
+credited it, so every borrower failed the minimum-collateral check and the savings-discipline axis
+of the score — 30 of its 100 points — was structurally stuck at zero. The credit tests missed it
+because they funded the wallet through `WalletService` directly, which is precisely the step a real
+user could not perform.
+
+The movement is **free and not outgoing** (`SAVINGS_DEPOSIT` / `SAVINGS_WITHDRAWAL` are absent from
+`isOutgoing()` and from `KycLimitPolicy.OUTGOING`): putting money aside is not spending, and taxing
+it or counting it against the send ceiling would penalise the behaviour the product exists to
+encourage. Both wallet ids go on the trace, which is what lets `ScoringDataCollector` see an
+internal move — counted as savings, not as new income. A running loan needs no special case: it
+locks the whole savings balance and `WalletService.debit` only spends the available side.
 
 **Scoring** (`modules/scoring`, DOGAA.md 3.2) is 5 axes over 30 days: savings discipline 30,
 financial stability 25, inflow regularity 20, usage intensity 15, credit history 10. `ScoreCalculator`

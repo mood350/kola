@@ -8,6 +8,7 @@ import com.dogaa.backend.config.KycProperties;
 import com.dogaa.backend.config.OtpProperties;
 import com.dogaa.backend.config.ScoringProperties;
 import com.dogaa.backend.modules.assistant.service.ProductKnowledge;
+import com.dogaa.backend.modules.transaction.service.FeeCalculator;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -29,8 +30,10 @@ class ProductKnowledgeTest {
     private final AuthProperties auth = new AuthProperties();
     private final DisputeProperties disputes = new DisputeProperties();
 
+    private final FeeCalculator feeCalculator = new FeeCalculator(fees);
+
     private final ProductKnowledge knowledge =
-            new ProductKnowledge(fees, kyc, credit, scoring, otp, auth, disputes);
+            new ProductKnowledge(fees, kyc, credit, scoring, otp, auth, disputes, feeCalculator);
 
     @Test
     void theBriefingQuotesTheConfiguredFeesAndNotAHardCodedRate() {
@@ -98,5 +101,23 @@ class ProductKnowledgeTest {
 
         assertThat(briefing).contains("le code OTP est obligatoire");
         assertThat(briefing).contains("facultatif");
+    }
+
+    /**
+     * A TIER_3 pays 60% of the posted rate. The briefing used to quote the base rate to everyone,
+     * so the assistant told them 1.5% while the code charged 0.9% — the exact class of drift the
+     * derived briefing exists to prevent.
+     */
+    @Test
+    void theBriefingQuotesTheRebateVerifiedUsersActuallyGet() {
+        String briefing = knowledge.briefing();
+
+        assertThat(briefing).contains("0.9 %");
+        assertThat(briefing).contains("1.2 %");
+    }
+
+    @Test
+    void theBriefingExplainsHowToFundTheSavingsAccount() {
+        assertThat(knowledge.briefing()).contains("depuis le compte courant");
     }
 }

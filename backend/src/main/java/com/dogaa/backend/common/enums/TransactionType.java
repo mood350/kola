@@ -19,6 +19,14 @@ public enum TransactionType {
     VAULT_DEPOSIT,
     /** Release from a vault back to the available balance. Free. */
     VAULT_WITHDRAWAL,
+    /**
+     * Move from the current account into the savings account that secures loans (DOGAA.md 4.3).
+     * Free, and not an outgoing operation: the money stays with the user, so it must neither be
+     * charged a commission nor consume the KYC send ceiling.
+     */
+    SAVINGS_DEPOSIT,
+    /** Release from the savings account back to the current account. Free, for the same reason. */
+    SAVINGS_WITHDRAWAL,
     /** Loan principal paid onto the borrower's wallet. */
     LOAN_DISBURSEMENT,
     /** Principal + interest pulled back at maturity. */

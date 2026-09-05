@@ -45,6 +45,15 @@ public class FeeCalculator {
                 .divide(HUNDRED, currency.getDecimalPlaces(), RoundingMode.HALF_UP);
     }
 
+    /**
+     * The rebate multiplier of a tier, exposed so that anything explaining the pricing derives it
+     * from here rather than restating it. The assistant used to quote the base rate to every user,
+     * which was simply wrong for a TIER_3 who pays 60% of it.
+     */
+    public BigDecimal tierMultiplier(KycTier tier) {
+        return TIER_MULTIPLIER.getOrDefault(tier, BigDecimal.ONE);
+    }
+
     private BigDecimal basePercentFor(TransactionType type) {
         return switch (type) {
             case P2P_TRANSFER -> feeProperties.getP2pPercent();
