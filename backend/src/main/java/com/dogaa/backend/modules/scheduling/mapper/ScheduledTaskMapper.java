@@ -26,7 +26,8 @@ public final class ScheduledTaskMapper {
                 entity.getLastFailureReason(),
                 entity.getFundingVaultId(),
                 entity.getBiller(),
-                entity.getDayOfMonth()
+                entity.getDayOfMonth(),
+                entity.getDescription()
         );
     }
 }

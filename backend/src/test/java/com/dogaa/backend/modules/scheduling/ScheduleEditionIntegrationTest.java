@@ -89,7 +89,7 @@ class ScheduleEditionIntegrationTest {
                 ScheduledTaskType.P2P_TRANSFER, ScheduleFrequency.MONTHLY,
                 xof("50000"), Currency.XOF, "+22890111222",
                 Instant.now().plus(10, ChronoUnit.DAYS), null, null,
-                rentVault.getId(), null, 5));
+                rentVault.getId(), null, 5, null));
     }
 
     // --- what can change --------------------------------------------------
@@ -153,7 +153,7 @@ class ScheduleEditionIntegrationTest {
                 ScheduledTaskType.P2P_TRANSFER, ScheduleFrequency.MONTHLY,
                 xof("50000"), Currency.XOF, "+22890111222",
                 Instant.now().plus(10, ChronoUnit.DAYS),
-                Instant.now().plus(300, ChronoUnit.DAYS), null, rentVault.getId(), null, 5));
+                Instant.now().plus(300, ChronoUnit.DAYS), null, rentVault.getId(), null, 5, null));
         assertThat(task.endDate()).isNotNull();
 
         assertThat(taskService.update(userId, task.id(), empty()).endDate()).isNotNull();
@@ -239,7 +239,7 @@ class ScheduleEditionIntegrationTest {
                 ScheduledTaskType.BILL_PAYMENT, ScheduleFrequency.MONTHLY,
                 xof("15000"), Currency.XOF, "12345678901234",
                 Instant.now().plus(10, ChronoUnit.DAYS), null, null,
-                rentVault.getId(), Biller.CANAL_PLUS, 5));
+                rentVault.getId(), Biller.CANAL_PLUS, 5, null));
 
         // A 14-digit Canal+ card is not a valid Togocom contract on its own terms, but it is
         // alphanumeric and within range, so switching biller is accepted and re-checked.
@@ -257,7 +257,7 @@ class ScheduleEditionIntegrationTest {
                 ScheduledTaskType.BILL_PAYMENT, ScheduleFrequency.MONTHLY,
                 xof("15000"), Currency.XOF, "12345678901234",
                 Instant.now().plus(10, ChronoUnit.DAYS), null, null,
-                rentVault.getId(), Biller.CANAL_PLUS, 5));
+                rentVault.getId(), Biller.CANAL_PLUS, 5, null));
 
         assertThatThrownBy(() -> taskService.update(userId, bill.id(),
                 new UpdateScheduledTaskRequest(null, "123", null, null, null, null, null, null,
@@ -273,7 +273,7 @@ class ScheduleEditionIntegrationTest {
                 ScheduledTaskType.BILL_PAYMENT, ScheduleFrequency.MONTHLY,
                 xof("15000"), Currency.XOF, "12345678901234",
                 Instant.now().plus(10, ChronoUnit.DAYS), null, null,
-                rentVault.getId(), Biller.CANAL_PLUS, 5));
+                rentVault.getId(), Biller.CANAL_PLUS, 5, null));
 
         assertThatThrownBy(() -> taskService.update(userId, bill.id(),
                 new UpdateScheduledTaskRequest(null, "REF9090", Biller.CEET, null, null, null,

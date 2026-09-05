@@ -27,6 +27,7 @@ public record ScheduledTaskResponse(
         String lastFailureReason,
         UUID fundingVaultId,
         Biller biller,
-        Integer dayOfMonth
+        Integer dayOfMonth,
+        String description
 ) {
 }

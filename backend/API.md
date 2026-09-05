@@ -446,6 +446,7 @@ Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de 
 ```json
 { "type": "P2P_TRANSFER", "frequency": "MONTHLY",
   "amount": 50000, "currency": "XOF", "beneficiaryReference": "+22890111222",
+  "description": "Loyer mensuel",
   "firstRunAt": "2026-10-05T00:00:00Z", "dayOfMonth": 5,
   "fundingVaultId": "uuid-du-coffre",
   "endDate": null, "maxOccurrences": null }

@@ -56,6 +56,7 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
         task.setAmount(request.amount());
         task.setCurrency(request.currency());
         task.setBeneficiaryReference(beneficiaryFor(request));
+        task.setDescription(normaliseDescription(request.description()));
         task.setBiller(request.type() == ScheduledTaskType.BILL_PAYMENT ? request.biller() : null);
         task.setNextRunAt(request.firstRunAt());
         task.setEndDate(request.endDate());
@@ -64,6 +65,10 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
         task.setFundingVaultId(fundingVaultFor(ownerId, request));
         task.setDayOfMonth(dayOfMonthFor(request));
         return ScheduledTaskMapper.toResponse(repository.save(task));
+    }
+
+    private String normaliseDescription(String description) {
+        return description == null || description.isBlank() ? null : description.trim();
     }
 
     @Override

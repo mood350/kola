@@ -84,7 +84,7 @@ class MonthlyScheduleIntegrationTest {
                 ScheduledTaskType.P2P_TRANSFER, ScheduleFrequency.MONTHLY,
                 xof("50000"), Currency.XOF, "+22890111222",
                 Instant.parse("2026-10-05T00:00:00Z"), null, null,
-                vaultId, null, dayOfMonth);
+                vaultId, null, dayOfMonth, null);
     }
 
     // --- the funding vault ------------------------------------------------
@@ -148,7 +148,7 @@ class MonthlyScheduleIntegrationTest {
         ScheduledTaskRequest deposit = new ScheduledTaskRequest(
                 ScheduledTaskType.VAULT_DEPOSIT, ScheduleFrequency.MONTHLY,
                 xof("20000"), Currency.XOF, rentVault.getId().toString(),
-                Instant.parse("2026-10-05T00:00:00Z"), null, null, null, null, 5);
+                Instant.parse("2026-10-05T00:00:00Z"), null, null, null, null, 5, null);
 
         assertThatCode(() -> scheduledTaskService.create(userId, deposit)).doesNotThrowAnyException();
     }
@@ -159,7 +159,7 @@ class MonthlyScheduleIntegrationTest {
         ScheduledTaskRequest contribution = new ScheduledTaskRequest(
                 ScheduledTaskType.SAVINGS_DEPOSIT, ScheduleFrequency.MONTHLY,
                 xof("25000"), Currency.XOF, "BANKIVI",
-                Instant.parse("2026-10-05T00:00:00Z"), null, null, null, null, 5);
+                Instant.parse("2026-10-05T00:00:00Z"), null, null, null, null, 5, null);
 
         ScheduledTaskResponse task = scheduledTaskService.create(userId, contribution);
 
@@ -221,7 +221,7 @@ class MonthlyScheduleIntegrationTest {
                 ScheduledTaskType.BILL_PAYMENT, ScheduleFrequency.MONTHLY,
                 xof("15000"), Currency.XOF, identifier,
                 Instant.parse("2026-10-05T00:00:00Z"), null, null,
-                rentVault.getId(), biller, 5);
+                rentVault.getId(), biller, 5, null);
     }
 
     /** Canal+ publishes its format: 14 digits. It is the one biller we can check strictly. */

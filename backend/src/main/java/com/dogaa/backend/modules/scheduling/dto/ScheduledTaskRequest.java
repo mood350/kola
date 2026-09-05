@@ -46,6 +46,8 @@ public record ScheduledTaskRequest(
          * {@code firstRunAt}. A 29-31 lands on the last day of a shorter month and returns to the
          * chosen day afterwards.
          */
-        @Min(1) @Max(31) Integer dayOfMonth
+        @Min(1) @Max(31) Integer dayOfMonth,
+
+        @Size(max = 160) String description
 ) {
 }

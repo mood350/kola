@@ -9,6 +9,7 @@ export type DogaaUser={
 };
 export type AuthSession={accessToken:string;refreshToken:string;tokenType:string;expiresIn:number;user:DogaaUser};
 export type RecipientLookup={id:string;displayName:string;maskedPhone:string};
+export type TransferRecipientLookup={phone:string;phoneMasked:string;registered:boolean;name?:string;self:boolean};
 export type KycDocument={id:string;type:'NATIONAL_ID'|'PASSPORT'|'DRIVING_LICENCE'|'VOTER_CARD'|'SELFIE'|'PROOF_OF_ADDRESS';status:'PENDING'|'APPROVED'|'REJECTED';originalFilename:string;contentType:string;sizeBytes:number;rejectionReason?:string;reviewedAt?:string;submittedAt:string};
 export type KycStatus={tier:string;nextTier?:string;phoneVerified:boolean;profileComplete:boolean;identityDocumentApproved:boolean;requirementsForNextTier:string[];documents:KycDocument[];limits:{perTransaction:number;daily:number;monthly:number}};
 
@@ -49,7 +50,7 @@ export type Vault={id:string;name:string;currency:string;balance:number;targetAm
 export type Transaction={id:string;reference:string;type:string;status:string;currency:string;amount:number;fee:number;totalDebited:number;counterparty?:string;description?:string;failureReason?:string;completedAt?:string;createdAt:string};
 export type FeeQuote={currency:string;amount:number;fee:number;total:number};
 export type Biller={code:string;displayName:string;identifierLabel:string;identifierKind:'DIGITS'|'ALPHANUMERIC';minLength:number;maxLength:number;fixedAmount:boolean};
-export type ScheduledTask={id:string;userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;status:string;nextRunAt:string;endDate?:string;maxOccurrences?:number;occurrencesCompleted:number;retryCount:number;lastFailureReason?:string;fundingVaultId?:string;biller?:string;dayOfMonth?:number};
+export type ScheduledTask={id:string;userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;description?:string;status:string;nextRunAt:string;endDate?:string;maxOccurrences?:number;occurrencesCompleted:number;retryCount:number;lastFailureReason?:string;fundingVaultId?:string;biller?:string;dayOfMonth?:number};
 export type CreditEligibility={eligible:boolean;score:number;minimumScore:number;kycTier:string;currency:string;savingsBalance:number;leverageRatio:number;maxLoanAmount:number;monthlyRatePercent:number;totalRepayable:number;termDays:number;loansRepaid:number;blockers:string[]};
 export type Loan={id:string;currency:string;principal:number;collateralAmount:number;leverageRatio:number;monthlyRatePercent:number;interestAmount:number;penaltyAmount:number;totalDue:number;amountRepaid:number;outstanding:number;shortfallAmount:number;status:string;scoreAtGrant:number;disbursedAt:string;dueAt:string;settledAt?:string};
 export type AssistantMessage={id:string;role:'USER'|'ASSISTANT';content:string;createdAt:string};
@@ -64,6 +65,7 @@ export const transactionApi={
   history:()=>request<{content:Transaction[]}>('/api/v1/transactions?size=100',{},true),
   quote:(amount:number)=>request<FeeQuote>('/api/v1/transactions/quote',{method:'POST',body:JSON.stringify({type:'P2P_TRANSFER',currency:'XOF',amount})},true),
   transfer:(payload:{amount:number;recipientPhone:string;description?:string})=>request<Transaction>('/api/v1/transactions/transfer',{method:'POST',body:JSON.stringify({...payload,currency:'XOF'})},true),
+  lookupRecipient:(phone:string)=>request<TransferRecipientLookup>(`/api/v1/transactions/recipient?phone=${encodeURIComponent(phone)}`,{},true),
   payBill:(payload:{amount:number;billerReference:string;description?:string})=>request<Transaction>('/api/v1/transactions/bill-payment',{method:'POST',headers:{'Idempotency-Key':`${Date.now()}-${Math.random().toString(36).slice(2)}`},body:JSON.stringify({...payload,currency:'XOF'})},true),
 };
 export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<Loan[]>('/api/v1/credit/loans',{},true)};
@@ -77,7 +79,7 @@ export const kycApi={status:()=>request<KycStatus>('/api/v1/kyc/status',{},true)
 export const schedulingApi={
   list:()=>request<ScheduledTask[]>('/api/v1/scheduling/tasks/me',{},true),
   billers:()=>request<Biller[]>('/api/v1/scheduling/tasks/billers',{},true),
-  create:(payload:{userId?:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;firstRunAt:string;endDate?:string;maxOccurrences?:number;fundingVaultId?:string;biller?:string;dayOfMonth?:number})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),
+  create:(payload:{userId?:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;description?:string;firstRunAt:string;endDate?:string;maxOccurrences?:number;fundingVaultId?:string;biller?:string;dayOfMonth?:number})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),
   pause:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/pause`,{method:'PATCH'},true),
   resume:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/resume`,{method:'PATCH'},true),
   cancel:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/cancel`,{method:'PATCH'},true),

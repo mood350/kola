@@ -47,6 +47,9 @@ public class ScheduledTask extends BaseEntity {
     @Column(name = "beneficiary_reference", nullable = false)
     private String beneficiaryReference;
 
+    @Column(length = 160)
+    private String description;
+
     /**
      * The vault this schedule spends from.
      *

@@ -126,7 +126,8 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
     private void executeP2p(ScheduledTask task, String key) {
         transactionService.executeIdempotent(key, () -> transactionService.transfer(
                 task.getUserId(), new TransferRequest(task.getCurrency(), task.getAmount(),
-                        task.getBeneficiaryReference(), "Virement programmé")));
+                        task.getBeneficiaryReference(), task.getDescription() == null
+                                ? "Virement programmé" : task.getDescription())));
     }
 
     private void executeMerchantPayment(ScheduledTask task, String key) {
