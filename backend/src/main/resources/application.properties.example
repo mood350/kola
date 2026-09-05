@@ -141,9 +141,10 @@ app.credit.ladder[3].max-amount=50000
 # --- Accounts ---
 app.wallet.default-currency=XOF
 
-# --- Scheduling (midnight jobs: scheduled transactions, credit scoring) ---
+# --- Scheduling (automatisations, credit scoring et recouvrement) ---
 app.scheduling.enabled=true
-app.scheduling.scheduled-transactions-cron=0 0 0 * * *
+# Vérifie chaque minute les opérations arrivées à échéance afin de respecter l'heure choisie.
+app.scheduling.scheduled-transactions-poll-ms=60000
 app.scheduling.credit-scoring-cron=0 30 0 * * *
 app.scheduling.loan-recovery-cron=0 0 1 * * *
 

@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Midnight job (spec DOGAA.md §4.6.3): checks every due, active task, executes
+ * Polling job (spec DOGAA.md §4.6.3): checks every due, active task, executes
  * it via {@link TaskExecutionPort}, reschedules recurring tasks, and retries a
  * failure once ~24h later before marking the task FAILED.
  */
@@ -40,7 +40,7 @@ public class ScheduledTaskRunner {
         this.nextRunCalculator = nextRunCalculator;
     }
 
-    @Scheduled(cron = "${app.scheduling.scheduled-transactions-cron}")
+    @Scheduled(fixedDelayString = "${app.scheduling.scheduled-transactions-poll-ms:60000}")
     @Transactional
     public void runDueTasks() {
         List<ScheduledTask> due = repository.findByStatusAndNextRunAtLessThanEqual(ScheduledTaskStatus.ACTIVE, Instant.now());

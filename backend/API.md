@@ -455,6 +455,9 @@ Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `SAVINGS_DEPOSIT`, 
 Fréquences : `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`
 Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
 
+Les échéances sont vérifiées chaque minute. Une heure choisie dans le mobile est donc exécutée
+au plus tard lors du prochain passage du moteur, et non reportée au prochain minuit.
+
 ### Modifier une planification
 
 `PATCH /scheduling/tasks/{id}` — **un champ absent est laissé tel quel.**

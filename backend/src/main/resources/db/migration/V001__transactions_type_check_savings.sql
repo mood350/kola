@@ -39,3 +39,18 @@ ALTER TABLE transactions ADD CONSTRAINT transactions_type_check CHECK (
         'CHARGEBACK'
     )
 );
+
+-- La planification possède sa propre colonne enum et donc sa propre contrainte générée par
+-- Hibernate. Elle doit elle aussi connaître SAVINGS_DEPOSIT, sinon la création d'une cotisation
+-- Bankivi est refusée avant même que le moteur puisse l'exécuter.
+ALTER TABLE scheduled_tasks DROP CONSTRAINT IF EXISTS scheduled_tasks_type_check;
+
+ALTER TABLE scheduled_tasks ADD CONSTRAINT scheduled_tasks_type_check CHECK (
+    type IN (
+        'P2P_TRANSFER',
+        'MERCHANT_PAYMENT',
+        'VAULT_DEPOSIT',
+        'SAVINGS_DEPOSIT',
+        'BILL_PAYMENT'
+    )
+);

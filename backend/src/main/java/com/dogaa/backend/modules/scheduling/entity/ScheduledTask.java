@@ -50,8 +50,8 @@ public class ScheduledTask extends BaseEntity {
     /**
      * The vault this schedule spends from.
      *
-     * <p>Required for everything except a vault deposit, whose source is the current account by
-     * nature. A schedule used to debit the current account directly, which meant money left the
+     * <p>Required for everything except vault and Bankivi deposits, whose source is the current
+     * account by nature. A schedule used to debit the current account directly, which meant money left the
      * everyday balance on a date the user had chosen weeks earlier and no longer had in mind —
      * exactly the surprise a wallet must not produce. Naming a vault makes the money set aside
      * on purpose, and visibly short if it is.
