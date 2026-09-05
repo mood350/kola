@@ -5,6 +5,8 @@ import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.scheduling.entity.ScheduledTask;
 import com.dogaa.backend.modules.scheduling.repository.ScheduledTaskRepository;
+import com.dogaa.backend.modules.transaction.service.BillerCatalog;
+import com.dogaa.backend.modules.vault.service.VaultService;
 import com.dogaa.backend.modules.scheduling.service.ScheduledTaskServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,10 @@ class ScheduledTaskServiceImplTest {
 
     @Mock
     private ScheduledTaskRepository repository;
+    @Mock
+    private VaultService vaultService;
+    @Mock
+    private BillerCatalog billerCatalog;
 
     private ScheduledTaskServiceImpl service;
 
@@ -36,7 +42,7 @@ class ScheduledTaskServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new ScheduledTaskServiceImpl(repository);
+        service = new ScheduledTaskServiceImpl(repository, vaultService, billerCatalog);
     }
 
     private ScheduledTask taskWith(ScheduledTaskStatus status) {

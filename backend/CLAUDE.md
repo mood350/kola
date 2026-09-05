@@ -215,6 +215,49 @@ standing in front of a merchant and needs to know which of expired/cancelled/alr
 these get printed on receipts and creased. The image endpoint is owner-only and `no-store` — a
 payer already has `payload` from the JSON and can draw the code themselves.
 
+## Scheduled payments, bills and idempotency
+
+**Every schedule spends from a vault, not from the current account.** `ScheduledTask.fundingVaultId`
+is required for everything except `VAULT_DEPOSIT`, whose source is the current account by nature.
+Money leaving the everyday balance on a date chosen weeks earlier is the surprise a wallet must not
+spring; naming a vault makes it money set aside on purpose, and visibly short when it is not. The
+vault is validated at creation (owned, active, right currency) — discovering a currency mismatch at
+midnight means telling someone their rent failed.
+
+`VaultService.releaseForPayment` unlocks **the amount plus the commission**, quoted beforehand
+through `TransactionService.quote`. Releasing only the transfer amount and letting the fee fall on
+the current account would be precisely the quiet raid the feature prevents. It must run in the
+payment's own transaction: a refusal then puts the money back under lock rather than leaving it
+loose.
+
+**Monthly means the same day each month.** `ScheduleNextRunCalculator` used to add 30 days, so a
+standing order set for the 15th drifted to the 14th, then the 16th. The chosen day lives on the task
+(`dayOfMonth`) rather than being read back from the last run, which is what lets the 31st fall on
+the 28th in February and **return** to the 31st in March instead of every later run inheriting the
+short month.
+
+**Bills**: `common/enums/Biller` is the catalogue, and its job is knowing *which identifier each
+service asks for* — Canal+ the 14-digit card number under the decoder, Cash Power the meter number,
+CEET and TdE a customer reference. Asking for "votre numéro" is how a payment lands elsewhere. Only
+Canal+ publishes a format, so `BillerCatalog` validates a character class and a length range and
+nothing invented beyond that: a made-up pattern would reject real customers and look like a Dogaa
+bug. `fixedAmount` gates scheduling — a consumption bill (electricity, water, prepaid meter) cannot
+carry a fixed monthly sum, since it would silently underpay or overpay for ever.
+`GET /api/v1/scheduling/tasks/billers` serves the labels so they are not hard-coded in the app.
+
+**Idempotency.** `Transaction.idempotencyKey` is unique, and `TransactionService.executeIdempotent`
+runs a movement at most once per key. The guarantee is the unique index, not the lookup: the lookup
+is the fast path, the constraint covers two servers racing. The movement runs through the
+`requiresNewTransaction` template rather than an annotation because a constraint violation marks its
+transaction rollback-only — the loser has to be *outside* it to read back the winner's row, and it
+returns that row, because a client told "conflict" for a payment that did go through cannot tell it
+from one that did not. The scheduler's key is `task:{id}:{occurrence}`: a run retried the next
+morning is the same instalment. REST clients send `Idempotency-Key`; treat it as required.
+
+**Do not mark the key column `updatable = false`.** It is stamped just after the movement saves its
+row, so Hibernate must include it in that UPDATE — non-updatable silently dropped the stamp and
+every retry paid again.
+
 ## Stack notes
 
 - Spring Boot **4.1.1**, Java release target **17** (the installed JDK is 25 — do not assume language features above 17 compile).

@@ -23,7 +23,10 @@ public final class ScheduledTaskMapper {
                 entity.getMaxOccurrences(),
                 entity.getOccurrencesCompleted(),
                 entity.getRetryCount(),
-                entity.getLastFailureReason()
+                entity.getLastFailureReason(),
+                entity.getFundingVaultId(),
+                entity.getBiller(),
+                entity.getDayOfMonth()
         );
     }
 }

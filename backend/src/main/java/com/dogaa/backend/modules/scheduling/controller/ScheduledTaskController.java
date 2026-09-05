@@ -2,6 +2,8 @@ package com.dogaa.backend.modules.scheduling.controller;
 
 import com.dogaa.backend.common.dto.ApiResponse;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
+import com.dogaa.backend.modules.scheduling.dto.BillerResponse;
+import com.dogaa.backend.modules.transaction.service.BillerCatalog;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskRequest;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskResponse;
 import com.dogaa.backend.modules.scheduling.service.ScheduledTaskService;
@@ -39,6 +41,7 @@ import java.util.UUID;
 public class ScheduledTaskController {
 
     private final ScheduledTaskService taskService;
+    private final BillerCatalog billerCatalog;
 
     @PostMapping
     @Operation(summary = "Programmer une transaction pour soi-même")
@@ -79,5 +82,22 @@ public class ScheduledTaskController {
             @AuthenticationPrincipal CurrentUser currentUser, @PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok("Tâche annulée",
                 taskService.cancel(currentUser.id(), id)));
+    }
+
+    /**
+     * The billers that can be put on a monthly schedule, with the identifier each one asks for.
+     *
+     * <p>The app must render the right label — "Numéro du compteur" for Cash Power, "Numéro de
+     * carte" for Canal+ — instead of a generic "numéro", and must not offer a consumption bill for
+     * a fixed monthly amount. Both come from here rather than from a list hard-coded in the app,
+     * so adding a biller does not need a mobile release.
+     */
+    @GetMapping("/billers")
+    @Operation(summary = "Services facturables programmables, et l'identifiant demandé par chacun")
+    public ResponseEntity<ApiResponse<List<BillerResponse>>> billers() {
+        List<BillerResponse> billers = billerCatalog.schedulable().stream()
+                .map(BillerResponse::of)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(billers));
     }
 }

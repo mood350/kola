@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,6 +38,16 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Instant;
 
+/**
+ * Money movements.
+ *
+ * <p><b>Send an {@code Idempotency-Key} header on every one of these.</b> A phone on a weak
+ * connection cannot tell a lost response from a refused payment, so it retries — and without a key
+ * the retry is indistinguishable from a second, genuine payment. Same key, same UUID kept across
+ * retries of the <em>same</em> user intent: the first call executes, later ones return that same
+ * transaction. A new intent means a new key. The header is optional only so that existing clients
+ * keep working; treat it as required.
+ */
 @RestController
 @RequestMapping("/api/v1/transactions")
 @RequiredArgsConstructor
@@ -94,9 +105,11 @@ public class TransactionController {
     @Operation(summary = "Send a P2P transfer (internal user or external number)")
     public ResponseEntity<ApiResponse<TransactionResponse>> transfer(
             @AuthenticationPrincipal CurrentUser currentUser,
-            @Valid @RequestBody TransferRequest request) {
+            @Valid @RequestBody TransferRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         TransactionResponse tx = transactionMapper.toResponse(
-                transactionService.transfer(currentUser.id(), request));
+                transactionService.executeIdempotent(idempotencyKey,
+                        () -> transactionService.transfer(currentUser.id(), request)));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Transfer completed", tx));
     }
 
@@ -104,9 +117,11 @@ public class TransactionController {
     @Operation(summary = "Pay a partner merchant")
     public ResponseEntity<ApiResponse<TransactionResponse>> payMerchant(
             @AuthenticationPrincipal CurrentUser currentUser,
-            @Valid @RequestBody MerchantPaymentRequest request) {
+            @Valid @RequestBody MerchantPaymentRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         TransactionResponse tx = transactionMapper.toResponse(
-                transactionService.payMerchant(currentUser.id(), request));
+                transactionService.executeIdempotent(idempotencyKey,
+                        () -> transactionService.payMerchant(currentUser.id(), request)));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Payment completed", tx));
     }
 
@@ -114,9 +129,11 @@ public class TransactionController {
     @Operation(summary = "Withdraw to an external Mobile Money account")
     public ResponseEntity<ApiResponse<TransactionResponse>> cashOut(
             @AuthenticationPrincipal CurrentUser currentUser,
-            @Valid @RequestBody CashOutRequest request) {
+            @Valid @RequestBody CashOutRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         TransactionResponse tx = transactionMapper.toResponse(
-                transactionService.cashOut(currentUser.id(), request));
+                transactionService.executeIdempotent(idempotencyKey,
+                        () -> transactionService.cashOut(currentUser.id(), request)));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Cash-out completed", tx));
     }
 
@@ -124,9 +141,11 @@ public class TransactionController {
     @Operation(summary = "Pay a utility bill (electricity, water, telecom, early loan repayment)")
     public ResponseEntity<ApiResponse<TransactionResponse>> payBill(
             @AuthenticationPrincipal CurrentUser currentUser,
-            @Valid @RequestBody BillPaymentRequest request) {
+            @Valid @RequestBody BillPaymentRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         TransactionResponse tx = transactionMapper.toResponse(
-                transactionService.payBill(currentUser.id(), request));
+                transactionService.executeIdempotent(idempotencyKey,
+                        () -> transactionService.payBill(currentUser.id(), request)));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Bill payment completed", tx));
     }
 }

@@ -61,7 +61,7 @@ class AdminServiceImplTest {
     private ScheduledTaskResponse task(ScheduledTaskStatus status) {
         return new ScheduledTaskResponse(UUID.randomUUID(), UUID.randomUUID(), ScheduledTaskType.P2P_TRANSFER,
                 ScheduleFrequency.ONCE, BigDecimal.TEN, Currency.XOF, "+22890000000", status,
-                Instant.now(), null, null, 0, 0, null);
+                Instant.now(), null, null, 0, 0, null, null, null, null);
     }
 
     private NotificationResponse notification(NotificationDeliveryStatus status) {
