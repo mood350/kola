@@ -52,6 +52,10 @@ export type Biller={code:string;displayName:string;identifierLabel:string;identi
 export type ScheduledTask={id:string;userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;status:string;nextRunAt:string;endDate?:string;maxOccurrences?:number;occurrencesCompleted:number;retryCount:number;lastFailureReason?:string;fundingVaultId?:string;biller?:string;dayOfMonth?:number};
 export type CreditEligibility={eligible:boolean;score:number;minimumScore:number;kycTier:string;currency:string;savingsBalance:number;leverageRatio:number;maxLoanAmount:number;monthlyRatePercent:number;totalRepayable:number;termDays:number;loansRepaid:number;blockers:string[]};
 export type Loan={id:string;currency:string;principal:number;collateralAmount:number;leverageRatio:number;monthlyRatePercent:number;interestAmount:number;penaltyAmount:number;totalDue:number;amountRepaid:number;outstanding:number;shortfallAmount:number;status:string;scoreAtGrant:number;disbursedAt:string;dueAt:string;settledAt?:string};
+export type AssistantMessage={id:string;role:'USER'|'ASSISTANT';content:string;createdAt:string};
+export type AssistantConversation={id:string;title:string;lastMessageAt:string};
+export type AssistantConversationDetail=AssistantConversation&{messages:AssistantMessage[]};
+export type AssistantReply={conversationId:string;title:string;answer:AssistantMessage;remainingToday:number};
 
 export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true),lookupRecipient:(phone:string)=>request<RecipientLookup>(`/api/v1/users/recipients/${encodeURIComponent(phone)}`,{},true)};
 export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true),depositToSavings:(amount:number)=>request<Wallet[]>('/api/v1/wallets/savings/deposit',{method:'POST',body:JSON.stringify({currency:'XOF',amount})},true),withdrawFromSavings:(amount:number)=>request<Wallet[]>('/api/v1/wallets/savings/withdraw',{method:'POST',body:JSON.stringify({currency:'XOF',amount})},true)};
@@ -63,6 +67,12 @@ export const transactionApi={
   payBill:(payload:{amount:number;billerReference:string;description?:string})=>request<Transaction>('/api/v1/transactions/bill-payment',{method:'POST',headers:{'Idempotency-Key':`${Date.now()}-${Math.random().toString(36).slice(2)}`},body:JSON.stringify({...payload,currency:'XOF'})},true),
 };
 export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<Loan[]>('/api/v1/credit/loans',{},true)};
+export const assistantApi={
+  conversations:()=>request<AssistantConversation[]>('/api/v1/assistant/conversations',{},true),
+  conversation:(id:string)=>request<AssistantConversationDetail>(`/api/v1/assistant/conversations/${id}`,{},true),
+  ask:(message:string,conversationId?:string)=>request<AssistantReply>('/api/v1/assistant/messages',{method:'POST',body:JSON.stringify({conversationId:conversationId||null,message})},true),
+  remove:(id:string)=>request<void>(`/api/v1/assistant/conversations/${id}`,{method:'DELETE'},true),
+};
 export const kycApi={status:()=>request<KycStatus>('/api/v1/kyc/status',{},true),upload:(type:KycDocument['type'],file:{uri:string;name:string;mimeType?:string})=>{const body=new FormData();body.append('type',type);body.append('file',{uri:file.uri,name:file.name,type:file.mimeType||'application/octet-stream'} as unknown as Blob);return request<KycDocument>('/api/v1/kyc/documents',{method:'POST',body},true);}};
 export const schedulingApi={
   list:()=>request<ScheduledTask[]>('/api/v1/scheduling/tasks/me',{},true),

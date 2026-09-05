@@ -23,6 +23,7 @@ import { Route } from './src/types';
 import SplashScreen from './src/screens/SplashScreen';
 import { authApi, AuthSession } from './src/services/api';
 import { DogaaDataProvider } from './src/context/DogaaDataContext';
+import AssistantWidget from './src/components/AssistantWidget';
 
 export default function App(){
   const [route,setRoute]=useState<Route>('home');
@@ -36,5 +37,5 @@ export default function App(){
   const openVault=(id:string)=>{setSelectedVaultId(id);setRoute('vaultDetail');};
   const openSubscription=(id:string)=>{setSelectedSubscriptionId(id);setRoute('subscriptionDetail');};
   const screens:Record<Route,React.ReactNode>={home:<HomeScreen navigate={setRoute} onOpenVault={openVault}/>,savings:<SavingsScreen navigate={setRoute}/>,vaults:<VaultsScreen navigate={setRoute} onOpenVault={openVault}/>,vaultDetail:<VaultDetailScreen navigate={setRoute} vaultId={selectedVaultId}/>,scan:<ScanScreen navigate={setRoute}/>,bills:<ServicePaymentsScreen navigate={setRoute} mode="bills"/>,subscriptions:<ServicePaymentsScreen navigate={setRoute} mode="subscriptions" onOpenSubscription={openSubscription}/>,subscriptionDetail:<SubscriptionDetailScreen navigate={setRoute} subscriptionId={selectedSubscriptionId}/>,credit:<CreditScreen navigate={setRoute}/>,loan:<LoanScreen navigate={setRoute}/>,loanDetail:<LoanDetailScreen navigate={setRoute}/>,profile:<ProfileScreen navigate={setRoute} onLogout={logout}/>,faq:<FaqScreen navigate={setRoute}/>,kyc:<KycScreen navigate={setRoute}/>,transactionHistory:<TransactionHistoryScreen navigate={setRoute}/>,scheduled:<ScheduledScreen navigate={setRoute}/>};
-  return <SafeAreaProvider><StatusBar style={entry==='loading'?'light':'dark'}/>{entry==='loading'?<SplashScreen/>:entry==='onboarding'?<OnboardingScreen onFinish={finishOnboarding}/>:entry==='auth'?<AuthScreen onAuthenticated={authenticate}/>:<DogaaDataProvider>{screens[route]}</DogaaDataProvider>}</SafeAreaProvider>;
+  return <SafeAreaProvider><StatusBar style={entry==='loading'?'light':'dark'}/>{entry==='loading'?<SplashScreen/>:entry==='onboarding'?<OnboardingScreen onFinish={finishOnboarding}/>:entry==='auth'?<AuthScreen onAuthenticated={authenticate}/>:<DogaaDataProvider>{screens[route]}<AssistantWidget/></DogaaDataProvider>}</SafeAreaProvider>;
 }
