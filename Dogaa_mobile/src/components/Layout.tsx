@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { c, shadow } from '../theme';
 import { Route } from '../types';
@@ -38,7 +38,9 @@ export function BottomNav({ route, navigate }: {route:Route; navigate:(r:Route)=
 
 export function Screen({ children, route, navigate }: {children:React.ReactNode;route:Route;navigate:(r:Route)=>void}) {
   const dogaa=useDogaaData();
-  return <SafeAreaView style={s.safe} edges={['top']}><AppHeader navigate={navigate}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>{dogaa.error&&<TouchableOpacity onPress={dogaa.refresh} style={s.apiError}><Ionicons name="cloud-offline-outline" size={16} color="#93000A"/><Text style={s.apiErrorText}>{dogaa.error} Touchez pour réessayer.</Text></TouchableOpacity>}{children}<View style={{height:90}}/></ScrollView><BottomNav route={route} navigate={navigate}/></SafeAreaView>;
+  const [refreshing,setRefreshing]=useState(false);
+  const refresh=async()=>{setRefreshing(true);try{await dogaa.refresh();}finally{setRefreshing(false);}};
+  return <SafeAreaView style={s.safe} edges={['top']}><AppHeader navigate={navigate}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} alwaysBounceVertical refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary,c.green,c.yellow]} progressBackgroundColor={c.white}/>}>{dogaa.error&&<TouchableOpacity onPress={dogaa.refresh} style={s.apiError}><Ionicons name="cloud-offline-outline" size={16} color="#93000A"/><Text style={s.apiErrorText}>{dogaa.error} Touchez pour réessayer.</Text></TouchableOpacity>}{children}<View style={{height:90}}/></ScrollView><BottomNav route={route} navigate={navigate}/></SafeAreaView>;
 }
 
 export function SectionTitle({title,action,onPress}:{title:string;action?:string;onPress?:()=>void}) {
