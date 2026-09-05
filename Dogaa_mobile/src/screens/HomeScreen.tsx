@@ -37,7 +37,7 @@ export default function HomeScreen({navigate,onOpenVault}:{navigate:(r:Route)=>v
     if(phone.replace(/\D/g,'').length<8){Alert.alert('Numéro invalide','Saisissez un numéro Mobile Money valide.');return;}
     if(value<500){Alert.alert('Montant invalide','Le montant minimum est de 500 FCFA.');return;}
     if(value>1000000){Alert.alert('Plafond dépassé','Le montant maximum par recharge est de 1 000 000 FCFA.');return;}
-    try{await walletApi.deposit(value);await dogaa.refresh();closeRecharge();Alert.alert('Recharge réussie',`${new Intl.NumberFormat('fr-FR').format(value)} FCFA ont été ajoutés à votre portefeuille.`);}catch(error){Alert.alert('Recharge impossible',error instanceof Error?error.message:'Erreur serveur.');}
+    try{await walletApi.deposit(value);await dogaa.refresh();closeRecharge();Alert.alert('Recharge réussie',`${new Intl.NumberFormat('fr-FR').format(value)} FCFA ont été ajoutés à votre portefeuille.`);}catch(error){dogaa.notifyFailure(error instanceof Error?error.message:'Erreur serveur.','CASH_IN');}
   };
   return <Screen route="home" navigate={navigate}>
     <View style={s.welcome}><View><Text style={s.hello}>Bonjour, {dogaa.user?.firstName||'Client'} ✌️</Text><Text style={s.active}><Text style={{color:c.green}}>●</Text> Compte Particulier Actif</Text></View><TouchableOpacity style={s.currency}><Text style={s.currencyText}>XOF⌄</Text></TouchableOpacity></View>
