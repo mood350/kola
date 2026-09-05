@@ -1,13 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Animated, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import EventSource from 'react-native-sse';
 import { API_URL, AuthSession, creditApi, CreditEligibility, DogaaUser, Loan, schedulingApi, ScheduledTask, transactionApi, Transaction, userApi, Vault, vaultApi, Wallet, walletApi } from '../services/api';
 import { c, shadow } from '../theme';
+import { playTransactionSound } from '../services/sounds';
 
 type StoredData={user:DogaaUser|null;wallets:Wallet[];vaults:Vault[];transactions:Transaction[];eligibility:CreditEligibility|null;loans:Loan[];scheduled:ScheduledTask[]};
-type Data=StoredData&{loading:boolean;error:string|null;refresh:()=>Promise<void>};
+type Data=StoredData&{loading:boolean;error:string|null;refresh:()=>Promise<void>;notifyTransaction:(transaction:Transaction)=>void};
 const Context=createContext<Data|null>(null);
 const initialData:StoredData={user:null,wallets:[],vaults:[],transactions:[],eligibility:null,loans:[],scheduled:[]};
 type TransactionToast={id:string;type:string;amount:number;currency:string;counterparty?:string};
@@ -16,6 +17,8 @@ export function DogaaDataProvider({children}:{children:React.ReactNode}){
   const [data,setData]=useState<StoredData>(initialData);
   const [loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);
   const [toast,setToast]=useState<TransactionToast|null>(null);
+  const lastToast=useRef<string|null>(null);
+  const notifyTransaction=useCallback((transaction:Transaction)=>{if(transaction.status!=='COMPLETED'||lastToast.current===transaction.reference)return;lastToast.current=transaction.reference;setToast({id:transaction.reference,type:transaction.type,amount:Number(transaction.amount),currency:transaction.currency,counterparty:transaction.counterparty});playTransactionSound('success');},[]);
   const load=useCallback(async(showLoader:boolean)=>{
     if(showLoader)setLoading(true);
     try{
@@ -44,12 +47,12 @@ export function DogaaDataProvider({children}:{children:React.ReactNode}){
       if(cancelled||!raw)return;
       const session=JSON.parse(raw) as AuthSession;
       source=new EventSource<'transaction'>(`${API_URL}/api/v1/transactions/stream`,{headers:{Authorization:`Bearer ${session.accessToken}`},pollingInterval:5000});
-      source.addEventListener('transaction',event=>{try{const transaction=JSON.parse(event.data||'{}') as Transaction;if(transaction.status==='COMPLETED')setToast({id:transaction.reference,type:transaction.type,amount:Number(transaction.amount),currency:transaction.currency,counterparty:transaction.counterparty});}catch{}load(false);});
+      source.addEventListener('transaction',event=>{try{notifyTransaction(JSON.parse(event.data||'{}') as Transaction);}catch{}load(false);});
     }).catch(()=>{});
     return ()=>{cancelled=true;source?.removeAllEventListeners();source?.close();};
-  },[load]);
+  },[load,notifyTransaction]);
 
-  return <Context.Provider value={{...data,loading,error,refresh}}><View style={styles.root}>{children}{toast&&<SuccessToast transaction={toast} onClose={()=>setToast(null)}/>}</View></Context.Provider>;
+  return <Context.Provider value={{...data,loading,error,refresh,notifyTransaction}}><View style={styles.root}>{children}{toast&&<SuccessToast transaction={toast} onClose={()=>setToast(null)}/>}</View></Context.Provider>;
 }
 
 export function useDogaaData(){const value=useContext(Context);if(!value)throw new Error('useDogaaData must be used inside DogaaDataProvider');return value;}

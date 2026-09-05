@@ -9,6 +9,7 @@ import { useDogaaData } from '../context/DogaaDataContext';
 import { FeeQuote, Transaction, transactionApi } from '../services/api';
 import { c } from '../theme';
 import { Route } from '../types';
+import { playTransactionSound } from '../services/sounds';
 
 const money=(value:number)=>new Intl.NumberFormat('fr-FR').format(value);
 const togolesePhone=(payload:string)=>{
@@ -31,7 +32,7 @@ export default function ScanScreen({navigate}:{navigate:(route:Route)=>void}){
   const reset=()=>{setScanned(false);setPhone('');setAmount('');setDescription('');setQuote(null);setReceipt(null);};
   const onScanned=({data}:{data:string})=>{if(scanned)return;setScanned(true);const recipient=togolesePhone(data);if(!recipient){Alert.alert('QR code non reconnu','Ce QR ne contient pas un numéro DOGAA togolais valide.',[{text:'Scanner à nouveau',onPress:reset}]);return;}setPhone(recipient);};
   const prepare=async()=>{const value=Number(amount.replace(/\D/g,''));if(!phone){Alert.alert('Bénéficiaire requis','Scannez le QR DOGAA du bénéficiaire.');return;}if(value<=0){Alert.alert('Montant invalide','Saisissez un montant supérieur à zéro.');return;}try{setQuote(await transactionApi.quote(value));}catch(error){Alert.alert('Calcul impossible',error instanceof Error?error.message:'Erreur serveur.');}};
-  const send=async()=>{if(!quote)return;setSending(true);try{const transaction=await transactionApi.transfer({amount:Number(quote.amount),recipientPhone:phone,description:description.trim()||undefined});await dogaa.refresh();setReceipt(transaction);}catch(error){Alert.alert('Transfert impossible',error instanceof Error?error.message:'Erreur serveur.');}finally{setSending(false);}};
+  const send=async()=>{if(!quote)return;setSending(true);playTransactionSound('sending');try{const transaction=await transactionApi.transfer({amount:Number(quote.amount),recipientPhone:phone,description:description.trim()||undefined});dogaa.notifyTransaction(transaction);await dogaa.refresh();setReceipt(transaction);}catch(error){Alert.alert('Transfert impossible',error instanceof Error?error.message:'Erreur serveur.');}finally{setSending(false);}};
 
   if(receipt)return <ReceiptScreen transaction={receipt} phone={phone} description={description} navigate={navigate} onNew={reset}/>;
 
