@@ -96,6 +96,22 @@ public class Transaction extends BaseEntity {
     @Column(name = "failure_reason", length = 200)
     private String failureReason;
 
+    /**
+     * Caller-supplied key making a retry safe (see {@code TransactionService.executeIdempotent}).
+     *
+     * <p>Unique, and that uniqueness is the mechanism: the database refuses the second insert, so
+     * a retried request cannot pay twice even if two servers process it at the same instant. A
+     * check-then-insert in application code would leave a window between the two.
+     *
+     * <p>Null for movements nobody can replay — an admin chargeback, a vault movement recorded
+     * after the money already moved.
+     */
+    // Not updatable=false: the key is stamped by executeIdempotent just after the movement has
+    // built and saved its row, so Hibernate has to include the column in that UPDATE. Marking it
+    // non-updatable silently dropped the stamp, and every retry then paid again.
+    @Column(name = "idempotency_key", unique = true, length = 120)
+    private String idempotencyKey;
+
     @Column(name = "completed_at")
     private Instant completedAt;
 

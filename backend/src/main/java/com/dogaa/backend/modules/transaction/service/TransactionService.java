@@ -27,18 +27,22 @@ import com.dogaa.backend.modules.user.service.UserService;
 import com.dogaa.backend.modules.wallet.entity.Wallet;
 import com.dogaa.backend.modules.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.UUID;
 
 /**
@@ -52,6 +56,7 @@ import java.util.UUID;
  * and surfaces as a 4xx — the {@code FAILED} trace status is produced by the scheduler
  * (DOGAA.md 4.6), not this path.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
@@ -64,6 +69,7 @@ public class TransactionService {
     private final ExternalTransferGateway externalTransferGateway;
     private final AuthProperties authProperties;
     private final TransactionEventBroadcaster eventBroadcaster;
+    private final TransactionTemplate requiresNewTransaction;
 
     // --- Fee preview ---------------------------------------------------
 
@@ -281,6 +287,54 @@ public class TransactionService {
                 .filter(w -> w.getCurrency() == currency)
                 .map(w -> w.getAvailableBalance().add(w.getLockedBalance()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // --- Idempotency ------------------------------------------------
+
+    /**
+     * Runs a money movement at most once for a given key.
+     *
+     * <p>A payment request arrives twice for reasons nobody controls: a phone that lost the
+     * response and retried, a scheduler that restarted mid-run, a user who tapped twice on a slow
+     * connection. Without a key the second arrival is indistinguishable from a genuine second
+     * payment, and the money leaves twice.
+     *
+     * <p>The guarantee is the unique index on {@code idempotency_key}, not the lookup below: the
+     * lookup is only the fast path, and the constraint is what covers two servers racing on the
+     * same key. The movement runs in its own transaction through a {@code TransactionTemplate}
+     * rather than an annotation, because a constraint violation marks its transaction
+     * rollback-only — the losing caller has to be <em>outside</em> that transaction before it can
+     * read back the winner's row. Losing the race therefore still returns a success, which is what
+     * a retrying client needs: the payment did happen, once.
+     *
+     * <p>A null or blank key means no replay protection was asked for, and simply runs.
+     */
+    public Transaction executeIdempotent(String key, Supplier<Transaction> movement) {
+        if (key == null || key.isBlank()) {
+            return movement.get();
+        }
+
+        Optional<Transaction> alreadyDone = findByKey(key);
+        if (alreadyDone.isPresent()) {
+            log.info("Idempotent replay of key {} -> transaction {}",
+                    key, alreadyDone.get().getReference());
+            return alreadyDone.get();
+        }
+
+        try {
+            return requiresNewTransaction.execute(status -> {
+                Transaction executed = movement.get();
+                executed.setIdempotencyKey(key);
+                return transactionRepository.saveAndFlush(executed);
+            });
+        } catch (DataIntegrityViolationException ex) {
+            return findByKey(key).orElseThrow(() -> ex);
+        }
+    }
+
+    private Optional<Transaction> findByKey(String key) {
+        return requiresNewTransaction.execute(status ->
+                transactionRepository.findByIdempotencyKey(key));
     }
 
     // --- Savings account --------------------------------------------

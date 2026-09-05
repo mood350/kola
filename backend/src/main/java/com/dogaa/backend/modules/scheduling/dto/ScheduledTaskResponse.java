@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.scheduling.dto;
 
+import com.dogaa.backend.common.enums.Biller;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.ScheduleFrequency;
 import com.dogaa.backend.common.enums.ScheduledTaskStatus;
@@ -23,6 +24,9 @@ public record ScheduledTaskResponse(
         Integer maxOccurrences,
         int occurrencesCompleted,
         int retryCount,
-        String lastFailureReason
+        String lastFailureReason,
+        UUID fundingVaultId,
+        Biller biller,
+        Integer dayOfMonth
 ) {
 }

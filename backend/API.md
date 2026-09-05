@@ -315,6 +315,23 @@ Barème : dépôt gratuit · P2P ~1,5 % · retrait ~1 % · marchand et facture s
 Types : `CASH_IN`, `CASH_OUT`, `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `BILL_PAYMENT`, `VAULT_DEPOSIT`, `VAULT_WITHDRAWAL`, `LOAN_DISBURSEMENT`, `LOAN_REPAYMENT`, `CHARGEBACK`
 Statuts : `PENDING`, `COMPLETED`, `FAILED` (avec `failureReason`)
 
+### Clé d'idempotence — à envoyer sur chaque paiement
+
+Ajoutez un en-tête `Idempotency-Key` sur `POST /transactions/{transfer,merchant-payment,cash-out,bill-payment}`.
+
+```
+Idempotency-Key: 7f3a9c02-1b4e-4d55-9a10-2c8e6f0b1d33
+```
+
+Un téléphone sur réseau faible ne distingue pas une réponse perdue d'un paiement refusé : il
+réessaie. **Sans clé, ce second appel est un second paiement.** Avec la même clé, le premier appel
+exécute et les suivants renvoient **la même transaction** avec un succès — pas une erreur, car un
+client qui reçoit un conflit ne sait pas si l'argent est parti.
+
+Règle : un UUID généré **une fois par intention de paiement**, conservé à travers les tentatives.
+Un nouveau paiement = une nouvelle clé. L'en-tête est optionnel pour ne pas casser les clients
+existants ; considérez-le comme obligatoire.
+
 ---
 
 ## 8. Coffres-forts (vaults)
@@ -334,8 +351,7 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 
 ## 9. Transactions programmées
 
-Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a plus de `userId`**, ni dans
-le corps, ni dans le chemin.
+Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de `userId`**.
 
 | Méthode | Route | Corps |
 |---|---|---|
@@ -344,18 +360,67 @@ le corps, ni dans le chemin.
 | `PATCH` | `/scheduling/tasks/{id}/resume` | — |
 | `PATCH` | `/scheduling/tasks/{id}/cancel` | — |
 | `GET` | `/scheduling/tasks/me` | — |
+| `GET` | `/scheduling/tasks/billers` | — → services facturables |
 
 ```json
-{ "type": "VAULT_DEPOSIT", "frequency": "MONTHLY",
-  "amount": 10000, "currency": "XOF", "beneficiaryReference": "vault-id-ou-numero",
-  "firstRunAt": "2026-10-05T00:00:00Z", "endDate": null, "maxOccurrences": 12 }
+{ "type": "P2P_TRANSFER", "frequency": "MONTHLY",
+  "amount": 50000, "currency": "XOF", "beneficiaryReference": "+22890111222",
+  "firstRunAt": "2026-10-05T00:00:00Z", "dayOfMonth": 5,
+  "fundingVaultId": "uuid-du-coffre",
+  "endDate": null, "maxOccurrences": null }
 ```
 
 Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `BILL_PAYMENT`
 Fréquences : `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`
 Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
 
-Le job s'exécute **à minuit**. En cas de solde insuffisant, la tâche passe `FAILED` avec `lastFailureReason`.
+### Le coffre de financement est obligatoire
+
+`fundingVaultId` est **requis** pour tous les types sauf `VAULT_DEPOSIT`. Une planification ne
+puise jamais dans le compte courant : l'argent doit avoir été mis de côté exprès. Le coffre est
+vérifié à la création — il doit vous appartenir, être actif, et être dans la **même devise** que la
+planification.
+
+Au moment de l'exécution, le coffre est débité du **montant + la commission**. Prévoyez donc les
+frais dans le coffre : un coffre à 50 000 F ne couvre pas un virement de 50 000 F.
+
+### `dayOfMonth`
+
+Pour une fréquence `MONTHLY`, le jour du mois (1-31). Omis, il est déduit de `firstRunAt`.
+Un 29, 30 ou 31 tombe sur le dernier jour d'un mois plus court **puis revient** au jour choisi :
+31 janvier → 28 février → 31 mars.
+
+### Factures à montant fixe
+
+| Méthode | Route |
+|---|---|
+| `GET` | `/scheduling/tasks/billers` |
+
+```json
+{ "success": true, "data": [
+  { "code": "canal_plus", "displayName": "CANAL+",
+    "identifierLabel": "Numéro de carte", "identifierKind": "DIGITS",
+    "minLength": 14, "maxLength": 14, "fixedAmount": true },
+  { "code": "togocom_fibre", "displayName": "Togocom — fibre optique",
+    "identifierLabel": "Numéro de contrat", "identifierKind": "ALPHANUMERIC",
+    "minLength": 4, "maxLength": 24, "fixedAmount": true } ] }
+```
+
+**Affichez `identifierLabel` au-dessus du champ de saisie**, ne mettez pas « numéro » en dur :
+la question n'est pas la même selon le service. Canal+ demande le numéro de carte imprimé sous le
+décodeur, Cash Power le numéro du compteur, CEET une référence client. `identifierKind` indique le
+clavier à ouvrir (`DIGITS` → pavé numérique).
+
+Pour programmer une facture : `type: "BILL_PAYMENT"`, `biller: "canal_plus"`, et le numéro
+d'abonné dans `beneficiaryReference`. Les espaces et tirets copiés depuis une facture papier sont
+retirés automatiquement.
+
+> Seules les factures à **montant invariable** (abonnements) sont programmables. CEET, TdE et
+> Cash Power se facturent à la consommation : les programmer pour une somme fixe est refusé (400),
+> car cela paierait trop ou trop peu tous les mois.
+
+Le job s'exécute **à minuit**. En cas de coffre insuffisant, la tâche passe `FAILED` avec un
+`lastFailureReason` qui nomme le coffre.
 
 > La tâche d'un autre utilisateur répond **404**, pas 403 : un 403 confirmerait que l'identifiant existe.
 

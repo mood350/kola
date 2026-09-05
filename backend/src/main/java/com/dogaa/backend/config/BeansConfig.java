@@ -2,6 +2,9 @@ package com.dogaa.backend.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -42,5 +45,21 @@ public class BeansConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationProvider authenticationProvider) {
         return new ProviderManager(authenticationProvider);
+    }
+
+    /**
+     * A transaction that always starts fresh and never joins the caller's.
+     *
+     * <p>Needed wherever a failure has to survive the caller's rollback, or — as in
+     * {@code TransactionService.executeIdempotent} — wherever the code must get back <em>outside</em>
+     * a transaction that a constraint violation has marked rollback-only before it can read
+     * anything again. An annotation cannot do this when the call comes from the same class, since
+     * Spring's proxy is bypassed for calls to {@code this}.
+     */
+    @Bean
+    public TransactionTemplate requiresNewTransaction(PlatformTransactionManager transactionManager) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template;
     }
 }

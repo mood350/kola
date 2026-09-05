@@ -27,6 +27,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
 
     Optional<Transaction> findByReference(String reference);
 
+    Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
+
     /**
      * Sum of what the user has already sent out today in one currency: the running total
      * the KYC daily limit is checked against (DOGAA.md 4.4).
