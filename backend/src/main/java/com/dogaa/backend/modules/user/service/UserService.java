@@ -3,6 +3,7 @@ package com.dogaa.backend.modules.user.service;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.user.dto.UpdateProfileRequest;
 import com.dogaa.backend.modules.user.dto.UserResponse;
+import com.dogaa.backend.modules.user.dto.RecipientLookupResponse;
 import com.dogaa.backend.modules.user.entity.User;
 import com.dogaa.backend.modules.user.event.UserProfileUpdatedEvent;
 import com.dogaa.backend.modules.user.mapper.UserMapper;
@@ -55,6 +56,16 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getProfile(UUID id) {
         return userMapper.toResponse(getById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public RecipientLookupResponse lookupRecipient(String phone) {
+        User user = findByPhone(phone)
+                .orElseThrow(() -> new ResourceNotFoundException("Aucun compte DOGAA associé à ce numéro"));
+        String masked = phone.length() >= 4
+                ? phone.substring(0, Math.max(0, phone.length() - 4)).replaceAll("\\d", "•") + phone.substring(phone.length() - 4)
+                : phone;
+        return new RecipientLookupResponse(user.getId(), user.getFirstName() + " " + user.getLastName(), masked);
     }
 
     @Transactional(readOnly = true)

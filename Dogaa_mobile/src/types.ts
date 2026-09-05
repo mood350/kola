@@ -1,0 +1,1 @@
+export type Route = 'home' | 'savings' | 'vaults' | 'vaultDetail' | 'scan' | 'bills' | 'subscriptions' | 'subscriptionDetail' | 'credit' | 'loan' | 'loanDetail' | 'profile' | 'faq' | 'kyc' | 'transactionHistory' | 'scheduled';
