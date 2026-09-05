@@ -268,6 +268,22 @@ Chaque utilisateur a **deux comptes XOF** créés à l'inscription : `CURRENT` (
 
 `availableBalance` = dépensable · `lockedBalance` = bloqué (coffres, ou garantie d'un prêt en cours). **Affichez toujours les deux** : un utilisateur avec un prêt en cours voit son épargne entièrement en `locked` et doit comprendre pourquoi.
 
+### Compte épargne
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/wallets/savings/deposit` | `{ currency, amount }` |
+| `POST` | `/wallets/savings/withdraw` | `{ currency, amount }` |
+
+Les deux renvoient **la liste des deux comptes** après le mouvement, pas un seul côté.
+
+Le virement courant → épargne est **gratuit** et **ne consomme aucun plafond d'envoi** : déplacer
+son propre argent n'est pas une dépense. C'est ce compte qui garantit les prêts, donc l'alimenter
+est le préalable à toute demande de crédit (§11).
+
+> Tant qu'un prêt est en cours, l'épargne est bloquée en garantie et le retrait répond
+> `INSUFFICIENT_FUNDS`. Les versements, eux, continuent de passer.
+
 ---
 
 ## 7. Transactions

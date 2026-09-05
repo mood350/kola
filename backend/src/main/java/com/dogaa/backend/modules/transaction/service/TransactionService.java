@@ -4,6 +4,7 @@ import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.Role;
 import com.dogaa.backend.common.enums.TransactionStatus;
 import com.dogaa.backend.common.enums.TransactionType;
+import com.dogaa.backend.common.enums.WalletType;
 import com.dogaa.backend.common.util.PhoneNumbers;
 import com.dogaa.backend.common.util.Tokens;
 import com.dogaa.backend.config.AuthProperties;
@@ -85,6 +86,11 @@ public class TransactionService {
     @Transactional
     public Transaction cashIn(UUID ownerId, Currency currency, BigDecimal amount) {
         User owner = userService.getById(ownerId);
+        // The balance ceiling of the tier, checked before the money lands rather than after: the
+        // answer to hitting it is "raise your KYC level", which only makes sense as a refusal.
+        // Summed over the user's wallets in this currency only — there is no FX source to pool
+        // currencies with, and pretending otherwise would compare unrelated numbers.
+        kycLimitPolicy.checkResultingBalance(owner.getKycTier(), heldIn(ownerId, currency), amount);
         Wallet wallet = walletService.deposit(ownerId, currency, amount);
         BigDecimal fee = feeCalculator.feeFor(TransactionType.CASH_IN, amount, currency, owner.getKycTier());
 
@@ -112,7 +118,7 @@ public class TransactionService {
         Wallet source = walletService.getWallet(senderId, currency);
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.P2P_TRANSFER, amount, currency, sender.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(senderId, sender.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(senderId, sender.getKycTier(), currency, amount);
 
         String reference = newReference();
         Transaction.TransactionBuilder trace = Transaction.builder()
@@ -166,7 +172,7 @@ public class TransactionService {
                 "Merchant has no " + currency + " wallet");
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.MERCHANT_PAYMENT, amount, currency, payer.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(payerId, payer.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(payerId, payer.getKycTier(), currency, amount);
 
         walletService.debit(source.getId(), amount.add(fee));
         walletService.credit(destination.getId(), amount);
@@ -197,7 +203,7 @@ public class TransactionService {
         Wallet source = walletService.getWallet(userId, currency);
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.CASH_OUT, amount, currency, user.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(userId, user.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(userId, user.getKycTier(), currency, amount);
 
         String reference = newReference();
         walletService.debit(source.getId(), amount.add(fee));
@@ -226,7 +232,7 @@ public class TransactionService {
         Wallet source = walletService.getWallet(payerId, currency);
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.BILL_PAYMENT, amount, currency, payer.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(payerId, payer.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(payerId, payer.getKycTier(), currency, amount);
 
         String reference = newReference();
         walletService.debit(source.getId(), amount.add(fee));
@@ -267,6 +273,82 @@ public class TransactionService {
                 .destinationWalletId(deposit ? null : walletId)
                 .counterparty(vaultName)
                 .description(deposit ? "Vault deposit" : "Vault withdrawal"));
+    }
+
+    /** Everything the user holds in one currency, spendable and locked alike. */
+    private BigDecimal heldIn(UUID ownerId, Currency currency) {
+        return walletService.listWallets(ownerId).stream()
+                .filter(w -> w.getCurrency() == currency)
+                .map(w -> w.getAvailableBalance().add(w.getLockedBalance()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // --- Savings account --------------------------------------------
+
+    /**
+     * Moves money from the current account into the savings account that secures loans.
+     *
+     * <p>Without this the savings wallet was provisioned at sign-up and could never be funded: no
+     * route reached it, so {@code CreditService} — which requires a minimum collateral — refused
+     * every borrower, and the savings-discipline axis of the score, worth 30 points, was
+     * structurally stuck at zero.
+     *
+     * <p>Free and not outgoing. The user is not spending, they are putting money aside; charging a
+     * commission or counting it against the KYC send ceiling would penalise the exact behaviour
+     * the product is built to encourage. Both wallet ids are recorded, which is what lets
+     * {@code ScoringDataCollector} recognise it as an internal move and count it as savings rather
+     * than as new income.
+     */
+    @Transactional
+    public Transaction depositToSavings(UUID userId, Currency currency, BigDecimal amount) {
+        Wallet current = walletService.getWallet(userId, currency);
+        Wallet savings = walletService.getWallet(userId, currency, WalletType.SAVINGS);
+
+        walletService.debit(current.getId(), amount);
+        walletService.credit(savings.getId(), amount);
+
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.SAVINGS_DEPOSIT)
+                .currency(currency)
+                .amount(amount)
+                .fee(BigDecimal.ZERO)
+                .senderId(userId)
+                .recipientId(userId)
+                .sourceWalletId(current.getId())
+                .destinationWalletId(savings.getId())
+                .counterparty("Compte épargne")
+                .description("Versement sur l'épargne"));
+    }
+
+    /**
+     * Moves money back from savings to the current account.
+     *
+     * <p>A running loan needs no special case here: it freezes the collateral by moving the whole
+     * savings balance into {@code lockedBalance}, and {@link WalletService#debit} only ever spends
+     * the available side. The refusal is therefore structural rather than a rule someone has to
+     * remember to write — which is the same reason the two accounts are one entity with a type.
+     */
+    @Transactional
+    public Transaction withdrawFromSavings(UUID userId, Currency currency, BigDecimal amount) {
+        Wallet savings = walletService.getWallet(userId, currency, WalletType.SAVINGS);
+        Wallet current = walletService.getWallet(userId, currency);
+
+        walletService.debit(savings.getId(), amount);
+        walletService.credit(current.getId(), amount);
+
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.SAVINGS_WITHDRAWAL)
+                .currency(currency)
+                .amount(amount)
+                .fee(BigDecimal.ZERO)
+                .senderId(userId)
+                .recipientId(userId)
+                .sourceWalletId(savings.getId())
+                .destinationWalletId(current.getId())
+                .counterparty("Compte épargne")
+                .description("Retrait de l'épargne"));
     }
 
     /**

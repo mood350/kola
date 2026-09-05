@@ -8,6 +8,7 @@ import com.dogaa.backend.config.FeeProperties;
 import com.dogaa.backend.config.KycProperties;
 import com.dogaa.backend.config.OtpProperties;
 import com.dogaa.backend.config.ScoringProperties;
+import com.dogaa.backend.modules.transaction.service.FeeCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +40,7 @@ public class ProductKnowledge {
     private final OtpProperties otp;
     private final AuthProperties auth;
     private final DisputeProperties disputes;
+    private final FeeCalculator feeCalculator;
 
     public String briefing() {
         StringBuilder out = new StringBuilder(4000);
@@ -60,6 +62,11 @@ public class ProductKnowledge {
                 bloqué, qui ne l'est pas. Mettre de l'argent dans un coffre ou garantir un prêt
                 déplace de l'argent du disponible vers le bloqué. Rien ne disparaît : c'est le même
                 compte, mais la part bloquée est refusée aux retraits.
+
+                On alimente le compte épargne en y virant de l'argent depuis le compte courant.
+                C'est gratuit, immédiat, et ça ne compte pas dans les plafonds d'envoi : déplacer
+                son propre argent n'est pas une dépense. On peut le récupérer de la même façon —
+                sauf si un prêt est en cours, auquel cas l'épargne est bloquée en garantie.
 
                 ## Inscription et connexion
 
@@ -98,10 +105,27 @@ public class ProductKnowledge {
                 - Retrait (cash-out) : %s
 
                 Les frais sont prélevés en plus du montant envoyé, sur le compte de l'émetteur.
+
+                Ces taux sont ceux d'un compte non vérifié. Vérifier son identité les fait baisser :
                 """.formatted(
                 percent(fees.getCashInPercent()), percent(fees.getP2pPercent()),
                 percent(fees.getMerchantPercent()), percent(fees.getBillPaymentPercent()),
                 percent(fees.getCashOutPercent())));
+
+        // Derived from FeeCalculator, not restated: the rebate is what a TIER_3 actually pays, and
+        // quoting the base rate to them was simply wrong.
+        for (KycTier tier : KycTier.values()) {
+            BigDecimal multiplier = feeCalculator.tierMultiplier(tier);
+            BigDecimal effectiveP2p = fees.getP2pPercent().multiply(multiplier);
+            if (multiplier.compareTo(BigDecimal.ONE) == 0) {
+                out.append("- %s : tarif plein, soit %s sur un transfert P2P.%n"
+                        .formatted(tier, percent(effectiveP2p)));
+            } else {
+                out.append("- %s : %s des frais, soit %s sur un transfert P2P.%n"
+                        .formatted(tier, percent(multiplier.multiply(new BigDecimal("100"))),
+                                percent(effectiveP2p)));
+            }
+        }
 
         out.append("""
 
