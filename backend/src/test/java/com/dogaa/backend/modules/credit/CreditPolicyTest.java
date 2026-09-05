@@ -23,7 +23,7 @@ class CreditPolicyTest {
 
         assertThat(rung.getLeverage()).isEqualByComparingTo("1.0");
         assertThat(rung.getMonthlyRatePercent()).isEqualByComparingTo("8.0");
-        assertThat(policy.maxLoanAmount(xof("500000"), rung.getLeverage()))
+        assertThat(policy.maxLoanAmount(xof("500000"), rung))
                 .isEqualByComparingTo("500000");
     }
 
@@ -64,7 +64,7 @@ class CreditPolicyTest {
     @Test
     void theTopRungLendsSixtyPercentMoreThanTheSavings() {
         CreditProperties.Rung rung = policy.rungFor(3, 90).orElseThrow();
-        BigDecimal amount = policy.maxLoanAmount(xof("500000"), rung.getLeverage());
+        BigDecimal amount = policy.maxLoanAmount(xof("500000"), rung);
 
         assertThat(amount).isEqualByComparingTo("800000");
         assertThat(amount.add(policy.interestOn(amount, rung.getMonthlyRatePercent())))

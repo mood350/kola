@@ -3,6 +3,7 @@ package com.dogaa.backend.modules.transaction.repository;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.TransactionStatus;
 import com.dogaa.backend.common.enums.TransactionType;
+import com.dogaa.backend.modules.transaction.dto.FeeAggregate;
 import com.dogaa.backend.modules.transaction.dto.TransactionAggregate;
 import com.dogaa.backend.modules.transaction.entity.Transaction;
 import org.springframework.data.domain.Page;
@@ -98,4 +99,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
             group by t.currency
             """)
     List<TransactionAggregate> aggregateByCurrency(@Param("status") TransactionStatus status);
+
+    /**
+     * Fees collected per movement type (DOGAA.md 5.3.A), for the revenue breakdown. Types that
+     * never charge a commission simply produce no row.
+     */
+    @Query("""
+            select new com.dogaa.backend.modules.transaction.dto.FeeAggregate(
+                t.type, coalesce(sum(t.fee), 0))
+            from Transaction t
+            where t.status = :status
+            group by t.type
+            having coalesce(sum(t.fee), 0) > 0
+            """)
+    List<FeeAggregate> aggregateFeesByType(@Param("status") TransactionStatus status);
 }

@@ -33,16 +33,33 @@ public class FeeCalculator {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     private final FeeProperties feeProperties;
+    private final FeeScheduleService feeScheduleService;
 
+    /**
+     * A grid saved in the back-office wins over the configured base rate: it is already expressed
+     * per tier, so the rebate must not be applied a second time on top of it.
+     */
     public BigDecimal feeFor(TransactionType type, BigDecimal amount, Currency currency, KycTier tier) {
-        BigDecimal basePercent = basePercentFor(type);
-        if (basePercent.signum() == 0 || amount.signum() <= 0) {
+        if (amount.signum() <= 0) {
             return zero(currency);
         }
-        BigDecimal multiplier = TIER_MULTIPLIER.getOrDefault(tier, BigDecimal.ONE);
-        return amount.multiply(basePercent)
-                .multiply(multiplier)
+
+        BigDecimal percent = feeScheduleService.percentFor(type, tier)
+                .orElseGet(() -> basePercentFor(type)
+                        .multiply(TIER_MULTIPLIER.getOrDefault(tier, BigDecimal.ONE)));
+
+        if (percent.signum() == 0) {
+            return zero(currency);
+        }
+        return amount.multiply(percent)
                 .divide(HUNDRED, currency.getDecimalPlaces(), RoundingMode.HALF_UP);
+    }
+
+    /** The rate a tier pays today, in percent — what the back-office grid displays. */
+    public BigDecimal effectivePercent(TransactionType type, KycTier tier) {
+        return feeScheduleService.percentFor(type, tier)
+                .orElseGet(() -> basePercentFor(type)
+                        .multiply(TIER_MULTIPLIER.getOrDefault(tier, BigDecimal.ONE)));
     }
 
     private BigDecimal basePercentFor(TransactionType type) {

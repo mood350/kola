@@ -4,9 +4,9 @@
 //
 // Without VITE_API_BASE_URL (see .env.example) every domain resolves to its
 // Mock repository. With it set, a domain switches to HTTP only if it is listed
-// in BACKEND_READY below: the Spring back-office covers auth, dashboard, users,
-// roles and audit today, and the remaining routes answer 404. Move a domain
-// into the list the day its controller lands — that is the only change needed.
+// in BACKEND_READY below. Every domain is served by the Spring back-office
+// today; the list stays because it is what lets a new domain be developed
+// against mock data without the others falling back with it.
 
 import { isBackendConfigured } from '../api/httpClient';
 
@@ -21,7 +21,10 @@ import { MockAuditRepository, HttpAuditRepository } from './auditRepository';
 import { MockRoleRepository, HttpRoleRepository } from './roleRepository';
 import { MockSupportRepository, HttpSupportRepository } from './supportRepository';
 
-const BACKEND_READY = new Set(['auth', 'dashboard', 'users', 'roles', 'audit']);
+const BACKEND_READY = new Set([
+  'auth', 'dashboard', 'users', 'roles', 'audit',
+  'credit', 'finance', 'disputes', 'config', 'support',
+]);
 
 const backendConfigured = isBackendConfigured();
 

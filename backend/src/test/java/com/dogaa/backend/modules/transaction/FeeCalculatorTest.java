@@ -5,6 +5,7 @@ import com.dogaa.backend.common.enums.KycTier;
 import com.dogaa.backend.common.enums.TransactionType;
 import com.dogaa.backend.config.FeeProperties;
 import com.dogaa.backend.modules.transaction.service.FeeCalculator;
+import com.dogaa.backend.modules.transaction.service.FeeScheduleService;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -13,7 +14,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class FeeCalculatorTest {
 
-    private final FeeCalculator calculator = new FeeCalculator(new FeeProperties());
+    /**
+     * No back-office grid saved, which is what these cases are about: the configured base rate
+     * times the tier multiplier. The service reads its in-memory grid, empty until a version is
+     * loaded, so it never reaches the repository here and a null one is enough.
+     */
+    private final FeeCalculator calculator =
+            new FeeCalculator(new FeeProperties(), new FeeScheduleService(null));
 
     @Test
     void p2pTransferChargesOnePointFivePercentForAnUnverifiedUser() {
