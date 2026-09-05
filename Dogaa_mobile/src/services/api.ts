@@ -41,7 +41,7 @@ export const authApi={
   logout:(refreshToken:string)=>request<void>('/api/v1/auth/logout',{method:'POST',body:JSON.stringify({refreshToken})}),
 };
 
-export type Wallet={id:string;currency:string;availableBalance:number;lockedBalance:number;totalBalance:number;status:string;createdAt:string};
+export type Wallet={id:string;currency:string;type?:'CURRENT'|'SAVINGS';availableBalance:number;lockedBalance:number;totalBalance:number;status:string;createdAt:string};
 export type Vault={id:string;name:string;currency:string;balance:number;targetAmount:number;targetDate?:string;progressPercent:number;goalReached:boolean;status:string;description?:string;createdAt:string};
 export type Transaction={id:string;reference:string;type:string;status:string;currency:string;amount:number;fee:number;totalDebited:number;counterparty?:string;description?:string;failureReason?:string;completedAt?:string;createdAt:string};
 export type FeeQuote={currency:string;amount:number;fee:number;total:number};
@@ -51,7 +51,7 @@ export type CreditEligibility={eligible:boolean;score:number;minimumScore:number
 export type Loan={id:string;currency:string;principal:number;collateralAmount:number;leverageRatio:number;monthlyRatePercent:number;interestAmount:number;penaltyAmount:number;totalDue:number;amountRepaid:number;outstanding:number;shortfallAmount:number;status:string;scoreAtGrant:number;disbursedAt:string;dueAt:string;settledAt?:string};
 
 export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true)};
-export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true)};
+export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true),depositToSavings:(amount:number)=>request<Wallet[]>('/api/v1/wallets/savings/deposit',{method:'POST',body:JSON.stringify({currency:'XOF',amount})},true),withdrawFromSavings:(amount:number)=>request<Wallet[]>('/api/v1/wallets/savings/withdraw',{method:'POST',body:JSON.stringify({currency:'XOF',amount})},true)};
 export const vaultApi={list:()=>request<Vault[]>('/api/v1/vaults',{},true),create:(payload:{name:string;targetAmount?:number;targetDate?:string;description?:string})=>request<Vault>('/api/v1/vaults',{method:'POST',body:JSON.stringify({...payload,currency:'XOF'})},true),deposit:(id:string,amount:number)=>request<Vault>(`/api/v1/vaults/${id}/deposit`,{method:'POST',body:JSON.stringify({amount})},true)};
 export const transactionApi={
   history:()=>request<{content:Transaction[]}>('/api/v1/transactions?size=100',{},true),
