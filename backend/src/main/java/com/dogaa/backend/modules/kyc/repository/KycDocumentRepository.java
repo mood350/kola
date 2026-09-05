@@ -25,4 +25,8 @@ public interface KycDocumentRepository extends JpaRepository<KycDocument, UUID> 
     boolean existsByUserIdAndTypeAndStatus(UUID userId, KycDocumentType type, KycDocumentStatus status);
 
     Page<KycDocument> findByStatusOrderByCreatedAtAsc(KycDocumentStatus status, Pageable pageable);
+
+    List<KycDocument> findByStatusOrderByCreatedAtAsc(KycDocumentStatus status);
+
+    long countByStatus(KycDocumentStatus status);
 }

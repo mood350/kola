@@ -38,6 +38,17 @@ app.security.otp.max-attempts=5
 app.security.otp.resend-cooldown=60s
 app.security.otp.verification-token-ttl=15m
 
+# --- Back-office admin ---
+# Cree les 4 comptes de reference si la table est vide. A DESACTIVER EN PRODUCTION.
+app.admin.seed.enabled=true
+app.admin.seed.password=DogaaAdmin2026!
+# Session back-office : le front admin ne gere pas de refresh token.
+app.security.jwt.admin-token-ttl=8h
+
+# --- Litiges ---
+# Administrateurs distincts requis pour executer un chargeback (regle des quatre yeux).
+app.disputes.validations-required=2
+
 # --- CORS ---
 # Comma-separated front-end origins allowed to call the API.
 app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000,http://10.0.2.2:8081

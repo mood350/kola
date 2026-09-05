@@ -64,6 +64,23 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
                             @Param("types") Collection<TransactionType> types,
                             @Param("since") Instant since);
 
+    /** Total moved since an instant, all currencies pooled: the 24-hour volume metric. */
+    @Query("""
+            select coalesce(sum(t.amount), 0) from Transaction t
+            where t.status = :status and t.createdAt >= :since
+            """)
+    BigDecimal sumAmountSince(@Param("status") TransactionStatus status,
+                              @Param("since") Instant since);
+
+    /** Every completed amount since an instant, with its timestamp: raw material for the chart. */
+    @Query("""
+            select t.createdAt, t.amount from Transaction t
+            where t.status = :status and t.createdAt >= :since
+            order by t.createdAt asc
+            """)
+    List<Object[]> completedAmountsSince(@Param("status") TransactionStatus status,
+                                         @Param("since") Instant since);
+
     /**
      * Transaction count, total amount moved and total fees collected, one row per
      * currency (DOGAA.md 4.5: "Volume de transactions"). Consumed by dogaa-admin

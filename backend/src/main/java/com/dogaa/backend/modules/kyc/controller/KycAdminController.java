@@ -1,7 +1,7 @@
 package com.dogaa.backend.modules.kyc.controller;
 
 import com.dogaa.backend.common.dto.ApiResponse;
-import com.dogaa.backend.modules.auth.security.CurrentUser;
+import com.dogaa.backend.modules.auth.security.ActorPrincipal;
 import com.dogaa.backend.modules.kyc.dto.KycDocumentResponse;
 import com.dogaa.backend.modules.kyc.dto.ReviewDocumentRequest;
 import com.dogaa.backend.modules.kyc.service.KycService;
@@ -67,20 +67,20 @@ public class KycAdminController {
     @PostMapping("/documents/{documentId}/review")
     @Operation(summary = "Approve or reject a document; the tier is recomputed from the result")
     public ResponseEntity<ApiResponse<KycDocumentResponse>> review(
-            @AuthenticationPrincipal CurrentUser reviewer,
+            @AuthenticationPrincipal ActorPrincipal reviewer,
             @PathVariable UUID documentId,
             @Valid @RequestBody ReviewDocumentRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Review recorded",
-                kycService.review(documentId, reviewer.id(), request)));
+                kycService.review(documentId, reviewer, request)));
     }
 
     @PostMapping("/documents/{documentId}/revoke")
     @Operation(summary = "Withdraw an approval; the user is demoted automatically")
     public ResponseEntity<ApiResponse<KycDocumentResponse>> revoke(
-            @AuthenticationPrincipal CurrentUser reviewer,
+            @AuthenticationPrincipal ActorPrincipal reviewer,
             @PathVariable UUID documentId,
             @RequestParam String reason) {
         return ResponseEntity.ok(ApiResponse.ok("Approval revoked",
-                kycService.revokeApproval(documentId, reviewer.id(), reason)));
+                kycService.revokeApproval(documentId, reviewer, reason)));
     }
 }

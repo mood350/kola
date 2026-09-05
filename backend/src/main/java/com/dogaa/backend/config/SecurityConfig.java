@@ -26,7 +26,8 @@ import java.util.List;
 @EnableMethodSecurity
 @EnableConfigurationProperties({JwtProperties.class, AuthProperties.class,
         CorsProperties.class, OtpProperties.class, KycProperties.class,
-        ScoringProperties.class, CreditProperties.class})
+        ScoringProperties.class, CreditProperties.class,
+        AuditProperties.class, AdminSeedProperties.class, DisputeProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -72,7 +73,10 @@ public class SecurityConfig {
                                 "/api/v1/auth/register/verify-otp",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
-                                "/api/v1/auth/logout"
+                                "/api/v1/auth/logout",
+                                // Back-office sign-in: reachable before a token exists.
+                                "/api/v1/admin/auth/login",
+                                "/api/v1/admin/auth/password-reset-request"
                         ).permitAll()
                         // Admin back-office (DOGAA.md 4.5): disputes, chargebacks, forced vault
                         // closure. hasRole matches the ROLE_ prefix that Role.authority() emits.

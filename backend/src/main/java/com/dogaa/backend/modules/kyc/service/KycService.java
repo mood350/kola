@@ -5,6 +5,8 @@ import com.dogaa.backend.config.KycProperties;
 import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
+import com.dogaa.backend.modules.audit.service.AuditService;
+import com.dogaa.backend.modules.auth.security.ActorPrincipal;
 import com.dogaa.backend.modules.kyc.dto.KycDocumentResponse;
 import com.dogaa.backend.modules.kyc.dto.KycStatusResponse;
 import com.dogaa.backend.modules.kyc.dto.ReviewDocumentRequest;
@@ -51,6 +53,7 @@ public class KycService {
     private final DocumentStorage documentStorage;
     private final UserService userService;
     private final KycProperties kycProperties;
+    private final AuditService auditService;
 
     // ------------------------------------------------------------------ status
 
@@ -137,7 +140,8 @@ public class KycService {
     }
 
     @Transactional
-    public KycDocumentResponse review(UUID documentId, UUID reviewerId, ReviewDocumentRequest request) {
+    public KycDocumentResponse review(UUID documentId, ActorPrincipal reviewer, ReviewDocumentRequest request) {
+        UUID reviewerId = reviewer.id();
         KycDocument document = getDocument(documentId);
 
         if (document.getStatus() != KycDocumentStatus.PENDING) {
@@ -159,7 +163,16 @@ public class KycService {
         kycDocumentRepository.save(document);
 
         log.info("KYC document {} {} by {}", documentId, document.getStatus(), reviewerId);
-        recomputeTier(userService.getById(document.getUserId()));
+
+        User owner = userService.getById(document.getUserId());
+        KycTier before = owner.getKycTier();
+        KycTier after = recomputeTier(owner);
+
+        auditService.record(reviewer, "users",
+                (document.isApproved() ? "Approbation" : "Rejet") + " du document "
+                        + document.getType() + " de " + owner.getFullName(),
+                before == after ? null : AuditService.diff(before, after),
+                "KycDocument", documentId.toString());
 
         return kycDocumentMapper.toResponse(document);
     }
@@ -169,7 +182,8 @@ public class KycService {
      * follows on its own because the tier is derived rather than stored as a decision.
      */
     @Transactional
-    public KycDocumentResponse revokeApproval(UUID documentId, UUID reviewerId, String reason) {
+    public KycDocumentResponse revokeApproval(UUID documentId, ActorPrincipal reviewer, String reason) {
+        UUID reviewerId = reviewer.id();
         KycDocument document = getDocument(documentId);
 
         if (!document.isApproved()) {
@@ -186,6 +200,12 @@ public class KycService {
         recomputeTier(user);
         log.warn("Approval revoked on document {} by {}: user {} moved from {} to {}",
                 documentId, reviewerId, user.getId(), before, user.getKycTier());
+
+        auditService.record(reviewer, "users",
+                "Révocation du document " + document.getType() + " de " + user.getFullName()
+                        + " — " + reason,
+                AuditService.diff(before, user.getKycTier()),
+                "KycDocument", documentId.toString());
 
         return kycDocumentMapper.toResponse(document);
     }
