@@ -370,13 +370,14 @@ Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de 
   "endDate": null, "maxOccurrences": null }
 ```
 
-Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `BILL_PAYMENT`
+Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `SAVINGS_DEPOSIT`, `BILL_PAYMENT`
 Fréquences : `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`
 Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
 
 ### Le coffre de financement est obligatoire
 
-`fundingVaultId` est **requis** pour tous les types sauf `VAULT_DEPOSIT`. Une planification ne
+`fundingVaultId` est **requis** pour tous les types sauf `VAULT_DEPOSIT` et `SAVINGS_DEPOSIT`. Ces
+deux cotisations sont prélevées sur le compte courant. Une autre planification ne
 puise jamais dans le compte courant : l'argent doit avoir été mis de côté exprès. Le coffre est
 vérifié à la création — il doit vous appartenir, être actif, et être dans la **même devise** que la
 planification.

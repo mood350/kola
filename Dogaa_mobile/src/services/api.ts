@@ -77,7 +77,7 @@ export const kycApi={status:()=>request<KycStatus>('/api/v1/kyc/status',{},true)
 export const schedulingApi={
   list:()=>request<ScheduledTask[]>('/api/v1/scheduling/tasks/me',{},true),
   billers:()=>request<Biller[]>('/api/v1/scheduling/tasks/billers',{},true),
-  create:(payload:{userId?:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;firstRunAt:string;fundingVaultId?:string;biller?:string;dayOfMonth?:number})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),
+  create:(payload:{userId?:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;firstRunAt:string;endDate?:string;maxOccurrences?:number;fundingVaultId?:string;biller?:string;dayOfMonth?:number})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),
   pause:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/pause`,{method:'PATCH'},true),
   resume:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/resume`,{method:'PATCH'},true),
   cancel:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/cancel`,{method:'PATCH'},true),

@@ -32,7 +32,8 @@ public record ScheduledTaskRequest(
         Integer maxOccurrences,
 
         /**
-         * The vault this schedule spends from. Required for everything but a vault deposit: a
+         * The vault this schedule spends from. Required for everything but a vault or Bankivi
+         * deposit: those two operations naturally debit the current account.
          * schedule must not help itself to the everyday balance on a date chosen weeks earlier.
          */
         UUID fundingVaultId,

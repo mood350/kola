@@ -63,16 +63,17 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
     /**
      * Resolves the vault the schedule will spend from.
      *
-     * <p>Mandatory for everything but a vault deposit, whose source is the current account by
-     * nature. Money leaving the everyday balance on a date chosen weeks earlier is the surprise a
-     * wallet must never spring; naming a vault makes the money deliberately set aside, and
-     * visibly short when it is not.
+     * <p>Mandatory for everything but vault and Bankivi deposits, whose source is the current
+     * account by nature. Money otherwise leaving the everyday balance on a date chosen weeks
+     * earlier is the surprise a wallet must never spring; naming a vault makes the money
+     * deliberately set aside, and visibly short when it is not.
      *
      * <p>Checked at creation rather than only at midnight: telling someone their rent failed is a
      * far worse moment to discover the vault is in the wrong currency.
      */
     private UUID fundingVaultFor(UUID ownerId, ScheduledTaskRequest request) {
-        if (request.type() == ScheduledTaskType.VAULT_DEPOSIT) {
+        if (request.type() == ScheduledTaskType.VAULT_DEPOSIT
+                || request.type() == ScheduledTaskType.SAVINGS_DEPOSIT) {
             return null;
         }
         if (request.fundingVaultId() == null) {

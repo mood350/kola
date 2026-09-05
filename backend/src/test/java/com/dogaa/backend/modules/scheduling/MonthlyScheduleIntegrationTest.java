@@ -153,6 +153,20 @@ class MonthlyScheduleIntegrationTest {
         assertThatCode(() -> scheduledTaskService.create(userId, deposit)).doesNotThrowAnyException();
     }
 
+    /** A recurring Bankivi contribution moves the owner's own current balance into savings. */
+    @Test
+    void aSavingsDepositNeedsNoFundingVault() {
+        ScheduledTaskRequest contribution = new ScheduledTaskRequest(
+                ScheduledTaskType.SAVINGS_DEPOSIT, ScheduleFrequency.MONTHLY,
+                xof("25000"), Currency.XOF, "BANKIVI",
+                Instant.parse("2026-10-05T00:00:00Z"), null, null, null, null, 5);
+
+        ScheduledTaskResponse task = scheduledTaskService.create(userId, contribution);
+
+        assertThat(task.fundingVaultId()).isNull();
+        assertThat(task.type()).isEqualTo(ScheduledTaskType.SAVINGS_DEPOSIT);
+    }
+
     // --- the vault actually pays -------------------------------------------
 
     /**

@@ -8,5 +8,6 @@ public enum ScheduledTaskType {
     P2P_TRANSFER,
     MERCHANT_PAYMENT,
     VAULT_DEPOSIT,
+    SAVINGS_DEPOSIT,
     BILL_PAYMENT
 }

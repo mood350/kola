@@ -90,7 +90,8 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
      * the rollback puts the money back under lock rather than leaving it loose.
      */
     private void attempt(ScheduledTask task) {
-        if (task.getType() != ScheduledTaskType.VAULT_DEPOSIT) {
+        if (task.getType() != ScheduledTaskType.VAULT_DEPOSIT
+                && task.getType() != ScheduledTaskType.SAVINGS_DEPOSIT) {
             fundFromVault(task);
         }
         String key = idempotencyKeyFor(task);
@@ -98,6 +99,7 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
             case P2P_TRANSFER -> executeP2p(task, key);
             case MERCHANT_PAYMENT -> executeMerchantPayment(task, key);
             case VAULT_DEPOSIT -> executeVaultDeposit(task);
+            case SAVINGS_DEPOSIT -> executeSavingsDeposit(task, key);
             case BILL_PAYMENT -> executeBillPayment(task, key);
         }
     }
@@ -145,6 +147,11 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
         vaultService.deposit(task.getUserId(), vaultId, task.getAmount());
     }
 
+    private void executeSavingsDeposit(ScheduledTask task, String key) {
+        transactionService.executeIdempotent(key, () -> transactionService.depositToSavings(
+                task.getUserId(), task.getCurrency(), task.getAmount()));
+    }
+
     private void executeBillPayment(ScheduledTask task, String key) {
         String label = task.getBiller() == null
                 ? "Facture programmée"
@@ -159,6 +166,7 @@ public class LiveTaskExecutionPort implements TaskExecutionPort {
             case P2P_TRANSFER -> TransactionType.P2P_TRANSFER;
             case MERCHANT_PAYMENT -> TransactionType.MERCHANT_PAYMENT;
             case VAULT_DEPOSIT -> TransactionType.VAULT_DEPOSIT;
+            case SAVINGS_DEPOSIT -> TransactionType.SAVINGS_DEPOSIT;
             case BILL_PAYMENT -> TransactionType.BILL_PAYMENT;
         };
     }
