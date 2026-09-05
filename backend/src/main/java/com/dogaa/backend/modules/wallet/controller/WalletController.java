@@ -5,6 +5,7 @@ import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
 import com.dogaa.backend.modules.wallet.dto.CreateWalletRequest;
 import com.dogaa.backend.modules.wallet.dto.DepositRequest;
+import com.dogaa.backend.modules.wallet.dto.SavingsMovementRequest;
 import com.dogaa.backend.modules.wallet.dto.WalletResponse;
 import com.dogaa.backend.modules.wallet.mapper.WalletMapper;
 import com.dogaa.backend.modules.wallet.service.WalletService;
@@ -78,5 +79,45 @@ public class WalletController {
         transactionService.cashIn(currentUser.id(), currency, request.amount());
         WalletResponse wallet = walletMapper.toResponse(walletService.getWallet(currentUser.id(), currency));
         return ResponseEntity.ok(ApiResponse.ok("Deposit completed", wallet));
+    }
+
+    // --- Savings account --------------------------------------------------
+
+    /**
+     * Funds the savings account that secures loans.
+     *
+     * <p>The savings wallet is created at sign-up but had no way in until this route existed, so
+     * no borrower could ever meet the minimum collateral and the savings axis of the score stayed
+     * at zero.
+     */
+    @PostMapping("/savings/deposit")
+    @Operation(summary = "Verser du compte courant vers le compte épargne — gratuit")
+    public ResponseEntity<ApiResponse<List<WalletResponse>>> depositToSavings(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @Valid @RequestBody SavingsMovementRequest request) {
+        transactionService.depositToSavings(currentUser.id(), request.currency(), request.amount());
+        return ResponseEntity.ok(ApiResponse.ok("Versement effectué", myWallets(currentUser)));
+    }
+
+    /**
+     * Takes money back out of savings.
+     *
+     * <p>A running loan freezes the collateral into the locked balance, and a debit only ever
+     * spends the available side — so this is refused for as long as the loan runs, without a rule
+     * of its own.
+     */
+    @PostMapping("/savings/withdraw")
+    @Operation(summary = "Retirer du compte épargne vers le compte courant — gratuit")
+    public ResponseEntity<ApiResponse<List<WalletResponse>>> withdrawFromSavings(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @Valid @RequestBody SavingsMovementRequest request) {
+        transactionService.withdrawFromSavings(currentUser.id(), request.currency(), request.amount());
+        return ResponseEntity.ok(ApiResponse.ok("Retrait effectué", myWallets(currentUser)));
+    }
+
+    /** Both accounts after the move: the client needs the pair, not one side of it. */
+    private List<WalletResponse> myWallets(CurrentUser currentUser) {
+        return walletService.listWallets(currentUser.id())
+                .stream().map(walletMapper::toResponse).toList();
     }
 }

@@ -268,6 +268,22 @@ Chaque utilisateur a **deux comptes XOF** créés à l'inscription : `CURRENT` (
 
 `availableBalance` = dépensable · `lockedBalance` = bloqué (coffres, ou garantie d'un prêt en cours). **Affichez toujours les deux** : un utilisateur avec un prêt en cours voit son épargne entièrement en `locked` et doit comprendre pourquoi.
 
+### Compte épargne
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/wallets/savings/deposit` | `{ currency, amount }` |
+| `POST` | `/wallets/savings/withdraw` | `{ currency, amount }` |
+
+Les deux renvoient **la liste des deux comptes** après le mouvement, pas un seul côté.
+
+Le virement courant → épargne est **gratuit** et **ne consomme aucun plafond d'envoi** : déplacer
+son propre argent n'est pas une dépense. C'est ce compte qui garantit les prêts, donc l'alimenter
+est le préalable à toute demande de crédit (§11).
+
+> Tant qu'un prêt est en cours, l'épargne est bloquée en garantie et le retrait répond
+> `INSUFFICIENT_FUNDS`. Les versements, eux, continuent de passer.
+
 ---
 
 ## 7. Transactions
@@ -299,6 +315,23 @@ Barème : dépôt gratuit · P2P ~1,5 % · retrait ~1 % · marchand et facture s
 Types : `CASH_IN`, `CASH_OUT`, `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `BILL_PAYMENT`, `VAULT_DEPOSIT`, `VAULT_WITHDRAWAL`, `LOAN_DISBURSEMENT`, `LOAN_REPAYMENT`, `CHARGEBACK`
 Statuts : `PENDING`, `COMPLETED`, `FAILED` (avec `failureReason`)
 
+### Clé d'idempotence — à envoyer sur chaque paiement
+
+Ajoutez un en-tête `Idempotency-Key` sur `POST /transactions/{transfer,merchant-payment,cash-out,bill-payment}`.
+
+```
+Idempotency-Key: 7f3a9c02-1b4e-4d55-9a10-2c8e6f0b1d33
+```
+
+Un téléphone sur réseau faible ne distingue pas une réponse perdue d'un paiement refusé : il
+réessaie. **Sans clé, ce second appel est un second paiement.** Avec la même clé, le premier appel
+exécute et les suivants renvoient **la même transaction** avec un succès — pas une erreur, car un
+client qui reçoit un conflit ne sait pas si l'argent est parti.
+
+Règle : un UUID généré **une fois par intention de paiement**, conservé à travers les tentatives.
+Un nouveau paiement = une nouvelle clé. L'en-tête est optionnel pour ne pas casser les clients
+existants ; considérez-le comme obligatoire.
+
 ---
 
 ## 8. Coffres-forts (vaults)
@@ -318,7 +351,7 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 
 ## 9. Transactions programmées
 
-⚠️ Ces routes renvoient le **DTO brut**, sans enveloppe.
+Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de `userId`**.
 
 | Méthode | Route | Corps |
 |---|---|---|
@@ -326,36 +359,85 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 | `PATCH` | `/scheduling/tasks/{id}/pause` | — |
 | `PATCH` | `/scheduling/tasks/{id}/resume` | — |
 | `PATCH` | `/scheduling/tasks/{id}/cancel` | — |
-| `GET` | `/scheduling/tasks/users/{userId}` | — |
+| `GET` | `/scheduling/tasks/me` | — |
+| `GET` | `/scheduling/tasks/billers` | — → services facturables |
 
 ```json
-{ "userId": "...", "type": "VAULT_DEPOSIT", "frequency": "MONTHLY",
-  "amount": 10000, "currency": "XOF", "beneficiaryReference": "vault-id-ou-numero",
-  "firstRunAt": "2026-10-05T00:00:00Z", "endDate": null, "maxOccurrences": 12 }
+{ "type": "P2P_TRANSFER", "frequency": "MONTHLY",
+  "amount": 50000, "currency": "XOF", "beneficiaryReference": "+22890111222",
+  "firstRunAt": "2026-10-05T00:00:00Z", "dayOfMonth": 5,
+  "fundingVaultId": "uuid-du-coffre",
+  "endDate": null, "maxOccurrences": null }
 ```
 
 Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `BILL_PAYMENT`
 Fréquences : `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`
 Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
 
-Le job s'exécute **à minuit**. En cas de solde insuffisant, la tâche passe `FAILED` avec `lastFailureReason`.
+### Le coffre de financement est obligatoire
 
-> ⚠️ `userId` est dans le corps et le chemin. À sécuriser côté backend (un utilisateur peut lire les tâches d'un autre) — ne construisez pas de fonctionnalité qui en dépende.
+`fundingVaultId` est **requis** pour tous les types sauf `VAULT_DEPOSIT`. Une planification ne
+puise jamais dans le compte courant : l'argent doit avoir été mis de côté exprès. Le coffre est
+vérifié à la création — il doit vous appartenir, être actif, et être dans la **même devise** que la
+planification.
+
+Au moment de l'exécution, le coffre est débité du **montant + la commission**. Prévoyez donc les
+frais dans le coffre : un coffre à 50 000 F ne couvre pas un virement de 50 000 F.
+
+### `dayOfMonth`
+
+Pour une fréquence `MONTHLY`, le jour du mois (1-31). Omis, il est déduit de `firstRunAt`.
+Un 29, 30 ou 31 tombe sur le dernier jour d'un mois plus court **puis revient** au jour choisi :
+31 janvier → 28 février → 31 mars.
+
+### Factures à montant fixe
+
+| Méthode | Route |
+|---|---|
+| `GET` | `/scheduling/tasks/billers` |
+
+```json
+{ "success": true, "data": [
+  { "code": "canal_plus", "displayName": "CANAL+",
+    "identifierLabel": "Numéro de carte", "identifierKind": "DIGITS",
+    "minLength": 14, "maxLength": 14, "fixedAmount": true },
+  { "code": "togocom_fibre", "displayName": "Togocom — fibre optique",
+    "identifierLabel": "Numéro de contrat", "identifierKind": "ALPHANUMERIC",
+    "minLength": 4, "maxLength": 24, "fixedAmount": true } ] }
+```
+
+**Affichez `identifierLabel` au-dessus du champ de saisie**, ne mettez pas « numéro » en dur :
+la question n'est pas la même selon le service. Canal+ demande le numéro de carte imprimé sous le
+décodeur, Cash Power le numéro du compteur, CEET une référence client. `identifierKind` indique le
+clavier à ouvrir (`DIGITS` → pavé numérique).
+
+Pour programmer une facture : `type: "BILL_PAYMENT"`, `biller: "canal_plus"`, et le numéro
+d'abonné dans `beneficiaryReference`. Les espaces et tirets copiés depuis une facture papier sont
+retirés automatiquement.
+
+> Seules les factures à **montant invariable** (abonnements) sont programmables. CEET, TdE et
+> Cash Power se facturent à la consommation : les programmer pour une somme fixe est refusé (400),
+> car cela paierait trop ou trop peu tous les mois.
+
+Le job s'exécute **à minuit**. En cas de coffre insuffisant, la tâche passe `FAILED` avec un
+`lastFailureReason` qui nomme le coffre.
+
+> La tâche d'un autre utilisateur répond **404**, pas 403 : un 403 confirmerait que l'identifiant existe.
 
 ---
 
 ## 9 bis. Notifications
 
-⚠️ DTO brut, sans enveloppe.
+Enveloppe `ApiResponse<T>`.
 
 | Méthode | Route | Corps |
 |---|---|---|
-| `POST` | `/notifications` | `{ userId, channel, title, body }` |
-| `GET` | `/notifications/users/{userId}` | — |
+| `GET` | `/notifications/me` | — |
+| `POST` | `/notifications` | `{ userId, channel, title, body }` — **réservé aux administrateurs** |
 
 `channel` : `EMAIL`, `SMS`, `PUSH`. Les trois canaux **écrivent dans les logs** au lieu d'envoyer quoi que ce soit — aucune passerelle n'est branchée.
 
-> ⚠️ Comme pour le scheduling, ces routes acceptent n'importe quel `userId` sans vérifier qu'il correspond à l'appelant. À sécuriser côté backend.
+> L'envoi est `ROLE_ADMIN` : un utilisateur qui pouvait envoyer une notification à n'importe qui disposait d'un outil de phishing, pas d'une fonctionnalité.
 
 ---
 
@@ -433,6 +515,11 @@ Le prêt est **garanti par le compte épargne**. Pas d'épargne, pas de prêt.
 
 Un premier prêt est plafonné au montant de l'épargne. Le levier se gagne en remboursant.
 
+⚠️ **Ce tableau est la valeur de départ, pas une constante.** Le back-office édite l'échelle
+(`PUT /admin/credit/tier-config`, §12) et la version enregistrée prend effet immédiatement pour
+tous les prêts accordés ensuite. Lisez `GET /credit/eligibility` plutôt que de recopier ces
+chiffres dans le front.
+
 ### Ce qui se passe au décaissement
 
 Le montant arrive sur le **compte courant**, et **tout le compte épargne passe en `lockedBalance`** :
@@ -445,6 +532,115 @@ Remboursement intégral → épargne débloquée. `POST /loans/{id}/repay` avec 
 Retard : 3 jours de grâce, puis 0,5 %/jour plafonné à 15 %. À 30 jours, saisie de la garantie.
 
 Statuts : `ACTIVE`, `OVERDUE`, `REPAID`, `DEFAULTED`.
+
+---
+
+## 11 bis. Assistant
+
+Un chat qui répond aux questions de l'utilisateur sur l'application **et sur son propre compte**.
+Enveloppe `ApiResponse<T>`. Toutes les routes portent sur l'appelant : aucun `userId` nulle part.
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/assistant/messages` | `{ conversationId?, message }` |
+| `GET` | `/assistant/conversations` | — |
+| `GET` | `/assistant/conversations/{id}` | — |
+| `DELETE` | `/assistant/conversations/{id}` | — |
+
+`conversationId` absent ou `null` ouvre un nouveau fil ; sinon le fil est poursuivi. Le titre du fil
+est tiré de la première question.
+
+Réponse de `POST /assistant/messages` :
+
+```json
+{ "success": true, "data": {
+    "conversationId": "…", "title": "Combien je peux emprunter ?",
+    "answer": { "id": "…", "role": "ASSISTANT", "content": "…", "createdAt": "…" },
+    "remainingToday": 39 } }
+```
+
+**Ce que l'assistant sait.** Les règles du produit (frais, niveaux KYC et plafonds, barème de prêt,
+axes du score, litiges) sont construites à partir de la configuration réelle du serveur, donc elles
+suivent automatiquement un changement de tarif. S'y ajoute la situation de l'appelant : niveau KYC
+et ce qui manque pour monter, soldes disponibles et bloqués des deux comptes, coffres, score et son
+détail, éligibilité au crédit avec les blocages nommés, prêt en cours, opérations programmées et
+dernières transactions.
+
+**Ce que l'assistant ne fait pas.** Il n'exécute aucune opération — pas de virement, pas de
+déblocage, pas de changement de niveau. Il explique et renvoie vers le bon écran. Il ne voit aucun
+autre compte que celui de l'appelant, et ne demande jamais un code PIN ni un OTP.
+
+**Codes à gérer côté client :**
+
+| Code | Quand |
+|---|---|
+| `429` | quota quotidien atteint — `remainingToday` permet de prévenir avant |
+| `503` | assistant non configuré ou fournisseur injoignable — masquez l'entrée du menu |
+| `404` | `conversationId` inconnu, ou appartenant à quelqu'un d'autre |
+
+---
+
+## 11 ter. QR codes
+
+Encaisser sans dicter son numéro, payer sans le taper. Enveloppe `ApiResponse<T>`.
+Le bénéficiaire d'un code est toujours son créateur : **aucune route n'accepte de bénéficiaire**.
+
+### Ses propres codes
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `GET` | `/qr/me` | — (crée le code permanent à la première demande) |
+| `POST` | `/qr/me/rotate` | — (révoque l'ancien) |
+| `POST` | `/qr/me/requests` | `{ currency, amount, label?, expiresInMinutes? }` |
+| `GET` | `/qr/me/requests` | — |
+| `DELETE` | `/qr/{code}` | — (annuler) |
+| `GET` | `/qr/{code}/image?size=512` | — → **`image/png`**, propriétaire uniquement |
+
+Deux types de codes :
+
+- **`STATIC`** — la carte de visite. Pas de montant, n'expire pas, reste payable après usage.
+  C'est le payeur qui saisit le montant.
+- **`PAYMENT_REQUEST`** — une demande pour un montant précis. Expire (24 h par défaut, 7 jours
+  maximum) et **n'est payable qu'une fois** : un reçu photographié ne doit pas être payé deux fois.
+
+La réponse contient `payload` : c'est exactement ce que l'image encode
+(`https://dogaa.app/p/{code}`). **Dessinez le QR côté mobile à partir de ce champ** ; l'endpoint
+PNG ne sert qu'au partage ou à l'impression.
+
+### Payer un code scanné
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `GET` | `/qr/{code}` | — → écran de confirmation |
+| `POST` | `/qr/{code}/pay` | `{ currency?, amount?, description? }` |
+
+`GET /qr/{code}` renvoie :
+
+```json
+{ "success": true, "data": {
+    "code": "…", "type": "PAYMENT_REQUEST",
+    "payable": true, "reason": null,
+    "recipientName": "Ama Kossi", "recipientPhoneMasked": "+228 90 ** ** 56",
+    "amountFixed": true, "amount": 2500, "currency": "XOF",
+    "label": "Table 4", "expiresAt": "…" } }
+```
+
+> Un code expiré, annulé ou déjà payé répond **200 avec `payable: false`** et un `reason` lisible.
+> Affichez ce message : l'utilisateur est devant un commerçant et doit savoir lequel des trois cas
+> s'applique. Seul un code **inconnu** renvoie 404.
+
+Sur `POST /qr/{code}/pay` :
+
+- code `STATIC` → `currency` et `amount` sont **obligatoires** ;
+- code `PAYMENT_REQUEST` → laissez-les vides. Si vous les envoyez et qu'ils diffèrent du code, la
+  requête est **refusée (400)**, jamais silencieusement corrigée.
+
+Le paiement emprunte le chemin de transfert normal : mêmes frais (1,5 %), mêmes plafonds KYC, même
+écriture au registre. La réponse porte `transactionReference` pour retrouver l'opération dans
+`/transactions`.
+
+**Le QR ne contient pas le numéro de téléphone**, seulement une référence aléatoire révocable. Un
+code se photographie et se transfère : y mettre le numéro reviendrait à le donner définitivement.
 
 ---
 
@@ -519,9 +715,10 @@ Tout est **pré-formaté** : `age` en `"14 mois"`, `loan` en `"100 000 XOF"` ou 
 n'ont jamais eu d'identifiant numérique. Ça fonctionne tel quel pour les clés React et les URL ;
 seule une opération arithmétique sur l'id casserait. À corriger dans `models/*.js`.
 
-Deux autres écarts assumés : `force-close-vault` ferme **le plus ancien coffre ouvert** faute de
-`vaultId` dans le contrat, et `"Litige"` n'est jamais renvoyé tant que le module litiges n'existe pas
-(un compte clos lit `"Gelé"`).
+Deux écarts assumés : `force-close-vault` ferme **le plus ancien coffre ouvert** faute de
+`vaultId` dans le contrat, et `state` ne renvoie toujours que `"Actif"` / `"Gelé"` — le module
+litiges existe désormais (voir plus bas) mais n'est pas encore branché sur l'état du compte, donc
+`"Litige"` n'apparaît jamais.
 
 `toTier` de la file KYC est **calculé par les règles de niveau**, pas supposé être « le suivant » :
 un selfie seul renvoie `fromTier == toTier`, ce qui évite d'annoncer une promotion qui n'aura pas lieu.
@@ -543,6 +740,38 @@ inventées** — et `alerts` renvoie une liste vide quand rien ne va mal, ce qui
 valide et non une erreur. Le « solde global » ne concerne que le XOF : additionner des devises
 différentes produirait un nombre sans signification.
 
+### Crédit — portefeuille, barème et défauts
+
+| Méthode | Route | Corps | Réponse |
+|---|---|---|---|
+| `GET` | `/admin/credit/stats` | — | `{ outstandingTotal, defaultRate, lateLoans }` |
+| `GET` | `/admin/credit/tier-config` | — | `TierConfig[]` — l'échelle, du bas vers le haut |
+| `PUT` | `/admin/credit/tier-config` | `{ tiers: TierConfig[] }` | l'échelle enregistrée |
+| `GET` | `/admin/credit/defaults` | — | `LoanDefault[]` — prêts en retard ou en défaut |
+| `POST` | `/admin/credit/defaults/{loanId}/remind` | — | `204` |
+
+```jsonc
+// TierConfig — montants et taux voyagent en chaînes d'affichage,
+// l'écran les édite en texte libre et le serveur les reparse.
+{ "name": "TIER 1", "minScore": 60, "maxAmount": "150 000 XOF", "monthlyRate": "8 %/mois" }
+
+// LoanDefault
+{ "id": "uuid", "borrowerName": "Koffi M.", "amount": "120 000 XOF", "daysLate": 17 }
+```
+
+**`PUT /tier-config` est réservé au Super-admin** (403 sinon) et l'échelle doit garder son nombre
+de paliers — en envoyer plus ou moins renvoie 400. Un montant ou un taux illisible renvoie 400 avec
+la valeur fautive citée, plutôt qu'un zéro enregistré en silence.
+
+**L'édition n'écrase jamais : elle empile une version.** `CreditLadderService` charge la dernière
+version au démarrage et remplace le barème en vigueur à chaque sauvegarde, si bien que les prêts
+déjà accordés restent lisibles avec les conditions de leur époque. La version 1 est la première
+sauvegarde back-office, pas le barème de configuration — celui-ci reste dans
+`application.properties` et sert tant que personne n'a rien enregistré.
+
+`remind` envoie un SMS au retardataire et l'inscrit au journal d'audit : une relance est un contact
+client. Un prêt déjà soldé renvoie 400.
+
 ### Litiges et chargebacks
 
 Côté client, contester une de ses transactions (enveloppe `ApiResponse` habituelle) :
@@ -563,6 +792,22 @@ Côté back-office (DTO brut) :
 | `POST` | `/admin/disputes/{ref}/reject` | `Dispute` — classé sans suite |
 | `POST` | `/admin/disputes/{ref}/validate` | `DisputeDetail` |
 
+```jsonc
+// Dispute
+{ "ref": "TX-8821", "tag": "fraud", "tagLabel": "Fraude", "amount": "450 000 XOF",
+  "title": "Débit contesté vers un marchand inconnu",
+  "meta": "Ouvert il y a 2 h · TIER_2 · Lomé", "status": "chargeback_pending" }
+
+// DisputeDetail
+{ "ref": "TX-8821", "debitedAccount": "…", "creditedAccount": "…", "amount": "450 000 XOF",
+  "validationsRequired": 2, "validationsDone": 1,
+  "lastValidationNote": "1re validation : Sena A. — en attente d'un 2e admin conformité" }
+```
+
+`tag` vaut `fraud`, `double_debit` ou `p2p` ; `status` vaut `open`, `chargeback_pending`,
+`resolved` ou `rejected`. Ce sont les valeurs de fil, en minuscules — la console s'en sert pour
+choisir ses styles.
+
 **La double validation est réelle.** `validate` est refusé (`409`) si l'administrateur a déjà validé
 ce litige — un index unique `(dispute_id, admin_id)` l'empêche même en cas de requêtes simultanées.
 Il faut donc bien **deux administrateurs distincts**, et `lastValidationNote` les nomme tous les deux.
@@ -573,6 +818,65 @@ qu'il détient encore, et le manque éventuel apparaît dans `lastValidationNote
 
 Nombre de validations réglable par `app.disputes.validations-required` (défaut 2).
 
+### Suivi financier
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/finance/liquidity` | `LiquidityBucket[]` — les parts totalisent 100 |
+| `GET` | `/admin/finance/revenue` | `{ lines: RevenueLine[], total }` |
+| `GET` | `/admin/finance/operator-reconciliation` | `OperatorStatus[]` |
+
+```jsonc
+{ "label": "Portefeuilles clients", "value": "48 200 000 XOF", "note": "…", "pct": 62 }
+{ "label": "Commissions P2P", "value": "820 000 XOF", "pct": 41 }
+{ "name": "Moov Money", "status": "reconciled" }   // ou "discrepancy"
+```
+
+Lecture seule, tout agrégé sur les tables réelles. Comme le dashboard, une base vide renvoie des
+zéros.
+
+### Configuration — frais & marchands
+
+| Méthode | Route | Corps | Réponse |
+|---|---|---|---|
+| `GET` | `/admin/config/fees` | — | `FeeConfig[]` — une ligne par palier KYC |
+| `PUT` | `/admin/config/fees` | `{ fees: FeeConfig[] }` | la grille enregistrée |
+| `GET` | `/admin/config/merchants` | — | `Merchant[]` |
+| `PATCH` | `/admin/config/merchants/{id}/status` | `{ status }` | `Merchant` |
+
+```jsonc
+{ "tier": "TIER_2", "p2p": "1,20 %", "merchant": "0,80 %", "cashout": "1,00 %" }
+{ "id": "uuid", "name": "Alimentation Adjo", "category": "Commerce", "status": "active" }
+```
+
+**`PUT /config/fees` est réservé au Super-admin** (403 sinon) et exige une ligne par palier KYC —
+ni plus ni moins, sinon 400. Un taux illisible ou hors bornes renvoie 400.
+
+Une grille enregistrée ici **prime sur le taux de base configuré** : elle est déjà exprimée par
+palier, donc la remise de palier ne s'applique pas une seconde fois par-dessus. Tant que rien n'est
+enregistré, le calcul retombe sur `app.fees.*` × multiplicateur de palier.
+
+Statuts marchands : `pending`, `active`, `suspended`. Les transitions sont contraintes —
+`pending → active|suspended`, `active → suspended`, `suspended → active` ; tout le reste renvoie
+**409**, comme le fait de réappliquer le statut courant.
+
+### Support client
+
+| Méthode | Route | Réponse |
+|---|---|---|
+| `GET` | `/admin/support/tickets` | `SupportTicket[]` |
+| `GET` | `/admin/support/manual-actions` | `ManualAction[]` |
+| `POST` | `/admin/support/tickets/{ref}/take-charge` | `SupportTicket` |
+| `POST` | `/admin/support/tickets/{ref}/resolve` | `SupportTicket` |
+
+```jsonc
+{ "ref": "#8821", "subject": "Retrait bloqué", "userName": "Aya D.", "status": "open" }
+{ "id": "uuid", "action": "Déblocage de compte", "by": "Prisca L.", "time": "Il y a 2 h" }
+```
+
+`status` vaut `open`, `in_progress` ou `resolved`. Prendre en charge un ticket déjà pris, ou
+résoudre un ticket déjà résolu, renvoie **409** : deux agents qui cliquent en même temps ne doivent
+pas se voler le ticket en silence.
 ### Autres routes admin
 
 
@@ -616,10 +920,13 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
 ## 14. À savoir avant de coder
 
 - **L'OTP n'est pas envoyé par SMS** — code visible uniquement dans les logs du serveur (§2).
-- **L'enveloppe de réponse n'est pas uniforme** — `/admin`, `/notifications`, `/scheduling` renvoient le DTO brut (§1).
+- **L'enveloppe de réponse n'est pas uniforme** — seules les routes `/admin` renvoient le DTO brut, volontairement : le back-office mappe le JSON tel quel. Les routes client sont toutes sous `ApiResponse<T>` (§1).
 - **Le port de dev est 8081**, pas 8080.
 - **Rotation du refresh token** : conservez systématiquement le dernier reçu.
 - **`ddl-auto=update`** : le schéma peut bouger entre deux versions du backend.
 - Aucun endpoint de **suppression de compte** ni de **réinitialisation du PIN oublié** n'existe encore.
-
+- **Les barèmes sont modifiables à chaud** : l'échelle de prêt (§12) et la grille de frais (§12)
+  vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
+- **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
+- **L'assistant (§11 bis) répond 503 tant que `app.assistant.api-key` n'est pas renseignée** côté serveur. Le reste de l'application fonctionne normalement.
 Questions ou champ manquant → ouvrez une issue sur le dépôt, ou consultez Swagger qui reflète toujours le code déployé.

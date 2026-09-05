@@ -16,13 +16,18 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntry, UUID> {
     /**
      * Newest first, with every filter optional. The admin UI announces filtering by admin, action
      * and period, so the query supports all three even though the current screen sends none.
+     *
+     * <p>Each filter neutralises itself through {@code coalesce} rather than a {@code :param is null}
+     * test: PostgreSQL cannot infer the type of a standalone null bind parameter and rejects the
+     * statement ({@code lower(bytea) does not exist}). Inside {@code coalesce} it takes the type from
+     * the column it sits next to.
      */
     @Query("""
             select e from AuditLogEntry e
-            where (:actorName is null or lower(e.actorName) like lower(concat('%', :actorName, '%')))
-              and (:module is null or e.module = :module)
-              and (:from is null or e.createdAt >= :from)
-              and (:to is null or e.createdAt <= :to)
+            where lower(e.actorName) like lower(concat('%', coalesce(:actorName, e.actorName), '%'))
+              and e.module = coalesce(:module, e.module)
+              and e.createdAt >= coalesce(:from, e.createdAt)
+              and e.createdAt <= coalesce(:to, e.createdAt)
             order by e.createdAt desc
             """)
     List<AuditLogEntry> search(@Param("actorName") String actorName,

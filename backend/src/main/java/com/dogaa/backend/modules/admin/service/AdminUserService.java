@@ -1,6 +1,7 @@
 package com.dogaa.backend.modules.admin.service;
 
 import com.dogaa.backend.common.util.BackOfficeFormat;
+import com.dogaa.backend.common.util.RelativeTime;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.KycTier;
 import com.dogaa.backend.common.enums.LoanStatus;
@@ -55,9 +56,6 @@ public class AdminUserService {
     private static final List<LoanStatus> OUTSTANDING =
             List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
 
-    /** The queue has no rejection field, so a reason is supplied for the trail. */
-    private static final String QUEUE_REJECTION_REASON =
-            "Rejeté depuis la file KYC du back-office";
 
     private final UserRepository userRepository;
     private final UserService userService;
@@ -154,10 +152,13 @@ public class AdminUserService {
         kycService.review(documentId, admin, new ReviewDocumentRequest(true, null));
     }
 
+    /**
+     * @param reason shown to the customer, so it has to say what was wrong with the document —
+     *               the review service refuses a blank one
+     */
     @Transactional
-    public void rejectKyc(CurrentAdmin admin, UUID documentId) {
-        kycService.review(documentId, admin,
-                new ReviewDocumentRequest(false, QUEUE_REJECTION_REASON));
+    public void rejectKyc(CurrentAdmin admin, UUID documentId, String reason) {
+        kycService.review(documentId, admin, new ReviewDocumentRequest(false, reason));
     }
 
     // --- mapping ----------------------------------------------------------
@@ -195,7 +196,10 @@ public class AdminUserService {
                 owner.getFullName(),
                 current.name(),
                 tierIfApproved(owner, document).name(),
-                document.getCreatedAt().toString());
+                RelativeTime.since(document.getCreatedAt()),
+                document.getType().label(),
+                document.getContentType(),
+                document.getOriginalFilename());
     }
 
     /**

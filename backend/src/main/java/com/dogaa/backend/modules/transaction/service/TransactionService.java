@@ -4,13 +4,16 @@ import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.Role;
 import com.dogaa.backend.common.enums.TransactionStatus;
 import com.dogaa.backend.common.enums.TransactionType;
+import com.dogaa.backend.common.enums.WalletType;
 import com.dogaa.backend.common.util.PhoneNumbers;
 import com.dogaa.backend.common.util.Tokens;
 import com.dogaa.backend.config.AuthProperties;
 import com.dogaa.backend.exception.BadRequestException;
+import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
+import com.dogaa.backend.modules.transaction.dto.FeeAggregate;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
 import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
@@ -18,21 +21,28 @@ import com.dogaa.backend.modules.transaction.dto.TransactionAggregate;
 import com.dogaa.backend.modules.transaction.dto.TransferRequest;
 import com.dogaa.backend.modules.transaction.entity.Transaction;
 import com.dogaa.backend.modules.transaction.repository.TransactionRepository;
+import com.dogaa.backend.modules.transaction.repository.TransactionSpecifications;
 import com.dogaa.backend.modules.user.entity.User;
 import com.dogaa.backend.modules.user.service.UserService;
 import com.dogaa.backend.modules.wallet.entity.Wallet;
 import com.dogaa.backend.modules.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.UUID;
 
 /**
@@ -46,6 +56,7 @@ import java.util.UUID;
  * and surfaces as a 4xx — the {@code FAILED} trace status is produced by the scheduler
  * (DOGAA.md 4.6), not this path.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionService {
@@ -58,6 +69,7 @@ public class TransactionService {
     private final ExternalTransferGateway externalTransferGateway;
     private final AuthProperties authProperties;
     private final TransactionEventBroadcaster eventBroadcaster;
+    private final TransactionTemplate requiresNewTransaction;
 
     // --- Fee preview ---------------------------------------------------
 
@@ -80,6 +92,11 @@ public class TransactionService {
     @Transactional
     public Transaction cashIn(UUID ownerId, Currency currency, BigDecimal amount) {
         User owner = userService.getById(ownerId);
+        // The balance ceiling of the tier, checked before the money lands rather than after: the
+        // answer to hitting it is "raise your KYC level", which only makes sense as a refusal.
+        // Summed over the user's wallets in this currency only — there is no FX source to pool
+        // currencies with, and pretending otherwise would compare unrelated numbers.
+        kycLimitPolicy.checkResultingBalance(owner.getKycTier(), heldIn(ownerId, currency), amount);
         Wallet wallet = walletService.deposit(ownerId, currency, amount);
         BigDecimal fee = feeCalculator.feeFor(TransactionType.CASH_IN, amount, currency, owner.getKycTier());
 
@@ -107,7 +124,7 @@ public class TransactionService {
         Wallet source = walletService.getWallet(senderId, currency);
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.P2P_TRANSFER, amount, currency, sender.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(senderId, sender.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(senderId, sender.getKycTier(), currency, amount);
 
         String reference = newReference();
         Transaction.TransactionBuilder trace = Transaction.builder()
@@ -161,7 +178,7 @@ public class TransactionService {
                 "Merchant has no " + currency + " wallet");
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.MERCHANT_PAYMENT, amount, currency, payer.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(payerId, payer.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(payerId, payer.getKycTier(), currency, amount);
 
         walletService.debit(source.getId(), amount.add(fee));
         walletService.credit(destination.getId(), amount);
@@ -192,7 +209,7 @@ public class TransactionService {
         Wallet source = walletService.getWallet(userId, currency);
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.CASH_OUT, amount, currency, user.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(userId, user.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(userId, user.getKycTier(), currency, amount);
 
         String reference = newReference();
         walletService.debit(source.getId(), amount.add(fee));
@@ -221,7 +238,7 @@ public class TransactionService {
         Wallet source = walletService.getWallet(payerId, currency);
         BigDecimal fee = feeCalculator.feeFor(
                 TransactionType.BILL_PAYMENT, amount, currency, payer.getKycTier());
-        kycLimitPolicy.checkDailySendLimit(payerId, payer.getKycTier(), currency, amount);
+        kycLimitPolicy.checkSendLimits(payerId, payer.getKycTier(), currency, amount);
 
         String reference = newReference();
         walletService.debit(source.getId(), amount.add(fee));
@@ -262,6 +279,130 @@ public class TransactionService {
                 .destinationWalletId(deposit ? null : walletId)
                 .counterparty(vaultName)
                 .description(deposit ? "Vault deposit" : "Vault withdrawal"));
+    }
+
+    /** Everything the user holds in one currency, spendable and locked alike. */
+    private BigDecimal heldIn(UUID ownerId, Currency currency) {
+        return walletService.listWallets(ownerId).stream()
+                .filter(w -> w.getCurrency() == currency)
+                .map(w -> w.getAvailableBalance().add(w.getLockedBalance()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // --- Idempotency ------------------------------------------------
+
+    /**
+     * Runs a money movement at most once for a given key.
+     *
+     * <p>A payment request arrives twice for reasons nobody controls: a phone that lost the
+     * response and retried, a scheduler that restarted mid-run, a user who tapped twice on a slow
+     * connection. Without a key the second arrival is indistinguishable from a genuine second
+     * payment, and the money leaves twice.
+     *
+     * <p>The guarantee is the unique index on {@code idempotency_key}, not the lookup below: the
+     * lookup is only the fast path, and the constraint is what covers two servers racing on the
+     * same key. The movement runs in its own transaction through a {@code TransactionTemplate}
+     * rather than an annotation, because a constraint violation marks its transaction
+     * rollback-only — the losing caller has to be <em>outside</em> that transaction before it can
+     * read back the winner's row. Losing the race therefore still returns a success, which is what
+     * a retrying client needs: the payment did happen, once.
+     *
+     * <p>A null or blank key means no replay protection was asked for, and simply runs.
+     */
+    public Transaction executeIdempotent(String key, Supplier<Transaction> movement) {
+        if (key == null || key.isBlank()) {
+            return movement.get();
+        }
+
+        Optional<Transaction> alreadyDone = findByKey(key);
+        if (alreadyDone.isPresent()) {
+            log.info("Idempotent replay of key {} -> transaction {}",
+                    key, alreadyDone.get().getReference());
+            return alreadyDone.get();
+        }
+
+        try {
+            return requiresNewTransaction.execute(status -> {
+                Transaction executed = movement.get();
+                executed.setIdempotencyKey(key);
+                return transactionRepository.saveAndFlush(executed);
+            });
+        } catch (DataIntegrityViolationException ex) {
+            return findByKey(key).orElseThrow(() -> ex);
+        }
+    }
+
+    private Optional<Transaction> findByKey(String key) {
+        return requiresNewTransaction.execute(status ->
+                transactionRepository.findByIdempotencyKey(key));
+    }
+
+    // --- Savings account --------------------------------------------
+
+    /**
+     * Moves money from the current account into the savings account that secures loans.
+     *
+     * <p>Without this the savings wallet was provisioned at sign-up and could never be funded: no
+     * route reached it, so {@code CreditService} — which requires a minimum collateral — refused
+     * every borrower, and the savings-discipline axis of the score, worth 30 points, was
+     * structurally stuck at zero.
+     *
+     * <p>Free and not outgoing. The user is not spending, they are putting money aside; charging a
+     * commission or counting it against the KYC send ceiling would penalise the exact behaviour
+     * the product is built to encourage. Both wallet ids are recorded, which is what lets
+     * {@code ScoringDataCollector} recognise it as an internal move and count it as savings rather
+     * than as new income.
+     */
+    @Transactional
+    public Transaction depositToSavings(UUID userId, Currency currency, BigDecimal amount) {
+        Wallet current = walletService.getWallet(userId, currency);
+        Wallet savings = walletService.getWallet(userId, currency, WalletType.SAVINGS);
+
+        walletService.debit(current.getId(), amount);
+        walletService.credit(savings.getId(), amount);
+
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.SAVINGS_DEPOSIT)
+                .currency(currency)
+                .amount(amount)
+                .fee(BigDecimal.ZERO)
+                .senderId(userId)
+                .recipientId(userId)
+                .sourceWalletId(current.getId())
+                .destinationWalletId(savings.getId())
+                .counterparty("Compte épargne")
+                .description("Versement sur l'épargne"));
+    }
+
+    /**
+     * Moves money back from savings to the current account.
+     *
+     * <p>A running loan needs no special case here: it freezes the collateral by moving the whole
+     * savings balance into {@code lockedBalance}, and {@link WalletService#debit} only ever spends
+     * the available side. The refusal is therefore structural rather than a rule someone has to
+     * remember to write — which is the same reason the two accounts are one entity with a type.
+     */
+    @Transactional
+    public Transaction withdrawFromSavings(UUID userId, Currency currency, BigDecimal amount) {
+        Wallet savings = walletService.getWallet(userId, currency, WalletType.SAVINGS);
+        Wallet current = walletService.getWallet(userId, currency);
+
+        walletService.debit(savings.getId(), amount);
+        walletService.credit(current.getId(), amount);
+
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.SAVINGS_WITHDRAWAL)
+                .currency(currency)
+                .amount(amount)
+                .fee(BigDecimal.ZERO)
+                .senderId(userId)
+                .recipientId(userId)
+                .sourceWalletId(savings.getId())
+                .destinationWalletId(current.getId())
+                .counterparty("Compte épargne")
+                .description("Retrait de l'épargne"));
     }
 
     /**
@@ -306,7 +447,18 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Page<Transaction> history(UUID userId, TransactionType type, TransactionStatus status,
                                      Instant from, Instant to, Pageable pageable) {
-        return transactionRepository.findForUser(userId, type, status, from, to, pageable);
+        return transactionRepository.findAll(
+                TransactionSpecifications.forUser(userId, type, status, from, to),
+                withNewestFirst(pageable));
+    }
+
+    /** The old JPQL carried its own ORDER BY; a specification does not, so it is added here. */
+    private static Pageable withNewestFirst(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     /**
@@ -330,6 +482,66 @@ public class TransactionService {
         return tx;
     }
 
+    // --- Chargeback (DOGAA.md 4.5) --------------------------------
+
+    /** The trace behind a public reference, for the back-office. */
+    @Transactional(readOnly = true)
+    public Transaction getByReference(String reference) {
+        return transactionRepository.findByReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + reference));
+    }
+
+    /**
+     * Undoes a completed movement and writes the counter-entry (DOGAA.md 4.5).
+     *
+     * <p>The payer is made whole for what they actually parted with — amount <em>and</em> fee —
+     * while the beneficiary gives back only the amount they received: the commission was Dogaa's,
+     * so Dogaa is what absorbs it. Reversing is deliberately not free for the platform.
+     *
+     * <p>Two rows come out of it: the original flips to {@code REVERSED} and a new
+     * {@code CHARGEBACK} trace records the money going the other way. Editing the original alone
+     * would erase the fact that it ever completed, and the customer's history would lose a movement
+     * that really happened.
+     *
+     * <p>When the beneficiary has already spent the money the debit fails and the whole reversal
+     * rolls back — deliberately. Handing the payer money that was never recovered is a decision for
+     * a human, not a side effect of clicking "valider".
+     */
+    @Transactional
+    public Transaction reverse(Transaction original, String description) {
+        if (original.getStatus() != TransactionStatus.COMPLETED) {
+            throw new ConflictException("Only a completed transaction can be reversed; this one is "
+                    + original.getStatus().name().toLowerCase());
+        }
+        if (original.getType() == TransactionType.CHARGEBACK) {
+            throw new ConflictException("A chargeback cannot itself be charged back");
+        }
+
+        if (original.getDestinationWalletId() != null) {
+            walletService.debit(original.getDestinationWalletId(), original.getAmount());
+        }
+        if (original.getSourceWalletId() != null) {
+            walletService.credit(original.getSourceWalletId(), original.getTotalDebited());
+        }
+
+        original.setStatus(TransactionStatus.REVERSED);
+        transactionRepository.save(original);
+
+        // Sides swapped: the money travels back the way it came.
+        return complete(Transaction.builder()
+                .reference(newReference())
+                .type(TransactionType.CHARGEBACK)
+                .currency(original.getCurrency())
+                .amount(original.getTotalDebited())
+                .fee(BigDecimal.ZERO)
+                .senderId(original.getRecipientId())
+                .sourceWalletId(original.getDestinationWalletId())
+                .recipientId(original.getSenderId())
+                .destinationWalletId(original.getSourceWalletId())
+                .counterparty(original.getReference())
+                .description(description));
+    }
+
     // --- Admin aggregates (DOGAA.md 4.5) --------------------------
 
     /**
@@ -340,6 +552,12 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<TransactionAggregate> aggregateByCurrency(TransactionStatus status) {
         return transactionRepository.aggregateByCurrency(status);
+    }
+
+    /** Commission collected per movement type — the revenue breakdown of BACKEND.md 8. */
+    @Transactional(readOnly = true)
+    public List<FeeAggregate> aggregateFeesByType(TransactionStatus status) {
+        return transactionRepository.aggregateFeesByType(status);
     }
 
     // --- Helpers -----------------------------------------------

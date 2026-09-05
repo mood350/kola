@@ -48,10 +48,10 @@ public class CreditProperties {
      * many loans the borrower has already paid back in full.
      */
     private List<Rung> ladder = List.of(
-            new Rung(3, 85, new BigDecimal("1.6"), new BigDecimal("6.0")),
-            new Rung(2, 75, new BigDecimal("1.4"), new BigDecimal("6.5")),
-            new Rung(1, 60, new BigDecimal("1.2"), new BigDecimal("7.0")),
-            new Rung(0, 60, new BigDecimal("1.0"), new BigDecimal("8.0")));
+            new Rung(3, 85, new BigDecimal("1.6"), new BigDecimal("6.0"), new BigDecimal("750000")),
+            new Rung(2, 75, new BigDecimal("1.4"), new BigDecimal("6.5"), new BigDecimal("300000")),
+            new Rung(1, 60, new BigDecimal("1.2"), new BigDecimal("7.0"), new BigDecimal("150000")),
+            new Rung(0, 60, new BigDecimal("1.0"), new BigDecimal("8.0"), new BigDecimal("50000")));
 
     @Getter
     @Setter
@@ -64,5 +64,11 @@ public class CreditProperties {
         private BigDecimal leverage;
         /** Monthly interest, in percent. */
         private BigDecimal monthlyRatePercent;
+        /**
+         * Absolute ceiling for the rung, whatever the collateral (DOGAA.md 4.3, "limites
+         * différentes" per tier). Leverage alone would let a large saver borrow without bound;
+         * this caps the platform's exposure to any single borrower. Null means no ceiling.
+         */
+        private BigDecimal maxAmount;
     }
 }

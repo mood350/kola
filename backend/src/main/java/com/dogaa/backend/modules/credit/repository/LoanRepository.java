@@ -38,6 +38,13 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
             """)
     BigDecimal sumOutstanding(@Param("statuses") Collection<LoanStatus> statuses);
 
+    /** Interest actually earned on the loans in these states — the credit half of revenue. */
+    @Query("""
+            select coalesce(sum(l.interestAmount + l.penaltyAmount), 0)
+            from Loan l where l.status in :statuses
+            """)
+    BigDecimal sumInterestEarned(@Param("statuses") Collection<LoanStatus> statuses);
+
     /** Loans past their due date, oldest first: the recovery queue. */
     List<Loan> findByStatusInAndDueAtBeforeOrderByDueAtAsc(
             Collection<LoanStatus> statuses, Instant cutoff);

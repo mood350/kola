@@ -3,6 +3,7 @@ package com.dogaa.backend.modules.vault.service;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.TransactionType;
 import com.dogaa.backend.exception.BadRequestException;
+import com.dogaa.backend.exception.InsufficientFundsException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.transaction.service.TransactionService;
 import com.dogaa.backend.modules.user.service.UserService;
@@ -99,6 +100,37 @@ public class VaultService {
         vault.setBalance(vault.getBalance().subtract(amount));
         transactionService.recordVaultMovement(TransactionType.VAULT_WITHDRAWAL,
                 ownerId, vault.getWalletId(), vault.getCurrency(), amount, vault.getName());
+        return vault;
+    }
+
+    /**
+     * Releases money from a vault so a scheduled payment can spend it.
+     *
+     * <p>Same movement as {@link #withdraw}, different intent, and worth its own method for two
+     * reasons. It takes the fee into account — the caller passes the full amount that will leave
+     * the wallet, because a schedule that releases the transfer amount and then takes the
+     * commission from the current account is exactly the silent raid on everyday money that vault
+     * funding exists to prevent. And it fails with a message naming the vault, since "solde
+     * insuffisant" on a scheduled payment is otherwise impossible to act on.
+     *
+     * <p>Caller-beware: this must run in the same transaction as the payment it funds. If the
+     * payment is refused afterwards, the rollback puts the money back under lock; releasing in a
+     * separate transaction would leave it loose in the current account.
+     */
+    @Transactional
+    public Vault releaseForPayment(UUID ownerId, UUID vaultId, BigDecimal totalIncludingFee) {
+        Vault vault = getVault(ownerId, vaultId);
+        requireActive(vault);
+
+        if (totalIncludingFee.compareTo(vault.getBalance()) > 0) {
+            throw new InsufficientFundsException(
+                    "Le coffre « " + vault.getName() + " » ne contient que " + vault.getBalance()
+                            + " " + vault.getCurrency() + " ; " + totalIncludingFee
+                            + " sont nécessaires (frais compris).");
+        }
+
+        walletService.unlock(vault.getWalletId(), totalIncludingFee);
+        vault.setBalance(vault.getBalance().subtract(totalIncludingFee));
         return vault;
     }
 

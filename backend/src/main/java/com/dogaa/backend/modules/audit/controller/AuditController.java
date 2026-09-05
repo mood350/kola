@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.audit.controller;
 
+import com.dogaa.backend.common.util.RelativeTime;
 import com.dogaa.backend.config.AuditProperties;
 import com.dogaa.backend.modules.audit.dto.AuditLogEntryResponse;
 import com.dogaa.backend.modules.audit.dto.ComplianceReportResponse;
@@ -80,6 +81,6 @@ public class AuditController {
                 entry.getActorName(),
                 entry.getAction(),
                 entry.getDiff(),
-                entry.getCreatedAt().toString());
+                RelativeTime.since(entry.getCreatedAt()));
     }
 }

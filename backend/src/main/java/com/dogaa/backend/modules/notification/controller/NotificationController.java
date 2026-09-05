@@ -1,5 +1,7 @@
 package com.dogaa.backend.modules.notification.controller;
 
+import com.dogaa.backend.common.dto.ApiResponse;
+import com.dogaa.backend.modules.auth.security.CurrentUser;
 import com.dogaa.backend.modules.notification.dto.NotificationRequest;
 import com.dogaa.backend.modules.notification.dto.NotificationResponse;
 import com.dogaa.backend.modules.notification.service.NotificationService;
@@ -7,40 +9,48 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Notifications (DOGAA.md 4.6.4).
+ *
+ * <p>Reading is limited to one's own; sending is an administrator's or the platform's job. The
+ * previous version let any signed-in user read another's notifications and send them anything,
+ * which is a phishing tool rather than a feature.
+ */
 @RestController
 @RequestMapping("/api/v1/notifications")
-@Tag(name = "Notifications", description = "Email/SMS/push dispatch")
+@RequiredArgsConstructor
+@Tag(name = "Notifications", description = "Messages reçus par l'utilisateur")
 @SecurityRequirement(name = "bearerAuth")
 public class NotificationController {
 
     private final NotificationService notificationService;
 
-    public NotificationController(NotificationService notificationService) {
-        this.notificationService = notificationService;
+    @GetMapping("/me")
+    @Operation(summary = "Ses propres notifications")
+    public ResponseEntity<ApiResponse<List<NotificationResponse>>> listMine(
+            @AuthenticationPrincipal CurrentUser currentUser) {
+        return ResponseEntity.ok(ApiResponse.ok(notificationService.listByUser(currentUser.id())));
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Send a notification on a given channel")
-    public NotificationResponse send(@Valid @RequestBody NotificationRequest request) {
-        return notificationService.send(request);
-    }
-
-    @GetMapping("/users/{userId}")
-    @Operation(summary = "List a user's notification history")
-    public List<NotificationResponse> listByUser(@PathVariable UUID userId) {
-        return notificationService.listByUser(userId);
+    @Operation(summary = "Envoyer une notification — réservé aux administrateurs")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<NotificationResponse>> send(
+            @Valid @RequestBody NotificationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Notification envoyée", notificationService.send(request)));
     }
 }

@@ -72,6 +72,11 @@ public final class BackOfficeFormat {
         return (months / 12) + " ans";
     }
 
+    /** Lending rate as the tier editor shows it: "7 %/mois". */
+    public static String monthlyRate(BigDecimal percentPerMonth) {
+        return percent(percentPerMonth).replace(" %", " %/mois");
+    }
+
     public static String percent(BigDecimal value) {
         if (value == null) {
             return "0 %";
