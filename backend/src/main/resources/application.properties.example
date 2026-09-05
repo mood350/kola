@@ -177,3 +177,15 @@ app.qr.payload-base-url=https://dogaa.app/p/
 # app.qr.max-request-ttl=7d
 # app.qr.default-image-size=512
 # app.qr.max-image-size=1024
+
+# --- Compte admin proprietaire -----------------------------------------------
+# Quatre comptes de demonstration sont crees sur une base VIDE uniquement
+# (sena.ametepe@dogaa.io ... , mot de passe app.admin.seed.password).
+# Le compte ci-dessous, lui, est verifie a chaque demarrage : il peut donc etre
+# ajoute a une base qui contient deja des admins. Laisser l'email vide le
+# desactive. Un compte deja present n'est jamais modifie, mot de passe compris.
+app.admin.seed.owner.email=
+app.admin.seed.owner.name=Administrateur
+app.admin.seed.owner.password=
+# A desactiver en production, puis creer les comptes du personnel deliberement :
+# app.admin.seed.enabled=false

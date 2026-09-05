@@ -69,6 +69,7 @@ public class TransactionService {
     private final ExternalTransferGateway externalTransferGateway;
     private final AuthProperties authProperties;
     private final TransactionEventBroadcaster eventBroadcaster;
+    private final RecipientDirectory recipientDirectory;
     private final TransactionTemplate requiresNewTransaction;
 
     // --- Fee preview ---------------------------------------------------
@@ -144,6 +145,9 @@ public class TransactionService {
             if (r.getId().equals(senderId)) {
                 throw new BadRequestException("You cannot transfer to yourself");
             }
+            // Stamped now, not resolved at read time: the history must keep naming who was paid
+            // even after that person renames their account.
+            trace.counterpartyName(recipientDirectory.displayName(r));
             Wallet destination = walletInCurrency(r.getId(), currency,
                     "Recipient has no " + currency + " wallet");
             walletService.debit(source.getId(), amount.add(fee));

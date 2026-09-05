@@ -275,8 +275,12 @@ class AdminUsersAndDashboardIntegrationTest {
                 .userId(customerId).type(KycDocumentType.NATIONAL_ID)
                 .storageKey("key").contentType("image/jpeg").sizeBytes(10).build());
 
+        // The reason is mandatory: a customer told only "refusé" cannot fix anything, and it is
+        // the reason that reaches them in the notification.
         mockMvc.perform(post("/api/v1/admin/users/kyc-queue/" + document.getId() + "/reject")
-                        .header("Authorization", "Bearer " + superAdminToken))
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Photo illisible\"}"))
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(customerId).orElseThrow().getKycTier())
@@ -352,5 +356,19 @@ class AdminUsersAndDashboardIntegrationTest {
         assertThat(summary.path("allocatedPct").asInt()).isZero();
         assertThat(summary.path("defaultRate").asString()).isEqualTo("0,0 %");
         assertThat(summary.path("activeUsersTotal").asString()).isEqualTo("1");
+    }
+
+    /** Rejecting without saying why is refused: the reason is what the customer acts on. */
+    @Test
+    void rejectingWithoutAReasonIsRefused() throws Exception {
+        KycDocument document = kycDocumentRepository.save(KycDocument.builder()
+                .userId(customerId).type(KycDocumentType.NATIONAL_ID)
+                .storageKey("key").contentType("image/jpeg").sizeBytes(10).build());
+
+        mockMvc.perform(post("/api/v1/admin/users/kyc-queue/" + document.getId() + "/reject")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 }

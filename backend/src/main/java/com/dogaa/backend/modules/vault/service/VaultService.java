@@ -8,6 +8,8 @@ import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.transaction.service.TransactionService;
 import com.dogaa.backend.modules.user.service.UserService;
 import com.dogaa.backend.modules.vault.dto.CreateVaultRequest;
+import com.dogaa.backend.modules.vault.dto.UpdateVaultRequest;
+import java.time.LocalDate;
 import com.dogaa.backend.modules.vault.entity.Vault;
 import com.dogaa.backend.modules.vault.entity.VaultStatus;
 import com.dogaa.backend.modules.vault.repository.VaultRepository;
@@ -74,6 +76,53 @@ public class VaultService {
     public Vault getVault(UUID ownerId, UUID vaultId) {
         return vaultRepository.findByIdAndOwnerId(vaultId, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vault not found: " + vaultId));
+    }
+
+    /**
+     * Renames a goal or moves its target.
+     *
+     * <p>A savings goal outlives the intention that created it: rent becomes a deposit, a wedding
+     * moves, an amount turns out to be wrong. Forcing someone to close the vault and open another
+     * would mean withdrawing the money and paying it back in, which loses the history the score is
+     * computed from — the user would be punished for changing their mind.
+     *
+     * <p>What cannot be edited: the balance, which moves only through a deposit, a withdrawal or a
+     * scheduled payment, each leaving a transaction behind; and the currency, fixed by the wallet
+     * the money is locked against.
+     */
+    @Transactional
+    public Vault updateVault(UUID ownerId, UUID vaultId, UpdateVaultRequest request) {
+        Vault vault = getVault(ownerId, vaultId);
+        requireActive(vault);
+
+        if (request.name() != null && !request.name().isBlank()) {
+            vault.setName(request.name().trim());
+        }
+        if (request.description() != null) {
+            vault.setDescription(request.description().isBlank() ? null : request.description());
+        }
+
+        if (request.clearTargetAmount()) {
+            vault.setTargetAmount(null);
+        } else if (request.targetAmount() != null) {
+            // Below what is already saved the goal would show as met the moment it is set, which
+            // reads as a bug rather than as an achievement.
+            if (request.targetAmount().compareTo(vault.getBalance()) < 0) {
+                throw new BadRequestException("L'objectif ne peut pas être inférieur aux "
+                        + vault.getBalance() + " " + vault.getCurrency() + " déjà épargnés");
+            }
+            vault.setTargetAmount(request.targetAmount());
+        }
+
+        if (request.clearTargetDate()) {
+            vault.setTargetDate(null);
+        } else if (request.targetDate() != null) {
+            if (request.targetDate().isBefore(LocalDate.now())) {
+                throw new BadRequestException("L'échéance ne peut pas être dans le passé");
+            }
+            vault.setTargetDate(request.targetDate());
+        }
+        return vaultRepository.save(vault);
     }
 
     // --- Money moves --------------------------------------------------

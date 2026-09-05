@@ -1,6 +1,7 @@
 package com.dogaa.backend.modules.assistant.service;
 
 import com.dogaa.backend.common.enums.KycTier;
+import com.dogaa.backend.common.enums.TransactionType;
 import com.dogaa.backend.config.AuthProperties;
 import com.dogaa.backend.config.CreditProperties;
 import com.dogaa.backend.config.DisputeProperties;
@@ -112,19 +113,18 @@ public class ProductKnowledge {
                 percent(fees.getMerchantPercent()), percent(fees.getBillPaymentPercent()),
                 percent(fees.getCashOutPercent())));
 
-        // Derived from FeeCalculator, not restated: the rebate is what a TIER_3 actually pays, and
-        // quoting the base rate to them was simply wrong.
+        // Asked of FeeCalculator rather than recomputed here: it consults the fee grid an
+        // administrator can edit before falling back on the configured rate, so the assistant
+        // quotes what the customer is actually charged — and the per-tier rebate is not applied
+        // twice on top of a grid that already accounts for it.
+        BigDecimal base = feeCalculator.effectivePercent(TransactionType.P2P_TRANSFER, KycTier.TIER_0);
         for (KycTier tier : KycTier.values()) {
-            BigDecimal multiplier = feeCalculator.tierMultiplier(tier);
-            BigDecimal effectiveP2p = fees.getP2pPercent().multiply(multiplier);
-            if (multiplier.compareTo(BigDecimal.ONE) == 0) {
-                out.append("- %s : tarif plein, soit %s sur un transfert P2P.%n"
-                        .formatted(tier, percent(effectiveP2p)));
-            } else {
-                out.append("- %s : %s des frais, soit %s sur un transfert P2P.%n"
-                        .formatted(tier, percent(multiplier.multiply(new BigDecimal("100"))),
-                                percent(effectiveP2p)));
-            }
+            BigDecimal effective = feeCalculator.effectivePercent(TransactionType.P2P_TRANSFER, tier);
+            out.append(effective.compareTo(base) == 0
+                    ? "- %s : tarif plein, soit %s sur un transfert P2P.%n"
+                            .formatted(tier, percent(effective))
+                    : "- %s : %s sur un transfert P2P, soit une remise sur le tarif plein.%n"
+                            .formatted(tier, percent(effective)));
         }
 
         out.append("""

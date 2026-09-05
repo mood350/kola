@@ -4,6 +4,7 @@ import com.dogaa.backend.common.dto.ApiResponse;
 import com.dogaa.backend.modules.auth.security.CurrentUser;
 import com.dogaa.backend.modules.vault.dto.CreateVaultRequest;
 import com.dogaa.backend.modules.vault.dto.VaultOperationRequest;
+import com.dogaa.backend.modules.vault.dto.UpdateVaultRequest;
 import com.dogaa.backend.modules.vault.dto.VaultResponse;
 import com.dogaa.backend.modules.vault.mapper.VaultMapper;
 import com.dogaa.backend.modules.vault.service.VaultService;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -83,6 +85,24 @@ public class VaultController {
         VaultResponse vault = vaultMapper.toResponse(
                 vaultService.withdraw(currentUser.id(), id, request.amount()));
         return ResponseEntity.ok(ApiResponse.ok("Withdrawal completed", vault));
+    }
+
+    /**
+     * Renames a goal or moves its target. Absent fields are left alone.
+     *
+     * <p>There is no balance field: money enters and leaves a vault only through a deposit, a
+     * withdrawal or a scheduled payment, each of which writes a transaction. Setting a balance
+     * directly would create money the ledger could not account for.
+     */
+    @PatchMapping("/{id}")
+    @Operation(summary = "Modifier un coffre — nom, objectif, échéance (jamais le solde)")
+    public ResponseEntity<ApiResponse<VaultResponse>> update(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateVaultRequest request) {
+        VaultResponse vault = vaultMapper.toResponse(
+                vaultService.updateVault(currentUser.id(), id, request));
+        return ResponseEntity.ok(ApiResponse.ok("Coffre modifié", vault));
     }
 
     @PostMapping("/{id}/close")
