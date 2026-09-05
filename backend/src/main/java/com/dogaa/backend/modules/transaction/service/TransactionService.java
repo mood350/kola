@@ -13,6 +13,7 @@ import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
 import com.dogaa.backend.modules.transaction.dto.BillPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.CashOutRequest;
+import com.dogaa.backend.modules.transaction.dto.FeeAggregate;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
 import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
@@ -551,6 +552,12 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<TransactionAggregate> aggregateByCurrency(TransactionStatus status) {
         return transactionRepository.aggregateByCurrency(status);
+    }
+
+    /** Commission collected per movement type — the revenue breakdown of BACKEND.md 8. */
+    @Transactional(readOnly = true)
+    public List<FeeAggregate> aggregateFeesByType(TransactionStatus status) {
+        return transactionRepository.aggregateFeesByType(status);
     }
 
     // --- Helpers -----------------------------------------------

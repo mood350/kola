@@ -34,6 +34,16 @@ export function merchantStatusView(status) {
   return MERCHANT_STATUS_VIEW[status] || MERCHANT_STATUS_VIEW.pending;
 }
 
+const DISPUTE_STATUS_VIEW = {
+  open: { label: 'Ouvert', style: KO },
+  chargeback_pending: { label: 'Chargeback en attente', style: PEND },
+  resolved: { label: 'Résolu · fonds reversés', style: OK },
+  rejected: { label: 'Classé sans suite', style: NEUT },
+};
+export function disputeStatusView(status) {
+  return DISPUTE_STATUS_VIEW[status] || DISPUTE_STATUS_VIEW.open;
+}
+
 export function roleBadgeStyle(role) {
   return role === 'Super-admin' ? badge('#002353', '#FFCB05') : NEUT;
 }

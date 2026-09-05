@@ -9,6 +9,7 @@ import com.dogaa.backend.config.OtpProperties;
 import com.dogaa.backend.config.ScoringProperties;
 import com.dogaa.backend.modules.assistant.service.ProductKnowledge;
 import com.dogaa.backend.modules.transaction.service.FeeCalculator;
+import com.dogaa.backend.modules.transaction.service.FeeScheduleService;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -30,7 +31,10 @@ class ProductKnowledgeTest {
     private final AuthProperties auth = new AuthProperties();
     private final DisputeProperties disputes = new DisputeProperties();
 
-    private final FeeCalculator feeCalculator = new FeeCalculator(fees);
+    // Null repository: with no saved fee grid the calculator falls back on the configured
+    // rates, which is exactly the baseline these tests are about.
+    private final FeeCalculator feeCalculator =
+            new FeeCalculator(fees, new FeeScheduleService(null));
 
     private final ProductKnowledge knowledge =
             new ProductKnowledge(fees, kyc, credit, scoring, otp, auth, disputes, feeCalculator);
