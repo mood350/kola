@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { c, shadow } from '../theme';
@@ -45,7 +45,7 @@ export function Screen({ children, route, navigate }: {children:React.ReactNode;
   const dogaa=useDogaaData();
   const [refreshing,setRefreshing]=useState(false);
   const refresh=async()=>{setRefreshing(true);try{await dogaa.refresh();}finally{setRefreshing(false);}};
-  return <SafeAreaView style={s.safe} edges={['top']}><AppHeader navigate={navigate}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} alwaysBounceVertical refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary,c.green,c.yellow]} progressBackgroundColor={c.white}/>}>{dogaa.error&&<TouchableOpacity onPress={dogaa.refresh} style={s.apiError}><Ionicons name="cloud-offline-outline" size={16} color="#93000A"/><Text style={s.apiErrorText}>{dogaa.error} Touchez pour réessayer.</Text></TouchableOpacity>}{children}<View style={{height:112}}/></ScrollView><BottomNav route={route} navigate={navigate}/></SafeAreaView>;
+  return <View style={s.safe}><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} alwaysBounceVertical refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary,c.green,c.yellow]} progressBackgroundColor={c.white}/>}>{dogaa.error&&<TouchableOpacity onPress={dogaa.refresh} style={s.apiError}><Ionicons name="cloud-offline-outline" size={16} color="#93000A"/><Text style={s.apiErrorText}>{dogaa.error} Touchez pour réessayer.</Text></TouchableOpacity>}{children}<View style={{height:112}}/></ScrollView><BottomNav route={route} navigate={navigate}/></View>;
 }
 
 export function SectionTitle({title,action,onPress}:{title:string;action?:string;onPress?:()=>void}) {

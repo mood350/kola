@@ -28,6 +28,12 @@
       }
     },
     "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Autorisez DOGAA à utiliser Face ID pour déverrouiller votre compte."
+        }
+      ],
       "expo-contacts",
       "@react-native-community/datetimepicker",
       [

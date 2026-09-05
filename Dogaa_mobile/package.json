@@ -24,6 +24,7 @@
     "expo-glass-effect": "~57.0.1",
     "expo-haptics": "~57.0.2",
     "expo-linear-gradient": "~57.0.1",
+    "expo-local-authentication": "~57.0.2",
     "expo-print": "~57.0.1",
     "expo-sharing": "~57.0.18",
     "expo-status-bar": "~57.0.1",
