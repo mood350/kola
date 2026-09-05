@@ -31,6 +31,12 @@ const options = [
     sub: "Pièce d’identité et justificatifs",
     key: "documents",
   },
+  {
+    icon: "help-circle-outline" as const,
+    title: "FAQ et assistance",
+    sub: "Réponses aux questions fréquentes",
+    key: "faq",
+  },
 ];
 
 export default function ProfileScreen({
@@ -87,6 +93,8 @@ export default function ProfileScreen({
                 ? navigate("kyc")
                 : item.key === "history"
                   ? navigate("transactionHistory")
+                  : item.key === "faq"
+                    ? navigate("faq")
                   : setSection(section === item.key ? null : item.key)
             }
             style={s.option}
