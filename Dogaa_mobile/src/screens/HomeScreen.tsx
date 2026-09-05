@@ -12,7 +12,7 @@ import { walletApi } from '../services/api';
 const actions = [
   ['cash-outline','Virement P2P','Instantané'],['storefront-outline','Marchand QR','0 FCFA frais'],
   ['lock-closed-outline','Coffres &\nTontines','Intérêt 5%'],['flash-outline','Microcrédit','En 2 min'],
-  ['receipt-outline','Factures &\nCIE','Senelec,\nCanal+'],['business-outline','Wave / Telco','Sans\ncommission'],
+  ['receipt-outline','Factures','CEET, Cash\nPower, TdE'],['tv-outline','Abonnements','CANAL+, fibre\n& TV'],
 ] as const;
 
 const txs = [
@@ -49,7 +49,7 @@ export default function HomeScreen({navigate}:{navigate:(r:Route)=>void}) {
       <View style={s.walletButtons}><TouchableOpacity style={s.recharge} onPress={()=>setRechargeOpen(true)}><Ionicons name="add-circle-outline" size={19} color={c.primary}/><Text style={s.rechargeText}>Recharger 0%</Text></TouchableOpacity><TouchableOpacity style={s.send} onPress={()=>navigate('scan')}><Ionicons name="send-outline" size={17} color={c.white}/><Text style={s.sendText}>Envoyer P2P</Text></TouchableOpacity></View>
     </LinearGradient>
     <SectionTitle title="Actions Express" action="Tout voir (12)"/>
-    <View style={s.actionGrid}>{actions.map(([icon,title,sub],i)=><TouchableOpacity key={title} style={s.action} onPress={()=>i===2?navigate('vaults'):i===3?navigate('loan'):undefined}><IconCircle name={icon} bg={i===1?'#FFE6A3':i===3?'#FFD8D6':i===5?'#6FFBBE':c.pale2}/><Text style={s.actionTitle}>{title}</Text><Text style={s.actionSub}>{sub}</Text></TouchableOpacity>)}</View>
+    <View style={s.actionGrid}>{actions.map(([icon,title,sub],i)=><TouchableOpacity key={title} style={s.action} onPress={()=>i===2?navigate('vaults'):i===3?navigate('loan'):i===4?navigate('bills'):i===5?navigate('subscriptions'):undefined}><IconCircle name={icon} bg={i===1?'#FFE6A3':i===3?'#FFD8D6':i===5?'#6FFBBE':c.pale2}/><Text style={s.actionTitle}>{title}</Text><Text style={s.actionSub}>{sub}</Text></TouchableOpacity>)}</View>
     <SectionTitle title="Mes Coffres-Forts  2" action="Gérer  ›" onPress={()=>navigate('vaults')}/>
     <View style={s.vaultRow}><Card style={s.vault}><View style={s.vaultTitle}><IconCircle name="bus-outline"/><Text style={s.vaultName}>Camion Abidjan</Text><View style={s.percent}><Text style={s.percentText}>70%</Text></View></View><Text style={s.vaultSub}>Bloqué jusqu'au 15 Juil.</Text><View style={s.vaultAmount}><Text style={s.amountBlue}>350 000<Text style={s.amountSmall}> FCFA</Text></Text><Text style={s.goal}>/ 500 000</Text></View><Progress value={70} color={c.primary}/></Card></View>
     <SectionTitle title="Activités Récentes" action="Relevé complet" onPress={()=>navigate('transactionHistory')}/>

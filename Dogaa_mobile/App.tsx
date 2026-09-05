@@ -16,6 +16,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import ScheduledScreen from './src/screens/ScheduledScreen';
 import ScanScreen from './src/screens/ScanScreen';
+import ServicePaymentsScreen from './src/screens/ServicePaymentsScreen';
 import { Route } from './src/types';
 import SplashScreen from './src/screens/SplashScreen';
 import { authApi, AuthSession } from './src/services/api';
@@ -30,6 +31,6 @@ export default function App(){
   const authenticate=async(session:AuthSession)=>{await AsyncStorage.setItem('dogaa.session',JSON.stringify(session));setEntry('app');};
   const logout=async()=>{const saved=await AsyncStorage.getItem('dogaa.session');try{if(saved){const session=JSON.parse(saved) as AuthSession;await authApi.logout(session.refreshToken);}}catch{}finally{await AsyncStorage.removeItem('dogaa.session');setRoute('home');setEntry('auth');}};
   const openVault=(id:string)=>{setSelectedVaultId(id);setRoute('vaultDetail');};
-  const screens:Record<Route,React.ReactNode>={home:<HomeScreen navigate={setRoute}/>,vaults:<VaultsScreen navigate={setRoute} onOpenVault={openVault}/>,vaultDetail:<VaultDetailScreen navigate={setRoute} vaultId={selectedVaultId}/>,scan:<ScanScreen navigate={setRoute}/>,credit:<CreditScreen navigate={setRoute}/>,loan:<LoanScreen navigate={setRoute}/>,loanDetail:<LoanDetailScreen navigate={setRoute}/>,profile:<ProfileScreen navigate={setRoute} onLogout={logout}/>,faq:<FaqScreen navigate={setRoute}/>,kyc:<KycScreen navigate={setRoute}/>,transactionHistory:<TransactionHistoryScreen navigate={setRoute}/>,scheduled:<ScheduledScreen navigate={setRoute}/>};
+  const screens:Record<Route,React.ReactNode>={home:<HomeScreen navigate={setRoute}/>,vaults:<VaultsScreen navigate={setRoute} onOpenVault={openVault}/>,vaultDetail:<VaultDetailScreen navigate={setRoute} vaultId={selectedVaultId}/>,scan:<ScanScreen navigate={setRoute}/>,bills:<ServicePaymentsScreen navigate={setRoute} mode="bills"/>,subscriptions:<ServicePaymentsScreen navigate={setRoute} mode="subscriptions"/>,credit:<CreditScreen navigate={setRoute}/>,loan:<LoanScreen navigate={setRoute}/>,loanDetail:<LoanDetailScreen navigate={setRoute}/>,profile:<ProfileScreen navigate={setRoute} onLogout={logout}/>,faq:<FaqScreen navigate={setRoute}/>,kyc:<KycScreen navigate={setRoute}/>,transactionHistory:<TransactionHistoryScreen navigate={setRoute}/>,scheduled:<ScheduledScreen navigate={setRoute}/>};
   return <SafeAreaProvider><StatusBar style={entry==='loading'?'light':'dark'}/>{entry==='loading'?<SplashScreen/>:entry==='onboarding'?<OnboardingScreen onFinish={finishOnboarding}/>:entry==='auth'?<AuthScreen onAuthenticated={authenticate}/>:<DogaaDataProvider>{screens[route]}</DogaaDataProvider>}</SafeAreaProvider>;
 }
