@@ -67,7 +67,14 @@ class VaultFlowIntegrationTest {
                 "Réparation camion", Currency.XOF, new BigDecimal("80000"),
                 LocalDate.now().plusMonths(6), null));
 
-        vaultService.deposit(ownerId, vault.getId(), new BigDecimal("30000"));
+        // The movement hands back both sides, so a client can refresh the vault and the current
+        // account from one response — assert on that pair, not only on what is re-read after.
+        VaultService.VaultMovement deposited =
+                vaultService.deposit(ownerId, vault.getId(), new BigDecimal("30000"));
+        assertThat(deposited.vault().getBalance()).isEqualByComparingTo("30000");
+        assertThat(deposited.wallet().getAvailableBalance()).isEqualByComparingTo("70000");
+        assertThat(deposited.wallet().getLockedBalance()).isEqualByComparingTo("30000");
+        assertThat(deposited.wallet().getTotalBalance()).isEqualByComparingTo("100000");
 
         Wallet wallet = walletService.getWallet(ownerId, Currency.XOF);
         assertThat(wallet.getAvailableBalance()).isEqualByComparingTo("70000");
@@ -80,14 +87,19 @@ class VaultFlowIntegrationTest {
                 && t.getAmount().compareTo(new BigDecimal("30000")) == 0
                 && t.getFee().signum() == 0);
 
-        vaultService.withdraw(ownerId, vault.getId(), new BigDecimal("10000"));
+        VaultService.VaultMovement withdrawn =
+                vaultService.withdraw(ownerId, vault.getId(), new BigDecimal("10000"));
+        assertThat(withdrawn.wallet().getAvailableBalance()).isEqualByComparingTo("80000");
+        assertThat(withdrawn.wallet().getLockedBalance()).isEqualByComparingTo("20000");
         wallet = walletService.getWallet(ownerId, Currency.XOF);
         assertThat(wallet.getAvailableBalance()).isEqualByComparingTo("80000");
         assertThat(wallet.getLockedBalance()).isEqualByComparingTo("20000");
 
-        Vault closed = vaultService.closeVault(ownerId, vault.getId());
-        assertThat(closed.getStatus()).isEqualTo(VaultStatus.CLOSED);
-        assertThat(closed.getBalance()).isEqualByComparingTo("0");
+        VaultService.VaultMovement closed = vaultService.closeVault(ownerId, vault.getId());
+        assertThat(closed.vault().getStatus()).isEqualTo(VaultStatus.CLOSED);
+        assertThat(closed.vault().getBalance()).isEqualByComparingTo("0");
+        assertThat(closed.wallet().getAvailableBalance()).isEqualByComparingTo("100000");
+        assertThat(closed.wallet().getLockedBalance()).isEqualByComparingTo("0");
         wallet = walletService.getWallet(ownerId, Currency.XOF);
         assertThat(wallet.getAvailableBalance()).isEqualByComparingTo("100000");
         assertThat(wallet.getLockedBalance()).isEqualByComparingTo("0");

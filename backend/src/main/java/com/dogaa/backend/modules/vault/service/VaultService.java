@@ -127,29 +127,42 @@ public class VaultService {
 
     // --- Money moves --------------------------------------------------
 
+    /**
+     * A vault movement seen from both sides: the vault, and the wallet it locks money in.
+     *
+     * <p>Funding a vault does not change what the user owns — it moves money from the wallet's
+     * spendable side to its locked side. A client handed only the vault has no way to refresh the
+     * current account without a second round trip, and until it makes that call it keeps showing
+     * an available balance the user has just spent. Returning the pair is what
+     * {@code POST /wallets/savings/deposit} already does for its two accounts.
+     */
+    public record VaultMovement(Vault vault, Wallet wallet) {
+    }
+
+
     @Transactional
-    public Vault deposit(UUID ownerId, UUID vaultId, BigDecimal amount) {
+    public VaultMovement deposit(UUID ownerId, UUID vaultId, BigDecimal amount) {
         Vault vault = getVault(ownerId, vaultId);
         requireActive(vault);
-        walletService.lock(vault.getWalletId(), amount);
+        Wallet wallet = walletService.lock(vault.getWalletId(), amount);
         vault.setBalance(vault.getBalance().add(amount));
         transactionService.recordVaultMovement(TransactionType.VAULT_DEPOSIT,
                 ownerId, vault.getWalletId(), vault.getCurrency(), amount, vault.getName());
-        return vault;
+        return new VaultMovement(vault, wallet);
     }
 
     @Transactional
-    public Vault withdraw(UUID ownerId, UUID vaultId, BigDecimal amount) {
+    public VaultMovement withdraw(UUID ownerId, UUID vaultId, BigDecimal amount) {
         Vault vault = getVault(ownerId, vaultId);
         requireActive(vault);
         if (amount.compareTo(vault.getBalance()) > 0) {
             throw new BadRequestException("Amount exceeds the vault balance");
         }
-        walletService.unlock(vault.getWalletId(), amount);
+        Wallet wallet = walletService.unlock(vault.getWalletId(), amount);
         vault.setBalance(vault.getBalance().subtract(amount));
         transactionService.recordVaultMovement(TransactionType.VAULT_WITHDRAWAL,
                 ownerId, vault.getWalletId(), vault.getCurrency(), amount, vault.getName());
-        return vault;
+        return new VaultMovement(vault, wallet);
     }
 
     /**
@@ -185,31 +198,38 @@ public class VaultService {
 
     /** Owner closes the vault: everything still locked goes back to the available balance. */
     @Transactional
-    public Vault closeVault(UUID ownerId, UUID vaultId) {
+    public VaultMovement closeVault(UUID ownerId, UUID vaultId) {
         return close(getVault(ownerId, vaultId));
     }
 
-    /** Admin-forced closure (DOGAA.md 4.5). Same effect, no ownership filter. */
+    /**
+     * Admin-forced closure (DOGAA.md 4.5). Same effect, no ownership filter.
+     *
+     * <p>Returns the vault alone: the back-office shows the account, not the client's balances.
+     */
     @Transactional
     public Vault forceClose(UUID vaultId) {
         Vault vault = vaultRepository.findById(vaultId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vault not found: " + vaultId));
-        return close(vault);
+        return close(vault).vault();
     }
 
-    private Vault close(Vault vault) {
+    private VaultMovement close(Vault vault) {
         if (vault.getStatus() == VaultStatus.CLOSED) {
             throw new BadRequestException("Vault is already closed");
         }
         BigDecimal remaining = vault.getBalance();
+        // An empty vault releases nothing, so there is no wallet coming back from an unlock.
+        // Read it anyway: the caller gets the same shape whether or not money moved.
+        Wallet wallet = walletService.getById(vault.getWalletId());
         if (remaining.signum() > 0) {
-            walletService.unlock(vault.getWalletId(), remaining);
+            wallet = walletService.unlock(vault.getWalletId(), remaining);
             vault.setBalance(BigDecimal.ZERO);
             transactionService.recordVaultMovement(TransactionType.VAULT_WITHDRAWAL,
                     vault.getOwnerId(), vault.getWalletId(), vault.getCurrency(), remaining, vault.getName());
         }
         vault.setStatus(VaultStatus.CLOSED);
-        return vault;
+        return new VaultMovement(vault, wallet);
     }
 
     private void requireActive(Vault vault) {

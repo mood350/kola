@@ -382,6 +382,33 @@ existants ; considérez-le comme obligatoire.
 
 Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressPercent` et `goalReached` sont calculés côté serveur — utilisez-les directement pour la barre de progression.
 
+### Les trois routes qui déplacent de l'argent renvoient les deux nouveaux soldes
+
+`deposit`, `withdraw` et `close` changent **deux** choses : le solde du coffre et la répartition
+disponible/bloqué du compte courant qui le finance. Elles renvoient donc la paire, et non le seul
+coffre — n'enchaînez pas un `GET /wallets` après l'opération, tout est déjà là :
+
+```json
+{
+  "success": true,
+  "message": "Deposit completed",
+  "data": {
+    "vault":  { "id": "...", "name": "Scolarité", "balance": 9000,
+                "targetAmount": 100000, "progressPercent": 9, "goalReached": false,
+                "status": "ACTIVE", "currency": "XOF" },
+    "wallet": { "id": "...", "type": "CURRENT", "currency": "XOF",
+                "availableBalance": 41000, "lockedBalance": 9000, "totalBalance": 50000,
+                "status": "ACTIVE" }
+  }
+}
+```
+
+**Affichez les deux soldes après un versement.** `totalBalance` ne bouge pas : l'utilisateur n'a
+rien dépensé, la somme a seulement changé de côté. Ne montrer que `availableBalance` donne
+l'impression que l'argent a disparu.
+
+`GET /vaults` et `GET /vaults/{id}` renvoient toujours le coffre seul : ils ne modifient rien.
+
 ### Modifier un coffre
 
 `PATCH /vaults/{id}` — un champ absent est laissé tel quel.
