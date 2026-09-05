@@ -1,6 +1,6 @@
-package com.dogaa.backend.modules.admin.repository;
+package com.dogaa.backend.modules.dispute.repository;
 
-import com.dogaa.backend.modules.admin.entity.Dispute;
+import com.dogaa.backend.modules.dispute.entity.Dispute;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,6 +13,7 @@ public interface DisputeRepository extends JpaRepository<Dispute, UUID> {
 
     Optional<Dispute> findByTransactionReference(String transactionReference);
 
-    /** Newest claims first: the console works the queue from the top. */
-    List<Dispute> findAllByOrderByOpenedAtDesc();
+    boolean existsByTransactionReference(String transactionReference);
+
+    List<Dispute> findAllByOrderByCreatedAtDesc();
 }

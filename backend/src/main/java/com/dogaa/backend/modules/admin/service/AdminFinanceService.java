@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.admin.service;
 
+import com.dogaa.backend.common.util.BackOfficeFormat;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.LoanStatus;
 import com.dogaa.backend.common.enums.TransactionStatus;
@@ -62,13 +63,13 @@ public class AdminFinanceService {
 
         return List.of(
                 new LiquidityBucketResponse("Disponible clients",
-                        AdminFormat.compactAmount(available, Currency.XOF.name()),
+                        BackOfficeFormat.compactAmount(available, Currency.XOF.name()),
                         "Soldes courants mobilisables", shares.get(0)),
                 new LiquidityBucketResponse("Épargne bloquée",
-                        AdminFormat.compactAmount(locked, Currency.XOF.name()),
+                        BackOfficeFormat.compactAmount(locked, Currency.XOF.name()),
                         "Coffres et garanties de prêts", shares.get(1)),
                 new LiquidityBucketResponse("Prêté aux clients",
-                        AdminFormat.compactAmount(lent, Currency.XOF.name()),
+                        BackOfficeFormat.compactAmount(lent, Currency.XOF.name()),
                         "Encours de crédit non remboursé", shares.get(2)));
     }
 
@@ -96,12 +97,12 @@ public class AdminFinanceService {
         for (int i = 0; i < labels.size(); i++) {
             lines.add(new RevenueResponse.RevenueLineResponse(
                     labels.get(i),
-                    AdminFormat.amount(amounts.get(i), Currency.XOF.name()),
+                    BackOfficeFormat.amount(amounts.get(i), Currency.XOF.name()),
                     shares.get(i)));
             total = total.add(amounts.get(i));
         }
 
-        return new RevenueResponse(lines, AdminFormat.amount(total, Currency.XOF.name()));
+        return new RevenueResponse(lines, BackOfficeFormat.amount(total, Currency.XOF.name()));
     }
 
     /**
@@ -145,7 +146,7 @@ public class AdminFinanceService {
         int assigned = 0;
         int largest = 0;
         for (int i = 0; i < amounts.size(); i++) {
-            int share = AdminFormat.share(amounts.get(i), total).intValue();
+            int share = BackOfficeFormat.share(amounts.get(i), total).intValue();
             shares.add(share);
             assigned += share;
             if (amounts.get(i).compareTo(amounts.get(largest)) > 0) {

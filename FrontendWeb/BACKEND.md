@@ -233,11 +233,13 @@ DisputeDetail {
 - L'UI affiche systématiquement *"⭑ double validation requise"* sur chaque litige — **le mock ne vérifie absolument pas que les deux validations viennent de deux admins différents** (`validationsDone` est juste un compteur). ⚠️ **C'est le point le plus important à corriger dans le vrai backend** : la 2ᵉ validation doit être refusée (403 ou erreur métier) si elle vient du même compte admin que la 1ʳᵉ. `lastValidationNote` doit citer l'identité de l'admin qui vient de valider (le seed montre le format attendu : `"1re validation : Sena A. — en attente d'un 2e admin conformité"`).
 
   ✅ **Fait, et structurellement** : `DisputeValidation` porte l'identité du signataire avec une
-  contrainte d'unicité `(disputeId, adminId)` — le même admin qui resigne reçoit un **403** qui le
-  dit. Le renversement des fonds s'exécute dans la transaction de la validation qui l'atteint : si
-  le portefeuille du bénéficiaire ne peut plus le couvrir, la validation est annulée avec lui,
-  plutôt que de laisser un litige « résolu » sans mouvement d'argent. Valider sans chargeback en
-  cours renvoie **409**.
+  contrainte d'unicité `(disputeId, adminId)` — le même admin qui resigne reçoit un **409**, et
+  l'index tient même sur deux requêtes simultanées. Le nombre de signatures est réglable
+  (`app.disputes.validations-required`, défaut 2). Le renversement s'exécute dans la transaction de
+  la validation qui atteint le quota, et il ne se bloque pas sur un bénéficiaire insolvable : le
+  plaignant est **remboursé intégralement**, la récupération est plafonnée à ce que le bénéficiaire
+  détient encore, et le manque est enregistré comme un `shortfall` que la plateforme absorbe.
+  Attendre que le bénéficiaire soit solvable reviendrait à faire payer la fraude à la victime.
 - Chaque validation/chargeback/rejet est une action sensible → doit alimenter le journal d'audit (`AuditLogEntry`).
 
 ## 10. Configuration (frais & marchands)
@@ -341,7 +343,7 @@ résiduels sont signalés en fin de section.
 | 6 — Utilisateurs & file KYC | ✅ | `AdminUserController`, `AdminUserService` |
 | 7 — Crédit | ✅ | `AdminCreditController`, `AdminCreditService`, `credit/service/CreditLadderService` |
 | 8 — Suivi financier | ✅ | `AdminFinanceController`, `AdminFinanceService` |
-| 9 — Litiges & chargebacks | ✅ | `AdminDisputeController`, `AdminDisputeService` |
+| 9 — Litiges & chargebacks | ✅ | `modules/dispute/*` — `AdminDisputeController`, `DisputeController` (côté client), `DisputeService` |
 | 10 — Configuration | ✅ | `AdminConfigController`, `AdminConfigService`, `transaction/service/FeeScheduleService` |
 | 11 — Conformité & audit | ✅ | `modules/audit/*` |
 | 12 — Rôles admin | ✅ | `AdminRolesController` |
@@ -352,7 +354,7 @@ résiduels sont signalés en fin de section.
 | Entité | Module | Rôle |
 |---|---|---|
 | `AdminAccount`, `AdminRole`, `AdminModule` | `admin/entity` | comptes back-office et matrice de permissions |
-| `Dispute`, `DisputeStatus`, `DisputeTag`, `DisputeValidation` | `admin/entity` | litiges et signatures de chargeback |
+| `Dispute`, `DisputeStatus`, `DisputeTag`, `DisputeValidation` | `dispute/entity` | litiges et signatures de chargeback |
 | `Merchant`, `MerchantStatus` | `admin/entity` | marchands partenaires et machine à états |
 | `SupportTicket`, `SupportTicketStatus` | `admin/entity` | file de tickets |
 | `AuditLogEntry` | `audit/entity` | journal transverse |
@@ -366,7 +368,7 @@ Les entités métier existantes ont bien été **réutilisées et non dupliquée
 
 - **La double validation est structurelle.** `DisputeValidation` porte l'identité de l'admin
   signataire et une contrainte d'unicité `(disputeId, adminId)` : le même admin ne peut pas signer
-  deux fois, la seconde tentative renvoie 403. Le renversement des fonds s'exécute dans la
+  deux fois, la seconde tentative renvoie 409. Le renversement des fonds s'exécute dans la
   transaction de la validation qui le déclenche, donc un litige ne peut pas être marqué résolu
   pendant que l'argent reste en place.
 - **Les barèmes s'empilent, ils ne s'écrasent pas.** `CreditLadderService` enregistre une nouvelle
@@ -398,7 +400,7 @@ après coup aurait voulu dire repasser dans chacun d'eux.
 
 | Point | Décision |
 |---|---|
-| Double validation des chargebacks | **Tranché** : 2 admins distincts, garanti par l'unicité `(disputeId, adminId)` et un 403 explicite. |
+| Double validation des chargebacks | **Tranché** : 2 admins distincts (quota réglable), garanti par l'unicité `(disputeId, adminId)` et un 409 explicite. |
 | `force-close-vault` sans `vaultId` | **Non tranché** : le backend ferme le plus ancien coffre ouvert, en attendant un contrat par coffre. |
 | Granularité des permissions « Support » | **Non tranché** : la matrice reste par module, sans distinction lecture/écriture. Les écritures sensibles (barème de prêt, grille de frais) sont en revanche réservées au Super-admin. |
 | Motif de rejet KYC | **Non tranché côté back-office** : `/admin/kyc/documents/{id}/review` exige un `rejectionReason`, mais `/admin/users/kyc-queue/{id}/reject` n'en prend pas. |

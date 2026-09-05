@@ -20,13 +20,16 @@ import com.dogaa.backend.modules.transaction.dto.TransactionAggregate;
 import com.dogaa.backend.modules.transaction.dto.TransferRequest;
 import com.dogaa.backend.modules.transaction.entity.Transaction;
 import com.dogaa.backend.modules.transaction.repository.TransactionRepository;
+import com.dogaa.backend.modules.transaction.repository.TransactionSpecifications;
 import com.dogaa.backend.modules.user.entity.User;
 import com.dogaa.backend.modules.user.service.UserService;
 import com.dogaa.backend.modules.wallet.entity.Wallet;
 import com.dogaa.backend.modules.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -308,7 +311,29 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public Page<Transaction> history(UUID userId, TransactionType type, TransactionStatus status,
                                      Instant from, Instant to, Pageable pageable) {
-        return transactionRepository.findForUser(userId, type, status, from, to, pageable);
+        return transactionRepository.findAll(
+                TransactionSpecifications.forUser(userId, type, status, from, to),
+                withNewestFirst(pageable));
+    }
+
+    /** The old JPQL carried its own ORDER BY; a specification does not, so it is added here. */
+    private static Pageable withNewestFirst(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+    }
+
+    /**
+     * Reads a transaction by its id, with no ownership check: for modules acting on behalf of the
+     * platform rather than a user — the disputes module resolving a chargeback, for instance.
+     */
+    @Transactional(readOnly = true)
+    public Transaction getById(UUID transactionId) {
+        return transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Transaction introuvable : " + transactionId));
     }
 
     @Transactional(readOnly = true)

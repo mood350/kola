@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.admin.service;
 
+import com.dogaa.backend.common.util.BackOfficeFormat;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.LoanStatus;
 import com.dogaa.backend.common.enums.ScheduledTaskStatus;
@@ -75,13 +76,13 @@ public class AdminDashboardMetricsService {
 
         return List.of(
                 new MetricResponse("Volume 24 h",
-                        AdminFormat.compactAmount(volume24h, CURRENCY),
-                        AdminFormat.signedPercent(change(volumePrevious24h, volume24h)),
+                        BackOfficeFormat.compactAmount(volume24h, CURRENCY),
+                        BackOfficeFormat.signedPercent(change(volumePrevious24h, volume24h)),
                         volume24h.compareTo(volumePrevious24h) >= 0),
 
                 new MetricResponse("Solde global",
-                        AdminFormat.compactAmount(globalBalance(), CURRENCY),
-                        AdminFormat.amount(lockedBalance(), CURRENCY) + " bloqués",
+                        BackOfficeFormat.compactAmount(globalBalance(), CURRENCY),
+                        BackOfficeFormat.amount(lockedBalance(), CURRENCY) + " bloqués",
                         true),
 
                 new MetricResponse("Croissance utilisateurs",
@@ -90,12 +91,12 @@ public class AdminDashboardMetricsService {
                         newUsers > 0),
 
                 new MetricResponse("Encours de prêts",
-                        AdminFormat.compactAmount(outstanding, CURRENCY),
+                        BackOfficeFormat.compactAmount(outstanding, CURRENCY),
                         loanRepository.findByStatusIn(OUTSTANDING).size() + " prêts en cours",
                         true),
 
                 new MetricResponse("Taux de défaut",
-                        AdminFormat.percent(defaultRate()),
+                        BackOfficeFormat.percent(defaultRate()),
                         loanRepository.countByStatus(LoanStatus.DEFAULTED) + " défauts",
                         // A default rate going up is bad news: never render it as an improvement.
                         defaultRate().signum() == 0));
@@ -133,7 +134,7 @@ public class AdminDashboardMetricsService {
         for (Map.Entry<LocalDate, BigDecimal> entry : perDay.entrySet()) {
             int height = tallest.signum() == 0
                     ? 0
-                    : AdminFormat.share(entry.getValue(), tallest).intValue();
+                    : BackOfficeFormat.share(entry.getValue(), tallest).intValue();
             points.add(new ChartPointResponse(
                     entry.getKey().format(DAY_LABEL), height, ++index == perDay.size()));
         }
@@ -197,10 +198,10 @@ public class AdminDashboardMetricsService {
         long defaulted = loanRepository.countByStatus(LoanStatus.DEFAULTED);
 
         return new LoanBookSummaryResponse(
-                AdminFormat.amount(outstanding, CURRENCY),
+                BackOfficeFormat.amount(outstanding, CURRENCY),
                 // What share of the money the platform holds is currently out on loan.
-                AdminFormat.share(outstanding, held.add(outstanding)).intValue(),
-                AdminFormat.percent(defaultRate()),
+                BackOfficeFormat.share(outstanding, held.add(outstanding)).intValue(),
+                BackOfficeFormat.percent(defaultRate()),
                 defaulted + " prêt(s) en défaut sur " + loanRepository.count() + " accordés",
                 "+" + newUsers + " sur 30 j",
                 String.valueOf(userService.totalUsers()));
@@ -241,7 +242,7 @@ public class AdminDashboardMetricsService {
         if (granted == 0) {
             return BigDecimal.ZERO;
         }
-        return AdminFormat.share(
+        return BackOfficeFormat.share(
                 BigDecimal.valueOf(loanRepository.countByStatus(LoanStatus.DEFAULTED)),
                 BigDecimal.valueOf(granted));
     }
@@ -250,6 +251,6 @@ public class AdminDashboardMetricsService {
         if (before == null || before.signum() == 0) {
             return after != null && after.signum() > 0 ? BigDecimal.valueOf(100) : BigDecimal.ZERO;
         }
-        return AdminFormat.share(after.subtract(before), before);
+        return BackOfficeFormat.share(after.subtract(before), before);
     }
 }

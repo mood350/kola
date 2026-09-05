@@ -9,10 +9,15 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.UUID;
 
+/**
+ * A task to schedule.
+ *
+ * <p>There is no {@code userId} field on purpose: the owner comes from the token. Keeping one that
+ * the server ignores would look authoritative and mislead the next caller. A payload that still
+ * carries it is accepted — the field is simply not read.
+ */
 public record ScheduledTaskRequest(
-        @NotNull UUID userId,
         @NotNull ScheduledTaskType type,
         @NotNull ScheduleFrequency frequency,
         @NotNull @Positive BigDecimal amount,

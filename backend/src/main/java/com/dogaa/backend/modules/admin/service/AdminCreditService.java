@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.admin.service;
 
+import com.dogaa.backend.common.util.BackOfficeFormat;
 import com.dogaa.backend.common.enums.Currency;
 import com.dogaa.backend.common.enums.LoanStatus;
 import com.dogaa.backend.common.enums.NotificationChannel;
@@ -65,8 +66,8 @@ public class AdminCreditService {
         long granted = loanRepository.count();
 
         return new CreditStatsResponse(
-                AdminFormat.amount(outstanding, Currency.XOF.name()),
-                AdminFormat.percent(AdminFormat.share(
+                BackOfficeFormat.amount(outstanding, Currency.XOF.name()),
+                BackOfficeFormat.percent(BackOfficeFormat.share(
                         BigDecimal.valueOf(defaulted), BigDecimal.valueOf(granted))),
                 late);
     }
@@ -87,8 +88,8 @@ public class AdminCreditService {
             tiers.add(new TierConfigResponse(
                     "TIER " + tier,
                     rung.getMinScore(),
-                    AdminFormat.amount(rung.getMaxAmount(), Currency.XOF.name()),
-                    AdminFormat.monthlyRate(rung.getMonthlyRatePercent())));
+                    BackOfficeFormat.amount(rung.getMaxAmount(), Currency.XOF.name()),
+                    BackOfficeFormat.monthlyRate(rung.getMonthlyRatePercent())));
         }
         return tiers;
     }
@@ -164,7 +165,7 @@ public class AdminCreditService {
         }
 
         User borrower = userService.getById(loan.getUserId());
-        String amount = AdminFormat.amount(loan.getOutstanding(), currencyOf(loan));
+        String amount = BackOfficeFormat.amount(loan.getOutstanding(), currencyOf(loan));
 
         notificationService.send(new NotificationRequest(
                 loan.getUserId(),
@@ -189,7 +190,7 @@ public class AdminCreditService {
         return new LoanDefaultResponse(
                 loan.getId().toString(),
                 borrower,
-                AdminFormat.amount(loan.getOutstanding(), currencyOf(loan)),
+                BackOfficeFormat.amount(loan.getOutstanding(), currencyOf(loan)),
                 Math.max(daysLate, 0));
     }
 

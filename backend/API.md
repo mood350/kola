@@ -318,7 +318,8 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 
 ## 9. Transactions programmées
 
-⚠️ Ces routes renvoient le **DTO brut**, sans enveloppe.
+Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a plus de `userId`**, ni dans
+le corps, ni dans le chemin.
 
 | Méthode | Route | Corps |
 |---|---|---|
@@ -326,10 +327,10 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 | `PATCH` | `/scheduling/tasks/{id}/pause` | — |
 | `PATCH` | `/scheduling/tasks/{id}/resume` | — |
 | `PATCH` | `/scheduling/tasks/{id}/cancel` | — |
-| `GET` | `/scheduling/tasks/users/{userId}` | — |
+| `GET` | `/scheduling/tasks/me` | — |
 
 ```json
-{ "userId": "...", "type": "VAULT_DEPOSIT", "frequency": "MONTHLY",
+{ "type": "VAULT_DEPOSIT", "frequency": "MONTHLY",
   "amount": 10000, "currency": "XOF", "beneficiaryReference": "vault-id-ou-numero",
   "firstRunAt": "2026-10-05T00:00:00Z", "endDate": null, "maxOccurrences": 12 }
 ```
@@ -340,22 +341,22 @@ Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
 
 Le job s'exécute **à minuit**. En cas de solde insuffisant, la tâche passe `FAILED` avec `lastFailureReason`.
 
-> ⚠️ `userId` est dans le corps et le chemin. À sécuriser côté backend (un utilisateur peut lire les tâches d'un autre) — ne construisez pas de fonctionnalité qui en dépende.
+> La tâche d'un autre utilisateur répond **404**, pas 403 : un 403 confirmerait que l'identifiant existe.
 
 ---
 
 ## 9 bis. Notifications
 
-⚠️ DTO brut, sans enveloppe.
+Enveloppe `ApiResponse<T>`.
 
 | Méthode | Route | Corps |
 |---|---|---|
-| `POST` | `/notifications` | `{ userId, channel, title, body }` |
-| `GET` | `/notifications/users/{userId}` | — |
+| `GET` | `/notifications/me` | — |
+| `POST` | `/notifications` | `{ userId, channel, title, body }` — **réservé aux administrateurs** |
 
 `channel` : `EMAIL`, `SMS`, `PUSH`. Les trois canaux **écrivent dans les logs** au lieu d'envoyer quoi que ce soit — aucune passerelle n'est branchée.
 
-> ⚠️ Comme pour le scheduling, ces routes acceptent n'importe quel `userId` sans vérifier qu'il correspond à l'appelant. À sécuriser côté backend.
+> L'envoi est `ROLE_ADMIN` : un utilisateur qui pouvait envoyer une notification à n'importe qui disposait d'un outil de phishing, pas d'une fonctionnalité.
 
 ---
 
@@ -450,6 +451,115 @@ Remboursement intégral → épargne débloquée. `POST /loans/{id}/repay` avec 
 Retard : 3 jours de grâce, puis 0,5 %/jour plafonné à 15 %. À 30 jours, saisie de la garantie.
 
 Statuts : `ACTIVE`, `OVERDUE`, `REPAID`, `DEFAULTED`.
+
+---
+
+## 11 bis. Assistant
+
+Un chat qui répond aux questions de l'utilisateur sur l'application **et sur son propre compte**.
+Enveloppe `ApiResponse<T>`. Toutes les routes portent sur l'appelant : aucun `userId` nulle part.
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/assistant/messages` | `{ conversationId?, message }` |
+| `GET` | `/assistant/conversations` | — |
+| `GET` | `/assistant/conversations/{id}` | — |
+| `DELETE` | `/assistant/conversations/{id}` | — |
+
+`conversationId` absent ou `null` ouvre un nouveau fil ; sinon le fil est poursuivi. Le titre du fil
+est tiré de la première question.
+
+Réponse de `POST /assistant/messages` :
+
+```json
+{ "success": true, "data": {
+    "conversationId": "…", "title": "Combien je peux emprunter ?",
+    "answer": { "id": "…", "role": "ASSISTANT", "content": "…", "createdAt": "…" },
+    "remainingToday": 39 } }
+```
+
+**Ce que l'assistant sait.** Les règles du produit (frais, niveaux KYC et plafonds, barème de prêt,
+axes du score, litiges) sont construites à partir de la configuration réelle du serveur, donc elles
+suivent automatiquement un changement de tarif. S'y ajoute la situation de l'appelant : niveau KYC
+et ce qui manque pour monter, soldes disponibles et bloqués des deux comptes, coffres, score et son
+détail, éligibilité au crédit avec les blocages nommés, prêt en cours, opérations programmées et
+dernières transactions.
+
+**Ce que l'assistant ne fait pas.** Il n'exécute aucune opération — pas de virement, pas de
+déblocage, pas de changement de niveau. Il explique et renvoie vers le bon écran. Il ne voit aucun
+autre compte que celui de l'appelant, et ne demande jamais un code PIN ni un OTP.
+
+**Codes à gérer côté client :**
+
+| Code | Quand |
+|---|---|
+| `429` | quota quotidien atteint — `remainingToday` permet de prévenir avant |
+| `503` | assistant non configuré ou fournisseur injoignable — masquez l'entrée du menu |
+| `404` | `conversationId` inconnu, ou appartenant à quelqu'un d'autre |
+
+---
+
+## 11 ter. QR codes
+
+Encaisser sans dicter son numéro, payer sans le taper. Enveloppe `ApiResponse<T>`.
+Le bénéficiaire d'un code est toujours son créateur : **aucune route n'accepte de bénéficiaire**.
+
+### Ses propres codes
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `GET` | `/qr/me` | — (crée le code permanent à la première demande) |
+| `POST` | `/qr/me/rotate` | — (révoque l'ancien) |
+| `POST` | `/qr/me/requests` | `{ currency, amount, label?, expiresInMinutes? }` |
+| `GET` | `/qr/me/requests` | — |
+| `DELETE` | `/qr/{code}` | — (annuler) |
+| `GET` | `/qr/{code}/image?size=512` | — → **`image/png`**, propriétaire uniquement |
+
+Deux types de codes :
+
+- **`STATIC`** — la carte de visite. Pas de montant, n'expire pas, reste payable après usage.
+  C'est le payeur qui saisit le montant.
+- **`PAYMENT_REQUEST`** — une demande pour un montant précis. Expire (24 h par défaut, 7 jours
+  maximum) et **n'est payable qu'une fois** : un reçu photographié ne doit pas être payé deux fois.
+
+La réponse contient `payload` : c'est exactement ce que l'image encode
+(`https://dogaa.app/p/{code}`). **Dessinez le QR côté mobile à partir de ce champ** ; l'endpoint
+PNG ne sert qu'au partage ou à l'impression.
+
+### Payer un code scanné
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `GET` | `/qr/{code}` | — → écran de confirmation |
+| `POST` | `/qr/{code}/pay` | `{ currency?, amount?, description? }` |
+
+`GET /qr/{code}` renvoie :
+
+```json
+{ "success": true, "data": {
+    "code": "…", "type": "PAYMENT_REQUEST",
+    "payable": true, "reason": null,
+    "recipientName": "Ama Kossi", "recipientPhoneMasked": "+228 90 ** ** 56",
+    "amountFixed": true, "amount": 2500, "currency": "XOF",
+    "label": "Table 4", "expiresAt": "…" } }
+```
+
+> Un code expiré, annulé ou déjà payé répond **200 avec `payable: false`** et un `reason` lisible.
+> Affichez ce message : l'utilisateur est devant un commerçant et doit savoir lequel des trois cas
+> s'applique. Seul un code **inconnu** renvoie 404.
+
+Sur `POST /qr/{code}/pay` :
+
+- code `STATIC` → `currency` et `amount` sont **obligatoires** ;
+- code `PAYMENT_REQUEST` → laissez-les vides. Si vous les envoyez et qu'ils diffèrent du code, la
+  requête est **refusée (400)**, jamais silencieusement corrigée.
+
+Le paiement emprunte le chemin de transfert normal : mêmes frais (1,5 %), mêmes plafonds KYC, même
+écriture au registre. La réponse porte `transactionReference` pour retrouver l'opération dans
+`/transactions`.
+
+**Le QR ne contient pas le numéro de téléphone**, seulement une référence aléatoire révocable. Un
+code se photographie et se transfère : y mettre le numéro reviendrait à le donner définitivement.
 
 ---
 
@@ -581,15 +691,25 @@ sauvegarde back-office, pas le barème de configuration — celui-ci reste dans
 `remind` envoie un SMS au retardataire et l'inscrit au journal d'audit : une relance est un contact
 client. Un prêt déjà soldé renvoie 400.
 
-### Litiges & chargebacks
+### Litiges et chargebacks
+
+Côté client, contester une de ses transactions (enveloppe `ApiResponse` habituelle) :
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/api/v1/disputes` | `{ transactionReference, tag, title }` |
+
+`tag` : `fraud`, `double_debit`, `p2p`.
+
+Côté back-office (DTO brut) :
 
 | Méthode | Route | Réponse |
 |---|---|---|
 | `GET` | `/admin/disputes` | `Dispute[]` |
 | `GET` | `/admin/disputes/{ref}` | `DisputeDetail` |
-| `POST` | `/admin/disputes/{ref}/chargeback` | `Dispute` — ouvre la procédure |
-| `POST` | `/admin/disputes/{ref}/reject` | `Dispute` — classe sans suite |
-| `POST` | `/admin/disputes/{ref}/validate` | `DisputeDetail` — signe une validation |
+| `POST` | `/admin/disputes/{ref}/chargeback` | `Dispute` — passe en `chargeback_pending` |
+| `POST` | `/admin/disputes/{ref}/reject` | `Dispute` — classé sans suite |
+| `POST` | `/admin/disputes/{ref}/validate` | `DisputeDetail` |
 
 ```jsonc
 // Dispute
@@ -607,11 +727,15 @@ client. Un prêt déjà soldé renvoie 400.
 `resolved` ou `rejected`. Ce sont les valeurs de fil, en minuscules — la console s'en sert pour
 choisir ses styles.
 
-**La double validation est réelle, pas déclarative.** Le même admin ne peut pas signer deux fois :
-la seconde tentative renvoie **403** en le disant. Le renversement des fonds s'exécute dans la même
-transaction que la validation qui le déclenche — si le portefeuille du bénéficiaire ne peut plus le
-couvrir, la validation est annulée avec lui. Un litige marqué résolu alors que l'argent n'a pas bougé
-serait pire qu'un litige encore en attente. Valider un litige sans chargeback en cours renvoie 409.
+**La double validation est réelle.** `validate` est refusé (`409`) si l'administrateur a déjà validé
+ce litige — un index unique `(dispute_id, admin_id)` l'empêche même en cas de requêtes simultanées.
+Il faut donc bien **deux administrateurs distincts**, et `lastValidationNote` les nomme tous les deux.
+
+Rien ne bouge tant que le quota n'est pas atteint. La dernière validation exécute le chargeback :
+le plaignant est **remboursé intégralement**, la récupération auprès du bénéficiaire est limitée à ce
+qu'il détient encore, et le manque éventuel apparaît dans `lastValidationNote`.
+
+Nombre de validations réglable par `app.disputes.validations-required` (défaut 2).
 
 ### Suivi financier
 
@@ -672,7 +796,6 @@ Statuts marchands : `pending`, `active`, `suspended`. Les transitions sont contr
 `status` vaut `open`, `in_progress` ou `resolved`. Prendre en charge un ticket déjà pris, ou
 résoudre un ticket déjà résolu, renvoie **409** : deux agents qui cliquent en même temps ne doivent
 pas se voler le ticket en silence.
-
 ### Autres routes admin
 
 
@@ -716,7 +839,7 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
 ## 14. À savoir avant de coder
 
 - **L'OTP n'est pas envoyé par SMS** — code visible uniquement dans les logs du serveur (§2).
-- **L'enveloppe de réponse n'est pas uniforme** — `/admin`, `/notifications`, `/scheduling` renvoient le DTO brut (§1).
+- **L'enveloppe de réponse n'est pas uniforme** — seules les routes `/admin` renvoient le DTO brut, volontairement : le back-office mappe le JSON tel quel. Les routes client sont toutes sous `ApiResponse<T>` (§1).
 - **Le port de dev est 8081**, pas 8080.
 - **Rotation du refresh token** : conservez systématiquement le dernier reçu.
 - **`ddl-auto=update`** : le schéma peut bouger entre deux versions du backend.
@@ -724,5 +847,5 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
 - **Les barèmes sont modifiables à chaud** : l'échelle de prêt (§12) et la grille de frais (§12)
   vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
 - **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
-
+- **L'assistant (§11 bis) répond 503 tant que `app.assistant.api-key` n'est pas renseignée** côté serveur. Le reste de l'application fonctionne normalement.
 Questions ou champ manquant → ouvrez une issue sur le dépôt, ou consultez Swagger qui reflète toujours le code déployé.

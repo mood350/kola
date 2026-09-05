@@ -1,9 +1,8 @@
-package com.dogaa.backend.modules.admin.entity;
+package com.dogaa.backend.modules.dispute.entity;
 
 import com.dogaa.backend.common.audit.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
@@ -15,17 +14,18 @@ import lombok.Setter;
 import java.util.UUID;
 
 /**
- * One administrator signing off a chargeback (BACKEND.md 9).
+ * One administrator signing off on a chargeback.
  *
- * <p>Rows, not a counter: a counter cannot answer "which two people approved this", and it cannot
- * stop one person approving twice. The unique constraint on (dispute, admin) is what makes the
- * four-eyes rule structural rather than a check someone can forget to write.
+ * <p>The unique constraint is the whole point: <b>the database refuses a second row for the same
+ * administrator on the same dispute</b>. A counter can be incremented twice by one person; a
+ * unique index cannot, not even under a race between two simultaneous requests. Four-eyes control
+ * has to be enforced by something that cannot be talked out of it.
  */
 @Entity
 @Table(name = "dispute_validations",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_dispute_validation_admin", columnNames = {"dispute_id", "admin_id"}),
-        indexes = @Index(name = "idx_dispute_validation_dispute", columnList = "dispute_id"))
+                name = "uq_dispute_validation_admin",
+                columnNames = {"dispute_id", "admin_id"}))
 @Getter
 @Setter
 @Builder
@@ -39,7 +39,7 @@ public class DisputeValidation extends BaseEntity {
     @Column(name = "admin_id", nullable = false)
     private UUID adminId;
 
-    /** Denormalised so the note stays readable after an account is renamed or removed. */
+    /** Kept alongside the id so the note stays readable if the account is later renamed. */
     @Column(name = "admin_name", nullable = false, length = 120)
     private String adminName;
 }

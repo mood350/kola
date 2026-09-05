@@ -23,8 +23,9 @@ class CreditPolicyTest {
 
         assertThat(rung.getLeverage()).isEqualByComparingTo("1.0");
         assertThat(rung.getMonthlyRatePercent()).isEqualByComparingTo("8.0");
-        assertThat(policy.maxLoanAmount(xof("500000"), rung))
-                .isEqualByComparingTo("500000");
+        // Leverage 1.0: the collateral covers the principal exactly, so a first loan cannot
+        // lose money. Below the rung ceiling the amount is the collateral itself.
+        assertThat(policy.maxLoanAmount(xof("40000"), rung)).isEqualByComparingTo("40000");
     }
 
     /**
@@ -64,7 +65,7 @@ class CreditPolicyTest {
     @Test
     void theTopRungLendsSixtyPercentMoreThanTheSavings() {
         CreditProperties.Rung rung = policy.rungFor(3, 90).orElseThrow();
-        BigDecimal amount = policy.maxLoanAmount(xof("500000"), rung);
+        BigDecimal amount = policy.maxLoanAmount(xof("500000"), uncapped(rung));
 
         assertThat(amount).isEqualByComparingTo("800000");
         assertThat(amount.add(policy.interestOn(amount, rung.getMonthlyRatePercent())))
@@ -92,5 +93,38 @@ class CreditPolicyTest {
     @Test
     void thePenaltyIsCappedSoALateMonthDoesNotBecomeADebtSpiral() {
         assertThat(policy.penaltyFor(xof("500000"), 365)).isEqualByComparingTo("75000");
+    }
+
+    /**
+     * The rung ceiling bounds the platform's exposure to one borrower, whatever the collateral.
+     * It binds before leverage does: 500 000 of savings at 1.6x would reach 800 000, but the top
+     * rung stops at 750 000.
+     */
+    @Test
+    void theRungCeilingCapsWhatLeverageWouldOtherwiseAllow() {
+        CreditProperties.Rung rung = properties.getLadder().get(0);
+
+        assertThat(rung.getMaxAmount()).isEqualByComparingTo("750000");
+        assertThat(policy.maxLoanAmount(xof("500000"), rung)).isEqualByComparingTo("750000");
+    }
+
+    /** A null ceiling means unlimited, not zero — the same convention as the KYC limits. */
+    @Test
+    void aRungWithoutACeilingIsBoundedOnlyByLeverage() {
+        CreditProperties.Rung rung = properties.getLadder().get(0);
+
+        assertThat(policy.maxLoanAmount(xof("500000"), uncapped(rung)))
+                .isEqualByComparingTo("800000");
+    }
+
+    /** The same rung with its ceiling removed, to isolate the leverage arithmetic. */
+    private static CreditProperties.Rung uncapped(CreditProperties.Rung rung) {
+        CreditProperties.Rung copy = new CreditProperties.Rung();
+        copy.setMinLoansRepaid(rung.getMinLoansRepaid());
+        copy.setMinScore(rung.getMinScore());
+        copy.setLeverage(rung.getLeverage());
+        copy.setMonthlyRatePercent(rung.getMonthlyRatePercent());
+        copy.setMaxAmount(null);
+        return copy;
     }
 }

@@ -9,6 +9,7 @@ import com.dogaa.backend.modules.transaction.entity.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,38 +22,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
+public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
+        JpaSpecificationExecutor<Transaction> {
 
     Optional<Transaction> findByReference(String reference);
 
     /**
-     * Everything the user was on either side of, newest first, optionally narrowed by
-     * type, status and/or a creation-date window — any filter left {@code null} is
-     * ignored. Includes {@code FAILED} traces (scheduler misfires included), so this is
-     * the one place a user's transactional activity is fully visible.
-     *
-     * <p>Each filter neutralises itself through {@code coalesce} rather than a {@code :param is null}
-     * test: PostgreSQL cannot infer the type of a standalone null bind parameter and rejects the
-     * statement. Inside {@code coalesce} it takes the type from the column it sits next to.
-     */
-    @Query("""
-            select t from Transaction t
-            where (t.senderId = :userId or t.recipientId = :userId)
-              and t.type = coalesce(:type, t.type)
-              and t.status = coalesce(:status, t.status)
-              and t.createdAt >= coalesce(:from, t.createdAt)
-              and t.createdAt <= coalesce(:to, t.createdAt)
-            order by t.createdAt desc
-            """)
-    Page<Transaction> findForUser(@Param("userId") UUID userId,
-                                  @Param("type") TransactionType type,
-                                  @Param("status") TransactionStatus status,
-                                  @Param("from") Instant from,
-                                  @Param("to") Instant to,
-                                  Pageable pageable);
-
-    /**
-     * Sum of what the user has already sent out today in one currency — the running total
+     * Sum of what the user has already sent out today in one currency: the running total
      * the KYC daily limit is checked against (DOGAA.md 4.4).
      */
     @Query("""

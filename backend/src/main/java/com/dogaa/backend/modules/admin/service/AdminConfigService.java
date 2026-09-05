@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.admin.service;
 
+import com.dogaa.backend.common.util.BackOfficeFormat;
 import com.dogaa.backend.common.enums.KycTier;
 import com.dogaa.backend.common.enums.TransactionType;
 import com.dogaa.backend.exception.BadRequestException;
@@ -55,9 +56,9 @@ public class AdminConfigService {
         for (KycTier tier : KycTier.values()) {
             rows.add(new FeeConfigResponse(
                     tier.name(),
-                    AdminFormat.percent(feeCalculator.effectivePercent(TransactionType.P2P_TRANSFER, tier)),
-                    AdminFormat.percent(feeCalculator.effectivePercent(TransactionType.MERCHANT_PAYMENT, tier)),
-                    AdminFormat.percent(feeCalculator.effectivePercent(TransactionType.CASH_OUT, tier))));
+                    BackOfficeFormat.percent(feeCalculator.effectivePercent(TransactionType.P2P_TRANSFER, tier)),
+                    BackOfficeFormat.percent(feeCalculator.effectivePercent(TransactionType.MERCHANT_PAYMENT, tier)),
+                    BackOfficeFormat.percent(feeCalculator.effectivePercent(TransactionType.CASH_OUT, tier))));
         }
         return rows;
     }

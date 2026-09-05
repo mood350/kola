@@ -8,13 +8,17 @@ import java.util.UUID;
 
 public interface ScheduledTaskService {
 
-    ScheduledTaskResponse create(ScheduledTaskRequest request);
+    /**
+     * @param ownerId the authenticated caller; the task is created for them, never for the
+     *                id the request body happens to carry
+     */
+    ScheduledTaskResponse create(UUID ownerId, ScheduledTaskRequest request);
 
-    ScheduledTaskResponse pause(UUID taskId);
+    ScheduledTaskResponse pause(UUID ownerId, UUID taskId);
 
-    ScheduledTaskResponse resume(UUID taskId);
+    ScheduledTaskResponse resume(UUID ownerId, UUID taskId);
 
-    ScheduledTaskResponse cancel(UUID taskId);
+    ScheduledTaskResponse cancel(UUID ownerId, UUID taskId);
 
     List<ScheduledTaskResponse> listByUser(UUID userId);
 

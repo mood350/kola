@@ -48,8 +48,16 @@ public class ScoringServiceImpl implements ScoringService {
         return CreditScoreMapper.toResponse(repository.save(score));
     }
 
+    /**
+     * Not {@code readOnly}: when no score exists yet this computes and stores the first one.
+     *
+     * <p>The read-only flag used to be here, and it was wrong twice over. Spring's proxy does not
+     * intercept a call a bean makes to itself, so {@code calculateScore} inherited this method's
+     * read-only transaction instead of opening its own — and PostgreSQL, unlike H2, refuses the
+     * insert outright. The tests passed and production returned 500.
+     */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public CreditScoreResponse getLatestScore(UUID userId) {
         return latest(userId)
                 .map(CreditScoreMapper::toResponse)
