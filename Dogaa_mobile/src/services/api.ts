@@ -9,6 +9,8 @@ export type DogaaUser={
 };
 export type AuthSession={accessToken:string;refreshToken:string;tokenType:string;expiresIn:number;user:DogaaUser};
 export type RecipientLookup={id:string;displayName:string;maskedPhone:string};
+export type KycDocument={id:string;type:'NATIONAL_ID'|'PASSPORT'|'DRIVING_LICENCE'|'VOTER_CARD'|'SELFIE'|'PROOF_OF_ADDRESS';status:'PENDING'|'APPROVED'|'REJECTED';originalFilename:string;contentType:string;sizeBytes:number;rejectionReason?:string;reviewedAt?:string;submittedAt:string};
+export type KycStatus={tier:string;nextTier?:string;phoneVerified:boolean;profileComplete:boolean;identityDocumentApproved:boolean;requirementsForNextTier:string[];documents:KycDocument[];limits:{perTransaction:number;daily:number;monthly:number}};
 
 export class ApiError extends Error{
   constructor(message:string,public status:number,public fieldErrors?:Record<string,string>){super(message);}
@@ -19,7 +21,7 @@ async function request<T>(path:string,options:RequestInit={},authenticated=false
   const session=saved?JSON.parse(saved) as AuthSession:null;
   let response:Response;
   try{
-    response=await fetch(`${API_URL}${path}`,{...options,headers:{Accept:'application/json','Content-Type':'application/json',...(session?{Authorization:`Bearer ${session.accessToken}`}:{ }),...options.headers}});
+    response=await fetch(`${API_URL}${path}`,{...options,headers:{Accept:'application/json',...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(session?{Authorization:`Bearer ${session.accessToken}`}:{ }),...options.headers}});
   }catch{
     throw new ApiError(`Serveur DOGAA inaccessible (${API_URL}). Vérifiez l'adresse EXPO_PUBLIC_API_URL.`,0);
   }
@@ -61,6 +63,7 @@ export const transactionApi={
   payBill:(payload:{amount:number;billerReference:string;description?:string})=>request<Transaction>('/api/v1/transactions/bill-payment',{method:'POST',headers:{'Idempotency-Key':`${Date.now()}-${Math.random().toString(36).slice(2)}`},body:JSON.stringify({...payload,currency:'XOF'})},true),
 };
 export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<Loan[]>('/api/v1/credit/loans',{},true)};
+export const kycApi={status:()=>request<KycStatus>('/api/v1/kyc/status',{},true),upload:(type:KycDocument['type'],file:{uri:string;name:string;mimeType?:string})=>{const body=new FormData();body.append('type',type);body.append('file',{uri:file.uri,name:file.name,type:file.mimeType||'application/octet-stream'} as unknown as Blob);return request<KycDocument>('/api/v1/kyc/documents',{method:'POST',body},true);}};
 export const schedulingApi={
   list:()=>request<ScheduledTask[]>('/api/v1/scheduling/tasks/me',{},true),
   billers:()=>request<Biller[]>('/api/v1/scheduling/tasks/billers',{},true),
