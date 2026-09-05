@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,15 +24,13 @@ const txs = [
 export default function HomeScreen({navigate}:{navigate:(r:Route)=>void}) {
   const dogaa=useDogaaData();
   const [hidden,setHidden]=useState(false);
-  const [balance,setBalance]=useState(425000);
   const [rechargeOpen,setRechargeOpen]=useState(false);
   const [qrOpen,setQrOpen]=useState(false);
   const [provider,setProvider]=useState('Mixx by Yas');
   const [phone,setPhone]=useState('');
   const [rechargeAmount,setRechargeAmount]=useState('');
   const [lastRecharge,setLastRecharge]=useState<{provider:string;amount:number}|null>(null);
-  useEffect(()=>{Promise.all([AsyncStorage.getItem('dogaa.wallet.balance'),AsyncStorage.getItem('dogaa.wallet.last-recharge')]).then(([savedBalance,savedRecharge])=>{if(savedBalance)setBalance(Number(savedBalance));if(savedRecharge)setLastRecharge(JSON.parse(savedRecharge));}).catch(()=>{});},[]);
-  useEffect(()=>{const wallet=dogaa.wallets.find(item=>item.currency==='XOF');if(wallet)setBalance(Number(wallet.availableBalance));},[dogaa.wallets]);
+  const balance=Number(dogaa.wallets.find(item=>item.currency==='XOF')?.availableBalance||0);
   useEffect(()=>{if(dogaa.user?.phone)setPhone(dogaa.user.phone.replace(/\D/g,'').slice(-8));},[dogaa.user?.phone]);
   const closeRecharge=()=>{setRechargeOpen(false);setRechargeAmount('');setPhone(dogaa.user?.phone.replace(/\D/g,'').slice(-8)||'');};
   const confirmRecharge=async()=>{
@@ -41,7 +38,7 @@ export default function HomeScreen({navigate}:{navigate:(r:Route)=>void}) {
     if(phone.replace(/\D/g,'').length<8){Alert.alert('Numéro invalide','Saisissez un numéro Mobile Money valide.');return;}
     if(value<500){Alert.alert('Montant invalide','Le montant minimum est de 500 FCFA.');return;}
     if(value>1000000){Alert.alert('Plafond dépassé','Le montant maximum par recharge est de 1 000 000 FCFA.');return;}
-    try{const wallet=await walletApi.deposit(value);const recharge={provider,amount:value};setBalance(Number(wallet.availableBalance));setLastRecharge(recharge);await dogaa.refresh();closeRecharge();Alert.alert('Recharge réussie',`${new Intl.NumberFormat('fr-FR').format(value)} FCFA ont été ajoutés à votre portefeuille.`);}catch(error){Alert.alert('Recharge impossible',error instanceof Error?error.message:'Erreur serveur.');}
+    try{await walletApi.deposit(value);const recharge={provider,amount:value};setLastRecharge(recharge);await dogaa.refresh();closeRecharge();Alert.alert('Recharge réussie',`${new Intl.NumberFormat('fr-FR').format(value)} FCFA ont été ajoutés à votre portefeuille.`);}catch(error){Alert.alert('Recharge impossible',error instanceof Error?error.message:'Erreur serveur.');}
   };
   return <Screen route="home" navigate={navigate}>
     <View style={s.welcome}><View><Text style={s.hello}>Bonjour, {dogaa.user?.firstName||'Client'} ✌️</Text><Text style={s.active}><Text style={{color:c.green}}>●</Text> Compte Particulier Actif</Text></View><TouchableOpacity style={s.currency}><Text style={s.currencyText}>XOF⌄</Text></TouchableOpacity></View>
