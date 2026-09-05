@@ -8,6 +8,7 @@ export type DogaaUser={
   kycTier:string;phoneVerified:boolean;emailVerified:boolean;
 };
 export type AuthSession={accessToken:string;refreshToken:string;tokenType:string;expiresIn:number;user:DogaaUser};
+export type RecipientLookup={id:string;displayName:string;maskedPhone:string};
 
 export class ApiError extends Error{
   constructor(message:string,public status:number,public fieldErrors?:Record<string,string>){super(message);}
@@ -50,7 +51,7 @@ export type ScheduledTask={id:string;userId:string;type:string;frequency:string;
 export type CreditEligibility={eligible:boolean;score:number;minimumScore:number;kycTier:string;currency:string;savingsBalance:number;leverageRatio:number;maxLoanAmount:number;monthlyRatePercent:number;totalRepayable:number;termDays:number;loansRepaid:number;blockers:string[]};
 export type Loan={id:string;currency:string;principal:number;collateralAmount:number;leverageRatio:number;monthlyRatePercent:number;interestAmount:number;penaltyAmount:number;totalDue:number;amountRepaid:number;outstanding:number;shortfallAmount:number;status:string;scoreAtGrant:number;disbursedAt:string;dueAt:string;settledAt?:string};
 
-export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true)};
+export const userApi={me:()=>request<DogaaUser>('/api/v1/users/me',{},true),lookupRecipient:(phone:string)=>request<RecipientLookup>(`/api/v1/users/recipients/${encodeURIComponent(phone)}`,{},true)};
 export const walletApi={list:()=>request<Wallet[]>('/api/v1/wallets',{},true),deposit:(amount:number)=>request<Wallet>('/api/v1/wallets/XOF/deposit',{method:'POST',body:JSON.stringify({amount})},true),depositToSavings:(amount:number)=>request<Wallet[]>('/api/v1/wallets/savings/deposit',{method:'POST',body:JSON.stringify({currency:'XOF',amount})},true),withdrawFromSavings:(amount:number)=>request<Wallet[]>('/api/v1/wallets/savings/withdraw',{method:'POST',body:JSON.stringify({currency:'XOF',amount})},true)};
 export const vaultApi={list:()=>request<Vault[]>('/api/v1/vaults',{},true),create:(payload:{name:string;targetAmount?:number;targetDate?:string;description?:string})=>request<Vault>('/api/v1/vaults',{method:'POST',body:JSON.stringify({...payload,currency:'XOF'})},true),deposit:(id:string,amount:number)=>request<Vault>(`/api/v1/vaults/${id}/deposit`,{method:'POST',body:JSON.stringify({amount})},true)};
 export const transactionApi={
