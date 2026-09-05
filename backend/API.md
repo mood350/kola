@@ -318,7 +318,8 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 
 ## 9. Transactions programmées
 
-⚠️ Ces routes renvoient le **DTO brut**, sans enveloppe.
+Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a plus de `userId`**, ni dans
+le corps, ni dans le chemin.
 
 | Méthode | Route | Corps |
 |---|---|---|
@@ -326,10 +327,10 @@ Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressP
 | `PATCH` | `/scheduling/tasks/{id}/pause` | — |
 | `PATCH` | `/scheduling/tasks/{id}/resume` | — |
 | `PATCH` | `/scheduling/tasks/{id}/cancel` | — |
-| `GET` | `/scheduling/tasks/users/{userId}` | — |
+| `GET` | `/scheduling/tasks/me` | — |
 
 ```json
-{ "userId": "...", "type": "VAULT_DEPOSIT", "frequency": "MONTHLY",
+{ "type": "VAULT_DEPOSIT", "frequency": "MONTHLY",
   "amount": 10000, "currency": "XOF", "beneficiaryReference": "vault-id-ou-numero",
   "firstRunAt": "2026-10-05T00:00:00Z", "endDate": null, "maxOccurrences": 12 }
 ```
@@ -340,22 +341,22 @@ Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
 
 Le job s'exécute **à minuit**. En cas de solde insuffisant, la tâche passe `FAILED` avec `lastFailureReason`.
 
-> ⚠️ `userId` est dans le corps et le chemin. À sécuriser côté backend (un utilisateur peut lire les tâches d'un autre) — ne construisez pas de fonctionnalité qui en dépende.
+> La tâche d'un autre utilisateur répond **404**, pas 403 : un 403 confirmerait que l'identifiant existe.
 
 ---
 
 ## 9 bis. Notifications
 
-⚠️ DTO brut, sans enveloppe.
+Enveloppe `ApiResponse<T>`.
 
 | Méthode | Route | Corps |
 |---|---|---|
-| `POST` | `/notifications` | `{ userId, channel, title, body }` |
-| `GET` | `/notifications/users/{userId}` | — |
+| `GET` | `/notifications/me` | — |
+| `POST` | `/notifications` | `{ userId, channel, title, body }` — **réservé aux administrateurs** |
 
 `channel` : `EMAIL`, `SMS`, `PUSH`. Les trois canaux **écrivent dans les logs** au lieu d'envoyer quoi que ce soit — aucune passerelle n'est branchée.
 
-> ⚠️ Comme pour le scheduling, ces routes acceptent n'importe quel `userId` sans vérifier qu'il correspond à l'appelant. À sécuriser côté backend.
+> L'envoi est `ROLE_ADMIN` : un utilisateur qui pouvait envoyer une notification à n'importe qui disposait d'un outil de phishing, pas d'une fonctionnalité.
 
 ---
 
@@ -445,6 +446,51 @@ Remboursement intégral → épargne débloquée. `POST /loans/{id}/repay` avec 
 Retard : 3 jours de grâce, puis 0,5 %/jour plafonné à 15 %. À 30 jours, saisie de la garantie.
 
 Statuts : `ACTIVE`, `OVERDUE`, `REPAID`, `DEFAULTED`.
+
+---
+
+## 11 bis. Assistant
+
+Un chat qui répond aux questions de l'utilisateur sur l'application **et sur son propre compte**.
+Enveloppe `ApiResponse<T>`. Toutes les routes portent sur l'appelant : aucun `userId` nulle part.
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/assistant/messages` | `{ conversationId?, message }` |
+| `GET` | `/assistant/conversations` | — |
+| `GET` | `/assistant/conversations/{id}` | — |
+| `DELETE` | `/assistant/conversations/{id}` | — |
+
+`conversationId` absent ou `null` ouvre un nouveau fil ; sinon le fil est poursuivi. Le titre du fil
+est tiré de la première question.
+
+Réponse de `POST /assistant/messages` :
+
+```json
+{ "success": true, "data": {
+    "conversationId": "…", "title": "Combien je peux emprunter ?",
+    "answer": { "id": "…", "role": "ASSISTANT", "content": "…", "createdAt": "…" },
+    "remainingToday": 39 } }
+```
+
+**Ce que l'assistant sait.** Les règles du produit (frais, niveaux KYC et plafonds, barème de prêt,
+axes du score, litiges) sont construites à partir de la configuration réelle du serveur, donc elles
+suivent automatiquement un changement de tarif. S'y ajoute la situation de l'appelant : niveau KYC
+et ce qui manque pour monter, soldes disponibles et bloqués des deux comptes, coffres, score et son
+détail, éligibilité au crédit avec les blocages nommés, prêt en cours, opérations programmées et
+dernières transactions.
+
+**Ce que l'assistant ne fait pas.** Il n'exécute aucune opération — pas de virement, pas de
+déblocage, pas de changement de niveau. Il explique et renvoie vers le bon écran. Il ne voit aucun
+autre compte que celui de l'appelant, et ne demande jamais un code PIN ni un OTP.
+
+**Codes à gérer côté client :**
+
+| Code | Quand |
+|---|---|
+| `429` | quota quotidien atteint — `remainingToday` permet de prévenir avant |
+| `503` | assistant non configuré ou fournisseur injoignable — masquez l'entrée du menu |
+| `404` | `conversationId` inconnu, ou appartenant à quelqu'un d'autre |
 
 ---
 
@@ -616,10 +662,11 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
 ## 14. À savoir avant de coder
 
 - **L'OTP n'est pas envoyé par SMS** — code visible uniquement dans les logs du serveur (§2).
-- **L'enveloppe de réponse n'est pas uniforme** — `/admin`, `/notifications`, `/scheduling` renvoient le DTO brut (§1).
+- **L'enveloppe de réponse n'est pas uniforme** — seules les routes `/admin` renvoient le DTO brut, volontairement : le back-office mappe le JSON tel quel. Les routes client sont toutes sous `ApiResponse<T>` (§1).
 - **Le port de dev est 8081**, pas 8080.
 - **Rotation du refresh token** : conservez systématiquement le dernier reçu.
 - **`ddl-auto=update`** : le schéma peut bouger entre deux versions du backend.
 - Aucun endpoint de **suppression de compte** ni de **réinitialisation du PIN oublié** n'existe encore.
+- **L'assistant (§11 bis) répond 503 tant que `app.assistant.api-key` n'est pas renseignée** côté serveur. Le reste de l'application fonctionne normalement.
 
 Questions ou champ manquant → ouvrez une issue sur le dépôt, ou consultez Swagger qui reflète toujours le code déployé.

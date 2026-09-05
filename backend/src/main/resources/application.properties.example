@@ -152,3 +152,19 @@ management.endpoints.web.exposure.include=health,info
 
 # --- Logging ---
 logging.level.com.dogaa.backend=INFO
+
+# --- Assistant conversationnel (modules/assistant) ---------------------------
+# Sans cle API, les routes /api/v1/assistant repondent 503 et le reste de
+# l'application demarre normalement.
+app.assistant.enabled=true
+app.assistant.api-key=
+app.assistant.model=claude-sonnet-5
+# app.assistant.base-url=https://api.anthropic.com/v1/messages
+# app.assistant.max-tokens=900
+# app.assistant.timeout=30s
+# Nombre de tours rejoues au modele a chaque question.
+# app.assistant.history-limit=12
+# Quota par utilisateur et par jour glissant : c'est le seul endpoint facture a l'appel.
+# app.assistant.daily-message-limit=40
+# app.assistant.max-message-length=1000
+# app.assistant.recent-transactions=10
