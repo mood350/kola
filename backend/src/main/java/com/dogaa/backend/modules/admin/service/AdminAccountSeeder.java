@@ -52,6 +52,15 @@ public class AdminAccountSeeder implements ApplicationRunner {
         if (!properties.isEnabled()) {
             return;
         }
+        seedDemoAccounts();
+        seedOwner();
+    }
+
+    /**
+     * The four reference roles, created only on an empty table so that nobody's edited account is
+     * ever overwritten.
+     */
+    private void seedDemoAccounts() {
         if (adminAccountRepository.count() > 0) {
             // Someone already manages these accounts; never touch them again.
             return;
@@ -71,5 +80,43 @@ public class AdminAccountSeeder implements ApplicationRunner {
                 Sign in at POST /api/v1/admin/auth/login — for example {}.
                 Set app.admin.seed.enabled=false and change these passwords before production.""",
                 ACCOUNTS.size(), properties.getPassword(), ACCOUNTS.get(0).email());
+    }
+
+    /**
+     * The operator's own super-admin.
+     *
+     * <p>Checked on every start rather than only on an empty table: the demo accounts exist after
+     * the very first boot, so an all-or-nothing seeder can never add anyone again — which is
+     * exactly when someone needs their own account.
+     *
+     * <p>An existing account is left completely alone, password included. Re-hashing it on every
+     * restart would quietly undo a password the owner had changed.
+     */
+    private void seedOwner() {
+        AdminSeedProperties.Owner owner = properties.getOwner();
+        if (owner.getEmail() == null || owner.getEmail().isBlank()) {
+            return;
+        }
+
+        String email = owner.getEmail().strip().toLowerCase();
+        if (adminAccountRepository.existsByEmailIgnoreCase(email)) {
+            return;
+        }
+
+        String password = owner.getPassword() == null || owner.getPassword().isBlank()
+                ? properties.getPassword()
+                : owner.getPassword();
+
+        adminAccountRepository.save(AdminAccount.builder()
+                .email(email)
+                .name(owner.getName())
+                .role(AdminRole.SUPER_ADMIN)
+                .scope("Accès total · compte propriétaire")
+                .passwordHash(passwordEncoder.encode(password))
+                .enabled(true)
+                .build());
+
+        log.warn("Created the owner super-admin account {}. Sign in at POST /api/v1/admin/auth/login.",
+                email);
     }
 }

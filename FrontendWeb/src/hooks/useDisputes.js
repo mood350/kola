@@ -10,6 +10,7 @@ export function useDisputes() {
     error,
     actionError,
     actionPending,
+    reload,
     disputes: data?.disputes || [],
     detail: data?.detail || null,
     chargeback: (ref) => run(() => disputeService.chargeback(ref)),

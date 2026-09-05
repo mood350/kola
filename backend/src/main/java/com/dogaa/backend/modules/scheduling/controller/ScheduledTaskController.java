@@ -5,6 +5,7 @@ import com.dogaa.backend.modules.auth.security.CurrentUser;
 import com.dogaa.backend.modules.scheduling.dto.BillerResponse;
 import com.dogaa.backend.modules.transaction.service.BillerCatalog;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskRequest;
+import com.dogaa.backend.modules.scheduling.dto.UpdateScheduledTaskRequest;
 import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskResponse;
 import com.dogaa.backend.modules.scheduling.service.ScheduledTaskService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,6 +59,22 @@ public class ScheduledTaskController {
     public ResponseEntity<ApiResponse<List<ScheduledTaskResponse>>> listMine(
             @AuthenticationPrincipal CurrentUser currentUser) {
         return ResponseEntity.ok(ApiResponse.ok(taskService.listByUser(currentUser.id())));
+    }
+
+    /**
+     * Edits a schedule: amount, beneficiary, funding vault, day of the month, recurrence.
+     *
+     * <p>Absent fields are left alone. Suspending stays on its own route so that "j'ai mis en
+     * pause" and "j'ai changé le montant" remain separate events rather than one opaque update.
+     */
+    @PatchMapping("/{id}")
+    @Operation(summary = "Modifier une planification — montant, bénéficiaire, coffre, échéance")
+    public ResponseEntity<ApiResponse<ScheduledTaskResponse>> update(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateScheduledTaskRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Planification modifiée",
+                taskService.update(currentUser.id(), id, request)));
     }
 
     @PatchMapping("/{id}/pause")

@@ -42,6 +42,15 @@ export const auditRepository = pick('audit', HttpAuditRepository, MockAuditRepos
 export const roleRepository = pick('roles', HttpRoleRepository, MockRoleRepository);
 export const supportRepository = pick('support', HttpSupportRepository, MockSupportRepository);
 
+/**
+ * Screens whose data comes from a repository under another name. "Mon profil" shows the signed-in
+ * identity and changes the password, both served by the auth domain — without this it would be
+ * reported as mock-backed and carry a banner denying its own contents.
+ */
+const SCREEN_DOMAIN = { profile: 'auth' };
+
 /** True while a page still reads fabricated data — the console says so, so nobody acts on it. */
-export const domainUsesMockData = (domain) =>
-  !(backendConfigured && BACKEND_READY.has(domain));
+export const domainUsesMockData = (screen) => {
+  const domain = SCREEN_DOMAIN[screen] || screen;
+  return !(backendConfigured && BACKEND_READY.has(domain));
+};

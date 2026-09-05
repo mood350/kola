@@ -89,6 +89,16 @@ public class Transaction extends BaseEntity {
     @Column(length = 64)
     private String counterparty;
 
+    /**
+     * The other party's name as it stood when the money moved.
+     *
+     * <p>A snapshot, not a live join: a history line must keep saying who was paid even after that
+     * person renames their account, and a name resolved today would rewrite what the user
+     * remembers confirming. Null when the number belongs to nobody on Dogaa.
+     */
+    @Column(name = "counterparty_name", length = 120)
+    private String counterpartyName;
+
     @Column(length = 140)
     private String description;
 

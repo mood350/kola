@@ -5,12 +5,18 @@ import { BRAND_NAME, BRAND_LOGO } from '../lib/brand';
 import Hoverable from '../components/Hoverable';
 import FocusableInput from '../components/FocusableInput';
 import { useAuth } from './useAuth';
+import { domainUsesMockData } from '../repositories';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = location.state?.from?.pathname || '/admin/dashboard';
+
+  // The shortcut signs in with a password only the mock repository accepts (it checks
+  // none). Against a real backend it can only ever 401, so it is not offered there —
+  // the alternative would be shipping a live admin password in client-side code.
+  const demoLoginAvailable = domainUsesMockData('auth');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +31,7 @@ export default function Login() {
       await login(email, password);
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError(err?.message || 'Connexion impossible. Essayez l’accès rapide ci-dessous.');
+      setError(err?.message || 'Connexion impossible.');
     } finally {
       setPending(false);
     }
@@ -97,6 +103,8 @@ export default function Login() {
           >{pending ? 'Connexion…' : 'Se connecter'}</Hoverable>
         </form>
 
+        {demoLoginAvailable && (
+        <>
         <div style={s('display:flex; align-items:center; gap:10px; margin-top:26px')}>
           <div style={s('flex:1; height:1px; background:#E2E8F0')} />
           <span style={s('font-size:11px; font-weight:700; color:#596171')}>accès rapide de démonstration</span>
@@ -113,6 +121,8 @@ export default function Login() {
             <span style={s('display:block; font-size:11px; color:#596171; font-weight:600')}>Super-admin</span>
           </span>
         </Hoverable>
+        </>
+        )}
 
         <div style={s('font-size:10.5px; color:#596171; font-weight:600; text-align:center; margin-top:22px; line-height:1.5')}>Connexion chiffrée · sessions et appareils actifs journalisés</div>
       </div>

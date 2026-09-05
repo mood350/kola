@@ -10,6 +10,7 @@ export function useConfig() {
     error,
     actionError,
     actionPending,
+    reload,
     fees: data?.fees || [],
     merchants: data?.merchants || [],
     toggleMerchantStatus: (merchant) => run(() => configService.toggleMerchantStatus(merchant)),

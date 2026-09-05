@@ -303,9 +303,55 @@ returns that row, because a client told "conflict" for a payment that did go thr
 from one that did not. The scheduler's key is `task:{id}:{occurrence}`: a run retried the next
 morning is the same instalment. REST clients send `Idempotency-Key`; treat it as required.
 
+**Editing.** `PATCH /api/v1/scheduling/tasks/{id}` and `PATCH /api/v1/vaults/{id}` change a
+schedule or a savings goal in place; **an absent field is left alone**. Because null therefore means
+"unchanged", anything nullable that a user may want to *remove* carries an explicit flag
+(`clearEndDate`, `clearMaxOccurrences`, `clearTargetAmount`, `clearTargetDate`) — otherwise "no end
+date" cannot be said at all.
+
+What these updates deliberately refuse:
+
+- **A balance, anywhere.** Money moves only through a deposit, a withdrawal, a transfer or a
+  scheduled payment, each of which writes a transaction. A settable balance would create money the
+  ledger cannot account for.
+- **A schedule's `type` and `currency`, a vault's `currency`.** Its beneficiary, biller and funding
+  vault all hang off those; editing them in place would quietly invalidate the rest, where
+  cancelling and recreating states plainly what is happening.
+- **Status.** Pause / resume / cancel keep their own routes so that "j'ai suspendu" and "j'ai changé
+  le montant" stay separate events in the trail.
+- **A cancelled or completed schedule, a closed vault.** That is history, and history is not edited.
+
+Switching a schedule's vault runs the same `resolveVault` check as choosing one (owned, active,
+right currency), and changing a bill's biller re-validates the subscriber number against it — a
+Canal+ card number means nothing once the biller becomes Togocom.
+
 **Do not mark the key column `updatable = false`.** It is stamped just after the movement saves its
 row, so Hibernate must include it in that UPDATE — non-updatable silently dropped the stamp and
 every retry paid again.
+
+## Confirming a recipient
+
+`GET /api/v1/transactions/recipient?phone=…` answers "whose number is this?" so the sender sees a
+name before the money moves. A P2P transfer is irreversible without a dispute, so this is the last
+chance to catch a mistyped digit.
+
+`RecipientDirectory` owns it, and treats it as **an enumeration surface**, because that is what a
+phone-to-name endpoint is. Three bounds: signed-in callers only, 60 lookups per hour per caller, and
+a response carrying the name and nothing else — no id, no tier, no balance, no account age. The
+counter is in memory, therefore per instance; move it to a shared store before running more than one
+node, or the limit quietly multiplies.
+
+Two details that matter to the client:
+
+- **An unknown number answers 200 with `registered: false`**, never 404. It is still payable through
+  Mobile Money; there is simply no name to confirm, which is a different thing from the lookup
+  failing.
+- **The response's `phone` is normalised**, and the transfer should be sent with that value rather
+  than what the user typed — otherwise the number confirmed and the number paid can differ.
+
+`Transaction.counterpartyName` stamps the name at transfer time. A snapshot, never a join at read
+time: a history line must keep naming who was paid after that person renames their account, and a
+name resolved today would rewrite what the user remembers confirming.
 
 ## Stack notes
 

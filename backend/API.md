@@ -315,6 +315,41 @@ Barème : dépôt gratuit · P2P ~1,5 % · retrait ~1 % · marchand et facture s
 Types : `CASH_IN`, `CASH_OUT`, `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `BILL_PAYMENT`, `VAULT_DEPOSIT`, `VAULT_WITHDRAWAL`, `LOAN_DISBURSEMENT`, `LOAN_REPAYMENT`, `CHARGEBACK`
 Statuts : `PENDING`, `COMPLETED`, `FAILED` (avec `failureReason`)
 
+### Vérifier le destinataire avant d'envoyer
+
+`GET /transactions/recipient?phone=90333444`
+
+**À appeler dès que l'utilisateur a saisi le numéro, avant l'écran de confirmation.** Un virement
+P2P ne se défait pas sans ouvrir un litige : c'est la dernière occasion d'attraper un chiffre de
+travers.
+
+```json
+{ "success": true, "data": {
+    "phone": "+22890333444",
+    "phoneMasked": "+228 90 ** ** 44",
+    "registered": true,
+    "name": "Ama Kossi",
+    "self": false } }
+```
+
+| Champ | À quoi ça sert |
+|---|---|
+| `phone` | le numéro **normalisé** — renvoyez celui-ci dans `/transfer`, pas ce que l'utilisateur a tapé |
+| `name` | à afficher en gros sur l'écran de confirmation. `null` si le compte n'affiche pas de nom |
+| `registered` | `false` = pas de compte Dogaa. Le virement marche quand même, mais il part par Mobile Money et **il n'y a aucun nom à vérifier** — prévenez-en l'utilisateur |
+| `self` | `true` = c'est son propre numéro. Le virement à soi-même est refusé ; dites-le ici plutôt que de laisser échouer après confirmation |
+
+> Un numéro inconnu répond **200 avec `registered: false`**, pas 404 : c'est une réponse, pas un
+> échec.
+
+> **Limité en débit** (60 vérifications par heure et par compte, `429` au-delà). Un point d'entrée
+> numéro → nom parcouru en boucle sert à moissonner les noms d'un plan de numérotation. N'appelez
+> pas la route à chaque frappe : attendez que le numéro soit complet.
+
+Le nom est aussi enregistré sur la transaction (`counterpartyName` dans `/transactions`), figé au
+moment du virement — l'historique continue de nommer qui a été payé même si la personne renomme
+son compte ensuite.
+
 ### Clé d'idempotence — à envoyer sur chaque paiement
 
 Ajoutez un en-tête `Idempotency-Key` sur `POST /transactions/{transfer,merchant-payment,cash-out,bill-payment}`.
@@ -347,6 +382,51 @@ existants ; considérez-le comme obligatoire.
 
 Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressPercent` et `goalReached` sont calculés côté serveur — utilisez-les directement pour la barre de progression.
 
+### Les trois routes qui déplacent de l'argent renvoient les deux nouveaux soldes
+
+`deposit`, `withdraw` et `close` changent **deux** choses : le solde du coffre et la répartition
+disponible/bloqué du compte courant qui le finance. Elles renvoient donc la paire, et non le seul
+coffre — n'enchaînez pas un `GET /wallets` après l'opération, tout est déjà là :
+
+```json
+{
+  "success": true,
+  "message": "Deposit completed",
+  "data": {
+    "vault":  { "id": "...", "name": "Scolarité", "balance": 9000,
+                "targetAmount": 100000, "progressPercent": 9, "goalReached": false,
+                "status": "ACTIVE", "currency": "XOF" },
+    "wallet": { "id": "...", "type": "CURRENT", "currency": "XOF",
+                "availableBalance": 41000, "lockedBalance": 9000, "totalBalance": 50000,
+                "status": "ACTIVE" }
+  }
+}
+```
+
+**Affichez les deux soldes après un versement.** `totalBalance` ne bouge pas : l'utilisateur n'a
+rien dépensé, la somme a seulement changé de côté. Ne montrer que `availableBalance` donne
+l'impression que l'argent a disparu.
+
+`GET /vaults` et `GET /vaults/{id}` renvoient toujours le coffre seul : ils ne modifient rien.
+
+### Modifier un coffre
+
+`PATCH /vaults/{id}` — un champ absent est laissé tel quel.
+
+```json
+{ "name": "Apport logement", "targetAmount": 900000,
+  "targetDate": "2027-06-30", "description": "acompte",
+  "clearTargetAmount": false, "clearTargetDate": false }
+```
+
+> **Il n'y a pas de champ `balance`, et il n'y en aura pas.** L'argent entre et sort d'un coffre
+> uniquement par un dépôt, un retrait ou une planification — chacun laissant une transaction.
+> La devise n'est pas modifiable non plus : elle est fixée par le portefeuille sur lequel
+> l'argent est bloqué.
+
+Refusé : un objectif **inférieur** à ce qui est déjà épargné (400), une échéance dans le passé
+(400), un coffre clôturé (400).
+
 ---
 
 ## 9. Transactions programmées
@@ -356,6 +436,7 @@ Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de 
 | Méthode | Route | Corps |
 |---|---|---|
 | `POST` | `/scheduling/tasks` | voir ci-dessous |
+| `PATCH` | `/scheduling/tasks/{id}` | **modifier** — voir ci-dessous |
 | `PATCH` | `/scheduling/tasks/{id}/pause` | — |
 | `PATCH` | `/scheduling/tasks/{id}/resume` | — |
 | `PATCH` | `/scheduling/tasks/{id}/cancel` | — |
@@ -373,6 +454,42 @@ Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de 
 Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `SAVINGS_DEPOSIT`, `BILL_PAYMENT`
 Fréquences : `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`
 Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
+
+### Modifier une planification
+
+`PATCH /scheduling/tasks/{id}` — **un champ absent est laissé tel quel.**
+
+```json
+{ "amount": 65000,
+  "beneficiaryReference": "+22890999888",
+  "biller": "canal_plus",
+  "fundingVaultId": "uuid-d-un-autre-coffre",
+  "frequency": "MONTHLY",
+  "dayOfMonth": 28,
+  "nextRunAt": "2026-11-28T00:00:00Z",
+  "endDate": "2027-12-31T00:00:00Z",
+  "maxOccurrences": 12,
+  "clearEndDate": false,
+  "clearMaxOccurrences": false }
+```
+
+> Comme `null` signifie « inchangé », **supprimer** une date de fin ou un nombre maximum
+> d'exécutions se fait avec `clearEndDate: true` / `clearMaxOccurrences: true`. Envoyer `null` ne
+> les efface pas.
+
+Ce qui n'est **pas** modifiable, et pourquoi :
+
+| Champ | Raison |
+|---|---|
+| `type`, `currency` | le bénéficiaire, le facturier et le coffre en dépendent — annulez et recréez |
+| `status` | passe par `/pause`, `/resume`, `/cancel`, pour que ça reste des événements distincts |
+
+Une planification `CANCELLED` ou `COMPLETED` répond **409** : c'est de l'historique.
+Une planification `PAUSED` reste modifiable — on ajuste avant de reprendre.
+
+Changer de coffre refait les mêmes contrôles qu'à la création (vous appartient, actif, même
+devise). Changer de facturier revalide le numéro d'abonné : un numéro de carte Canal+ ne veut
+rien dire une fois le facturier passé à Togocom.
 
 ### Le coffre de financement est obligatoire
 
@@ -707,7 +824,23 @@ pas implémentée.
 | `POST` | `/admin/users/{id}/force-close-vault` | `ClientUser` |
 | `GET` | `/admin/users/kyc-queue` | `KycSubmission[]` |
 | `POST` | `/admin/users/kyc-queue/{id}/approve` | `204` |
-| `POST` | `/admin/users/kyc-queue/{id}/reject` | `204` |
+| `POST` | `/admin/users/kyc-queue/{id}/reject` | `204` — corps `{ reason }` **obligatoire** |
+
+```jsonc
+// KycSubmission
+{ "id": "uuid", "name": "Aya Djobo", "fromTier": "TIER_1", "toTier": "TIER_2",
+  "receivedAt": "Il y a 2 h",
+  "documentType": "Carte d'identité",   // libellé français de la pièce envoyée
+  "contentType": "image/jpeg",          // pour savoir si la console peut l'afficher en ligne
+  "fileName": "cni-recto.jpg" }
+```
+
+⚠️ **Un rejet exige un motif** : `{ reason }`, 300 caractères maximum, non vide — sinon **400**.
+Le motif est notifié au client. « Rejeté » tout seul ne lui dit pas quoi envoyer à la place, et il
+renverrait la même pièce.
+
+`id` est l'identifiant du **document** : c'est lui qu'attendent `approve`, `reject` et le
+téléchargement du fichier (`GET /admin/kyc/documents/{id}/file`, plus bas).
 
 Tout est **pré-formaté** : `age` en `"14 mois"`, `loan` en `"100 000 XOF"` ou `"Aucun"`,
 `state` en `"Actif"` / `"Gelé"`. Le front n'a aucune logique de formatage.
@@ -878,6 +1011,7 @@ Statuts marchands : `pending`, `active`, `suspended`. Les transitions sont contr
 `status` vaut `open`, `in_progress` ou `resolved`. Prendre en charge un ticket déjà pris, ou
 résoudre un ticket déjà résolu, renvoie **409** : deux agents qui cliquent en même temps ne doivent
 pas se voler le ticket en silence.
+
 ### Autres routes admin
 
 
@@ -926,6 +1060,11 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
 - **Rotation du refresh token** : conservez systématiquement le dernier reçu.
 - **`ddl-auto=update`** : le schéma peut bouger entre deux versions du backend.
 - Aucun endpoint de **suppression de compte** ni de **réinitialisation du PIN oublié** n'existe encore.
+- **L'assistant (§11 bis) répond 503 tant que `app.assistant.api-key` n'est pas renseignée** côté serveur. Le reste de l'application fonctionne normalement.
+- **Les barèmes sont modifiables à chaud** : l'échelle de prêt (§12) et la grille de frais (§12)
+  vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
+- **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
+
 - **Les barèmes sont modifiables à chaud** : l'échelle de prêt (§12) et la grille de frais (§12)
   vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
 - **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
