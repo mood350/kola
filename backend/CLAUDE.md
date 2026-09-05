@@ -375,6 +375,30 @@ the ones a plausible-looking change breaks.
 - **Aggregations return zeros, never invented numbers.** An empty database is a valid state for the
   dashboard and finance screens, and an empty `alerts` list means nothing is wrong — not an error.
 
+## Confirming a recipient
+
+`GET /api/v1/transactions/recipient?phone=…` answers "whose number is this?" so the sender sees a
+name before the money moves. A P2P transfer is irreversible without a dispute, so this is the last
+chance to catch a mistyped digit.
+
+`RecipientDirectory` owns it, and treats it as **an enumeration surface**, because that is what a
+phone-to-name endpoint is. Three bounds: signed-in callers only, 60 lookups per hour per caller, and
+a response carrying the name and nothing else — no id, no tier, no balance, no account age. The
+counter is in memory, therefore per instance; move it to a shared store before running more than one
+node, or the limit quietly multiplies.
+
+Two details that matter to the client:
+
+- **An unknown number answers 200 with `registered: false`**, never 404. It is still payable through
+  Mobile Money; there is simply no name to confirm, which is a different thing from the lookup
+  failing.
+- **The response's `phone` is normalised**, and the transfer should be sent with that value rather
+  than what the user typed — otherwise the number confirmed and the number paid can differ.
+
+`Transaction.counterpartyName` stamps the name at transfer time. A snapshot, never a join at read
+time: a history line must keep naming who was paid after that person renames their account, and a
+name resolved today would rewrite what the user remembers confirming.
+
 ## Stack notes
 
 - Spring Boot **4.1.1**, Java release target **17** (the installed JDK is 25 — do not assume language features above 17 compile).

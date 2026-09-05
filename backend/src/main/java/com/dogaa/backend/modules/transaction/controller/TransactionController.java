@@ -10,9 +10,11 @@ import com.dogaa.backend.modules.transaction.dto.FeeQuoteRequest;
 import com.dogaa.backend.modules.transaction.dto.FeeQuoteResponse;
 import com.dogaa.backend.modules.transaction.dto.MerchantPaymentRequest;
 import com.dogaa.backend.modules.transaction.dto.TransactionResponse;
+import com.dogaa.backend.modules.transaction.dto.RecipientLookupResponse;
 import com.dogaa.backend.modules.transaction.dto.TransferRequest;
 import com.dogaa.backend.modules.transaction.mapper.TransactionMapper;
 import com.dogaa.backend.modules.transaction.service.TransactionEventBroadcaster;
+import com.dogaa.backend.modules.transaction.service.RecipientDirectory;
 import com.dogaa.backend.modules.transaction.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -59,6 +61,7 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
+    private final RecipientDirectory recipientDirectory;
     private final TransactionEventBroadcaster transactionEventBroadcaster;
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -99,6 +102,29 @@ public class TransactionController {
             @AuthenticationPrincipal CurrentUser currentUser,
             @Valid @RequestBody FeeQuoteRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(transactionService.quote(currentUser.id(), request)));
+    }
+
+    /**
+     * Who a number belongs to, for the confirmation screen before a transfer.
+     *
+     * <p>A P2P transfer is irreversible without opening a dispute, so this is the last chance to
+     * catch a mistyped digit. Send back the {@code phone} this returns rather than what the user
+     * typed: it is normalised, so both calls address the same account.
+     *
+     * <p>An unknown number answers 200 with {@code registered: false}, not 404 — it is still
+     * payable through Mobile Money, there is simply no name to confirm, and that is a different
+     * thing from the lookup having failed.
+     *
+     * <p>Rate-limited per caller: a phone-to-name endpoint walked in a loop is a way to harvest the
+     * names behind a numbering plan.
+     */
+    @GetMapping("/recipient")
+    @Operation(summary = "Vérifier à qui appartient un numéro avant d'envoyer de l'argent")
+    public ResponseEntity<ApiResponse<RecipientLookupResponse>> lookupRecipient(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @RequestParam String phone) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                recipientDirectory.lookup(currentUser.id(), phone)));
     }
 
     @PostMapping("/transfer")

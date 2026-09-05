@@ -315,6 +315,41 @@ Barème : dépôt gratuit · P2P ~1,5 % · retrait ~1 % · marchand et facture s
 Types : `CASH_IN`, `CASH_OUT`, `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `BILL_PAYMENT`, `VAULT_DEPOSIT`, `VAULT_WITHDRAWAL`, `LOAN_DISBURSEMENT`, `LOAN_REPAYMENT`, `CHARGEBACK`
 Statuts : `PENDING`, `COMPLETED`, `FAILED` (avec `failureReason`)
 
+### Vérifier le destinataire avant d'envoyer
+
+`GET /transactions/recipient?phone=90333444`
+
+**À appeler dès que l'utilisateur a saisi le numéro, avant l'écran de confirmation.** Un virement
+P2P ne se défait pas sans ouvrir un litige : c'est la dernière occasion d'attraper un chiffre de
+travers.
+
+```json
+{ "success": true, "data": {
+    "phone": "+22890333444",
+    "phoneMasked": "+228 90 ** ** 44",
+    "registered": true,
+    "name": "Ama Kossi",
+    "self": false } }
+```
+
+| Champ | À quoi ça sert |
+|---|---|
+| `phone` | le numéro **normalisé** — renvoyez celui-ci dans `/transfer`, pas ce que l'utilisateur a tapé |
+| `name` | à afficher en gros sur l'écran de confirmation. `null` si le compte n'affiche pas de nom |
+| `registered` | `false` = pas de compte Dogaa. Le virement marche quand même, mais il part par Mobile Money et **il n'y a aucun nom à vérifier** — prévenez-en l'utilisateur |
+| `self` | `true` = c'est son propre numéro. Le virement à soi-même est refusé ; dites-le ici plutôt que de laisser échouer après confirmation |
+
+> Un numéro inconnu répond **200 avec `registered: false`**, pas 404 : c'est une réponse, pas un
+> échec.
+
+> **Limité en débit** (60 vérifications par heure et par compte, `429` au-delà). Un point d'entrée
+> numéro → nom parcouru en boucle sert à moissonner les noms d'un plan de numérotation. N'appelez
+> pas la route à chaque frappe : attendez que le numéro soit complet.
+
+Le nom est aussi enregistré sur la transaction (`counterpartyName` dans `/transactions`), figé au
+moment du virement — l'historique continue de nommer qui a été payé même si la personne renomme
+son compte ensuite.
+
 ### Clé d'idempotence — à envoyer sur chaque paiement
 
 Ajoutez un en-tête `Idempotency-Key` sur `POST /transactions/{transfer,merchant-payment,cash-out,bill-payment}`.

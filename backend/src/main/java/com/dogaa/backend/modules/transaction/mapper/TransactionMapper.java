@@ -18,6 +18,7 @@ public class TransactionMapper {
                 tx.getFee(),
                 tx.getTotalDebited(),
                 tx.getCounterparty(),
+                tx.getCounterpartyName(),
                 tx.getDescription(),
                 tx.getFailureReason(),
                 tx.getCompletedAt(),
