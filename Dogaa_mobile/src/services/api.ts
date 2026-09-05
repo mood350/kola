@@ -59,7 +59,7 @@ export const transactionApi={
 };
 export const creditApi={eligibility:()=>request<CreditEligibility>('/api/v1/credit/eligibility?currency=XOF',{},true),loans:()=>request<Loan[]>('/api/v1/credit/loans',{},true)};
 export const schedulingApi={
-  list:(userId:string)=>request<ScheduledTask[]>(`/api/v1/scheduling/tasks/users/${userId}`,{},true),
+  list:()=>request<ScheduledTask[]>('/api/v1/scheduling/tasks/me',{},true),
   create:(payload:{userId:string;type:string;frequency:string;amount:number;currency:string;beneficiaryReference:string;firstRunAt:string})=>request<ScheduledTask>('/api/v1/scheduling/tasks',{method:'POST',body:JSON.stringify(payload)},true),
   pause:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/pause`,{method:'PATCH'},true),
   resume:(id:string)=>request<ScheduledTask>(`/api/v1/scheduling/tasks/${id}/resume`,{method:'PATCH'},true),

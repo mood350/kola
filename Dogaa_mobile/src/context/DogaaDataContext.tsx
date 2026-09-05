@@ -12,7 +12,7 @@ export function DogaaDataProvider({children}:{children:React.ReactNode}){
     try{
       const user=await userApi.me();
       const results=await Promise.allSettled([
-        walletApi.list(),vaultApi.list(),transactionApi.history(),creditApi.eligibility(),creditApi.loans(),schedulingApi.list(user.id),
+        walletApi.list(),vaultApi.list(),transactionApi.history(),creditApi.eligibility(),creditApi.loans(),schedulingApi.list(),
       ]);
       const value=<T,>(index:number,fallback:T)=>results[index].status==='fulfilled'?(results[index] as PromiseFulfilledResult<T>).value:fallback;
       const failed=['portefeuilles','coffres','transactions','éligibilité crédit','prêts','planifications'].filter((_,index)=>results[index].status==='rejected');
