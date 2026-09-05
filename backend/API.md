@@ -494,6 +494,70 @@ autre compte que celui de l'appelant, et ne demande jamais un code PIN ni un OTP
 
 ---
 
+## 11 ter. QR codes
+
+Encaisser sans dicter son numéro, payer sans le taper. Enveloppe `ApiResponse<T>`.
+Le bénéficiaire d'un code est toujours son créateur : **aucune route n'accepte de bénéficiaire**.
+
+### Ses propres codes
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `GET` | `/qr/me` | — (crée le code permanent à la première demande) |
+| `POST` | `/qr/me/rotate` | — (révoque l'ancien) |
+| `POST` | `/qr/me/requests` | `{ currency, amount, label?, expiresInMinutes? }` |
+| `GET` | `/qr/me/requests` | — |
+| `DELETE` | `/qr/{code}` | — (annuler) |
+| `GET` | `/qr/{code}/image?size=512` | — → **`image/png`**, propriétaire uniquement |
+
+Deux types de codes :
+
+- **`STATIC`** — la carte de visite. Pas de montant, n'expire pas, reste payable après usage.
+  C'est le payeur qui saisit le montant.
+- **`PAYMENT_REQUEST`** — une demande pour un montant précis. Expire (24 h par défaut, 7 jours
+  maximum) et **n'est payable qu'une fois** : un reçu photographié ne doit pas être payé deux fois.
+
+La réponse contient `payload` : c'est exactement ce que l'image encode
+(`https://dogaa.app/p/{code}`). **Dessinez le QR côté mobile à partir de ce champ** ; l'endpoint
+PNG ne sert qu'au partage ou à l'impression.
+
+### Payer un code scanné
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `GET` | `/qr/{code}` | — → écran de confirmation |
+| `POST` | `/qr/{code}/pay` | `{ currency?, amount?, description? }` |
+
+`GET /qr/{code}` renvoie :
+
+```json
+{ "success": true, "data": {
+    "code": "…", "type": "PAYMENT_REQUEST",
+    "payable": true, "reason": null,
+    "recipientName": "Ama Kossi", "recipientPhoneMasked": "+228 90 ** ** 56",
+    "amountFixed": true, "amount": 2500, "currency": "XOF",
+    "label": "Table 4", "expiresAt": "…" } }
+```
+
+> Un code expiré, annulé ou déjà payé répond **200 avec `payable: false`** et un `reason` lisible.
+> Affichez ce message : l'utilisateur est devant un commerçant et doit savoir lequel des trois cas
+> s'applique. Seul un code **inconnu** renvoie 404.
+
+Sur `POST /qr/{code}/pay` :
+
+- code `STATIC` → `currency` et `amount` sont **obligatoires** ;
+- code `PAYMENT_REQUEST` → laissez-les vides. Si vous les envoyez et qu'ils diffèrent du code, la
+  requête est **refusée (400)**, jamais silencieusement corrigée.
+
+Le paiement emprunte le chemin de transfert normal : mêmes frais (1,5 %), mêmes plafonds KYC, même
+écriture au registre. La réponse porte `transactionReference` pour retrouver l'opération dans
+`/transactions`.
+
+**Le QR ne contient pas le numéro de téléphone**, seulement une référence aléatoire révocable. Un
+code se photographie et se transfère : y mettre le numéro reviendrait à le donner définitivement.
+
+---
+
 ## 12. Routes administrateur
 
 > **Base URL du back-office** : pointez `VITE_API_BASE_URL` sur `http://localhost:8081/api/v1/admin`.

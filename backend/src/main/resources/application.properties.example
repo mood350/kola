@@ -168,3 +168,12 @@ app.assistant.model=claude-sonnet-5
 # app.assistant.daily-message-limit=40
 # app.assistant.max-message-length=1000
 # app.assistant.recent-transactions=10
+
+# --- QR codes de paiement (modules/qr) ---------------------------------------
+# Prefixe de ce que l'image encode. Le mobile l'intercepte comme deep link ;
+# un appareil photo generique doit y trouver une page explicative.
+app.qr.payload-base-url=https://dogaa.app/p/
+# app.qr.default-request-ttl=24h
+# app.qr.max-request-ttl=7d
+# app.qr.default-image-size=512
+# app.qr.max-image-size=1024

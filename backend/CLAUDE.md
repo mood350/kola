@@ -160,6 +160,37 @@ Routes: `POST /api/v1/assistant/messages`, `GET|DELETE /api/v1/assistant/convers
 There is deliberately no admin view: an assistant that could read any customer's balances on
 request would serve a stolen admin session better than a support agent.
 
+## QR codes
+
+Receiving money without dictating a number (`modules/qr`). Two invariants.
+
+- **A code carries a random reference, never a phone number.** QR codes get printed, photographed
+  and forwarded; a number encoded in one is given away permanently and cannot be taken back. The
+  reference is 128 bits from `SecureRandom` — guessable codes would let anyone walk the space and
+  resolve strangers' names — resolves only for a signed-in caller, and can be revoked.
+  `GET /api/v1/qr/{code}` returns the beneficiary's name and a **masked** number: enough to
+  recognise who you are paying, not enough to harvest.
+- **Paying goes through `TransactionService.transfer`**, the same path as a typed transfer, so fee,
+  KYC ceiling, wallet lock and ledger entry are identical. A QR is a way to address a payment, never
+  a second kind of payment — a separate path here would be a way around the limits enforced there.
+
+Two types. `STATIC` is the user's business card: get-or-create at `GET /api/v1/qr/me`, no amount,
+never expires, stays payable after use; `POST /api/v1/qr/me/rotate` revokes it and issues another.
+`PAYMENT_REQUEST` fixes an amount and expires (`app.qr.default-request-ttl`, capped by
+`max-request-ttl`), and is **burned on payment** — a receipt someone photographs must not be payable
+twice. It is marked `USED` *before* the transfer inside the same transaction, so two simultaneous
+payers collide on the row's `@Version` and one rolls back entirely; marking it afterwards would
+leave a window where both transfers succeed.
+
+An amount that contradicts a `PAYMENT_REQUEST` is **refused, not ignored**: a payer who typed one
+number and was charged another has been lied to, even when the difference favours them. An
+unusable code still answers 200 from `scan` with `payable=false` and a reason, because the user is
+standing in front of a merchant and needs to know which of expired/cancelled/already-paid it is.
+
+`QrImageGenerator` (ZXing) renders the PNG at error-correction level `M`, not the default `L`:
+these get printed on receipts and creased. The image endpoint is owner-only and `no-store` — a
+payer already has `payload` from the JSON and can draw the code themselves.
+
 ## Stack notes
 
 - Spring Boot **4.1.1**, Java release target **17** (the installed JDK is 25 — do not assume language features above 17 compile).
