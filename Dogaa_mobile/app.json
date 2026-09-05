@@ -36,7 +36,8 @@
           "cameraPermission": "Autorisez DOGAA à utiliser la caméra pour scanner les QR codes de paiement.",
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

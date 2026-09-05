@@ -19,6 +19,8 @@
     "expo-contacts": "~57.0.4",
     "expo-document-picker": "~57.0.1",
     "expo-linear-gradient": "~57.0.1",
+    "expo-print": "~57.0.1",
+    "expo-sharing": "~57.0.18",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",
