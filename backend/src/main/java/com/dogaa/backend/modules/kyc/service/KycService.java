@@ -1,5 +1,6 @@
 package com.dogaa.backend.modules.kyc.service;
 
+import com.dogaa.backend.common.enums.NotificationChannel;
 import com.dogaa.backend.common.enums.KycTier;
 import com.dogaa.backend.config.KycProperties;
 import com.dogaa.backend.exception.BadRequestException;
@@ -15,6 +16,8 @@ import com.dogaa.backend.modules.kyc.entity.KycDocumentStatus;
 import com.dogaa.backend.modules.kyc.entity.KycDocumentType;
 import com.dogaa.backend.modules.kyc.mapper.KycDocumentMapper;
 import com.dogaa.backend.modules.kyc.repository.KycDocumentRepository;
+import com.dogaa.backend.modules.notification.dto.NotificationRequest;
+import com.dogaa.backend.modules.notification.service.NotificationService;
 import com.dogaa.backend.modules.user.entity.User;
 import com.dogaa.backend.modules.user.event.UserProfileUpdatedEvent;
 import com.dogaa.backend.modules.user.service.UserService;
@@ -54,6 +57,7 @@ public class KycService {
     private final UserService userService;
     private final KycProperties kycProperties;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     // ------------------------------------------------------------------ status
 
@@ -174,7 +178,40 @@ public class KycService {
                 before == after ? null : AuditService.diff(before, after),
                 "KycDocument", documentId.toString());
 
+        notifyReviewed(document, owner, before, after);
+
         return kycDocumentMapper.toResponse(document);
+    }
+
+    /**
+     * Tells the customer what was decided, and on a rejection <em>why</em>.
+     *
+     * <p>Sent from here rather than from the calling endpoint so that every review path notifies —
+     * a reason recorded in a column the customer never sees leaves them re-uploading the same
+     * document, which is the outcome the whole queue exists to avoid.
+     */
+    private void notifyReviewed(KycDocument document, User owner, KycTier before, KycTier after) {
+        String label = document.getType().label();
+
+        String title;
+        String body;
+        if (document.isApproved()) {
+            title = "Pièce validée";
+            body = "Votre " + label.toLowerCase() + " a été validée."
+                    + (before == after
+                            ? " Votre niveau reste " + after + "."
+                            : " Votre compte passe au niveau " + after + ".");
+        } else {
+            title = "Pièce refusée";
+            // The reason is free text written by a reviewer and may already end in a full stop,
+            // so it gets its own line rather than being spliced into a sentence.
+            body = "Votre " + label.toLowerCase() + " a été refusée."
+                    + "\nMotif : " + document.getRejectionReason()
+                    + "\nVous pouvez envoyer une nouvelle pièce depuis l'application.";
+        }
+
+        notificationService.send(new NotificationRequest(
+                owner.getId(), NotificationChannel.PUSH, title, body));
     }
 
     /**

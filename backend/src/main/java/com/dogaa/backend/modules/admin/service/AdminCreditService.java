@@ -171,7 +171,7 @@ public class AdminCreditService {
                 loan.getUserId(),
                 NotificationChannel.SMS,
                 "Remboursement en attente",
-                "Votre prêt Dogaa de " + amount + " est arrivé à échéance. "
+                "Votre prêt DOGAA de " + amount + " est arrivé à échéance. "
                         + "Approvisionnez votre portefeuille pour éviter des pénalités."));
 
         auditService.record(admin, MODULE,

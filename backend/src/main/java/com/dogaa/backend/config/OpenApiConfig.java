@@ -14,7 +14,7 @@ public class OpenApiConfig {
     public OpenAPI dogaaOpenApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Dogaa API")
+                        .title("DOGAA API")
                         .version("v1")
                         .description("Mobile money wallet, programmed savings and algorithmic microcredit"))
                 .components(new Components().addSecuritySchemes("bearerAuth",

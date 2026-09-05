@@ -43,6 +43,9 @@ export function useUsers() {
     unblock: (id) => run(() => userService.unblock(id)),
     forceCloseVault: (id) => run(() => userService.forceCloseVault(id)),
     approveKyc: (id) => run(() => userService.approveKyc(id)),
-    rejectKyc: (id) => run(() => userService.rejectKyc(id)),
+    rejectKyc: (id, reason) => run(() => userService.rejectKyc(id, reason)),
+    // Not routed through `run`: looking at a document changes nothing, so it must not
+    // reload the queue or raise the page-level action error.
+    getKycDocumentFile: (id) => userService.getKycDocumentFile(id),
   };
 }
