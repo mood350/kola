@@ -1,6 +1,7 @@
 package com.dogaa.backend.modules.admin.service;
 
 import com.dogaa.backend.config.AuthProperties;
+import com.dogaa.backend.common.util.RelativeTime;
 import com.dogaa.backend.exception.AccountLockedException;
 import com.dogaa.backend.exception.BadRequestException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
@@ -99,8 +100,11 @@ public class AdminAccountService {
     public void changePassword(CurrentAdmin currentAdmin, ChangePasswordRequest request) {
         AdminAccount admin = getById(currentAdmin.id());
 
+        // Deliberately not a 401: the session is valid, only the typed field is wrong. The console
+        // signs the user out on any 401 (BACKEND.md 3), so answering 401 here would throw the
+        // administrator back to the login screen instead of showing them their typo.
         if (!passwordEncoder.matches(request.currentPassword(), admin.getPasswordHash())) {
-            throw new UnauthorizedException("INVALID_CREDENTIALS", "Mot de passe actuel incorrect");
+            throw new BadRequestException("Mot de passe actuel incorrect");
         }
         if (request.newPassword().equals(request.currentPassword())) {
             throw new BadRequestException("Le nouveau mot de passe doit différer de l'actuel");
@@ -172,7 +176,8 @@ public class AdminAccountService {
 
     private static AdminIdentity toIdentity(AdminAccount admin) {
         return new AdminIdentity(admin.getId().toString(), admin.getName(),
-                admin.getEmail(), admin.getRole(), admin.getScope());
+                admin.getEmail(), admin.getRole(), admin.getScope(),
+                admin.getLastLoginAt() == null ? null : RelativeTime.since(admin.getLastLoginAt()));
     }
 
     private static CurrentAdmin toPrincipal(AdminAccount admin) {

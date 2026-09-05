@@ -16,11 +16,19 @@ const METRICS_SEED = [
   { label: 'TAUX DE DÉFAUT', value: '2,8 %', delta: '− 0,4 pt vs T2', up: true },
 ];
 
-const CHART_14D_SEED = [42, 55, 38, 61, 72, 49, 66, 80, 58, 74, 88, 63, 91, 100].map((h, i) => ({
-  day: String(22 + i > 31 ? 22 + i - 31 : 22 + i),
-  h,
-  last: i === 13,
-}));
+// Bar heights are percentages of the tallest bar, as the real endpoint returns them.
+const chartSeed = (heights) =>
+  heights.map((h, i) => ({
+    day: String(22 + i > 31 ? ((22 + i - 1) % 31) + 1 : 22 + i),
+    h,
+    last: i === heights.length - 1,
+  }));
+
+const CHART_14D_SEED = chartSeed([42, 55, 38, 61, 72, 49, 66, 80, 58, 74, 88, 63, 91, 100]);
+const CHART_30D_SEED = chartSeed([
+  31, 44, 29, 52, 47, 60, 35, 58, 71, 40, 66, 54, 78, 45,
+  42, 55, 38, 61, 72, 49, 66, 80, 58, 74, 88, 63, 91, 100, 69, 83,
+]);
 
 const ALERTS_SEED = [
   { title: 'Fraude suspectée · TX-99C41A', detail: '450 000 XOF · Boutique Sika · en attente de double validation', severity: 'critical' },
@@ -44,9 +52,9 @@ export class MockDashboardRepository {
     return clone(METRICS_SEED);
   }
 
-  async getTransactionVolume(_period = '14d') {
+  async getTransactionVolume(period = '14d') {
     await delay();
-    return clone(CHART_14D_SEED);
+    return clone(period === '30d' ? CHART_30D_SEED : CHART_14D_SEED);
   }
 
   async getAlerts() {

@@ -706,7 +706,23 @@ pas implémentée.
 | `POST` | `/admin/users/{id}/force-close-vault` | `ClientUser` |
 | `GET` | `/admin/users/kyc-queue` | `KycSubmission[]` |
 | `POST` | `/admin/users/kyc-queue/{id}/approve` | `204` |
-| `POST` | `/admin/users/kyc-queue/{id}/reject` | `204` |
+| `POST` | `/admin/users/kyc-queue/{id}/reject` | `204` — corps `{ reason }` **obligatoire** |
+
+```jsonc
+// KycSubmission
+{ "id": "uuid", "name": "Aya Djobo", "fromTier": "TIER_1", "toTier": "TIER_2",
+  "receivedAt": "Il y a 2 h",
+  "documentType": "Carte d'identité",   // libellé français de la pièce envoyée
+  "contentType": "image/jpeg",          // pour savoir si la console peut l'afficher en ligne
+  "fileName": "cni-recto.jpg" }
+```
+
+⚠️ **Un rejet exige un motif** : `{ reason }`, 300 caractères maximum, non vide — sinon **400**.
+Le motif est notifié au client. « Rejeté » tout seul ne lui dit pas quoi envoyer à la place, et il
+renverrait la même pièce.
+
+`id` est l'identifiant du **document** : c'est lui qu'attendent `approve`, `reject` et le
+téléchargement du fichier (`GET /admin/kyc/documents/{id}/file`, plus bas).
 
 Tout est **pré-formaté** : `age` en `"14 mois"`, `loan` en `"100 000 XOF"` ou `"Aucun"`,
 `state` en `"Actif"` / `"Gelé"`. Le front n'a aucune logique de formatage.

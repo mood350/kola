@@ -4,7 +4,7 @@ import { BRAND_NAME } from '../../lib/brand';
 import Hoverable from '../../components/Hoverable';
 import LoadingState from '../../components/LoadingState';
 import ErrorState from '../../components/ErrorState';
-import { useDashboard } from '../../hooks/useDashboard';
+import { useDashboard, CHART_PERIODS } from '../../hooks/useDashboard';
 import { alertDotColor } from '../presentation';
 import { useAuth } from '../../auth/useAuth';
 import { canAccessNav } from '../permissions';
@@ -18,9 +18,11 @@ const QUICK_LINKS = [
 ];
 
 export default function Dashboard() {
-  const { loading, error, reload, metrics, chart, alerts, loanBook } = useDashboard();
+  const { loading, error, reload, period, setPeriod, metrics, chart, alerts, loanBook } = useDashboard();
   const { user } = useAuth();
   const visibleQuickLinks = QUICK_LINKS.filter((q) => canAccessNav(user?.role, q.id));
+
+  const periodLabel = CHART_PERIODS.find((p) => p.value === period)?.label.replace(' j', ' jours');
 
   if (loading) return <LoadingState label="Chargement du tableau de bord…" />;
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
@@ -41,12 +43,23 @@ export default function Dashboard() {
         <section style={{ ...s('background:#fff; border-radius:24px; padding:20px 22px; box-shadow:0 10px 28px -22px rgba(15,56,117,.35)'), animation: 'kUp .5s ease both' }}>
           <div style={s('display:flex; align-items:center; justify-content:space-between')}>
             <div>
-              <div style={s('font-size:14.5px; font-weight:800')}>Volume de transactions · 14 jours</div>
+              <div style={s('font-size:14.5px; font-weight:800')}>Volume de transactions · {periodLabel}</div>
               <div style={s('font-size:11.5px; color:#596171; font-weight:600; margin-top:3px')}>Millions XOF traités par jour</div>
             </div>
-            <div style={s('display:flex; gap:7px')}>
-              <span style={s('font-size:10.5px; font-weight:800; padding:6px 11px; border-radius:11px; background:#002353; color:#FFCB05')}>14 j</span>
-              <span style={s('font-size:10.5px; font-weight:800; padding:6px 11px; border-radius:11px; background:#F2F3FF; color:#596171')}>30 j</span>
+            {/* A chip that looks like a segmented control has to behave like one — it selects the
+                range the chart is actually fetched for, it is not decoration. */}
+            <div role="group" aria-label="Période du graphique" style={s('display:flex; gap:7px')}>
+              {CHART_PERIODS.map((p) => {
+                const on = p.value === period;
+                return (
+                  <Hoverable key={p.value} as="button" type="button"
+                    aria-pressed={on}
+                    onClick={() => setPeriod(p.value)}
+                    style={s(`border:0; cursor:pointer; font-family:Manrope,sans-serif; font-size:10.5px; font-weight:800; padding:6px 11px; border-radius:11px; background:${on ? '#002353' : '#F2F3FF'}; color:${on ? '#FFCB05' : '#596171'}`)}
+                    hoverStyle={on ? { filter: 'brightness(1.15)' } : { background: '#E2E8F0' }}
+                  >{p.label}</Hoverable>
+                );
+              })}
             </div>
           </div>
           <div style={s('display:flex; align-items:flex-end; gap:9px; height:150px; margin-top:20px')}>

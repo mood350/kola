@@ -7,7 +7,7 @@ const EMPTY_USERS = [];
 const EMPTY_KYC = [];
 
 export function useUsers() {
-  const { data, loading, error, reload } = useAsync(() => userService.getOverview(), []);
+  const { data, loading, error, reload } = useAsync(() => userService.getOverview());
   const { run, actionError, actionPending } = useActionRunner(reload);
   const [filter, setFilter] = useState('Tous');
   const [selectedId, setSelectedId] = useState(null);
@@ -31,6 +31,7 @@ export function useUsers() {
     error,
     actionError,
     actionPending,
+    reload,
     users,
     kycQueue,
     filter,

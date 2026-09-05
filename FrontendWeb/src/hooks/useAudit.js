@@ -10,6 +10,7 @@ export function useAudit() {
     error,
     actionError,
     actionPending,
+    reload,
     log: data?.log || [],
     reports: data?.reports || [],
     exportLog: () => run(() => auditService.exportLog()),

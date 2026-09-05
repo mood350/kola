@@ -5,6 +5,7 @@ import FocusableInput from '../../components/FocusableInput';
 import { useAuth } from '../../auth/useAuth';
 import { authService } from '../../services/authService';
 import { roleBadgeStyle } from '../presentation';
+import { ROLE_ACCESS } from '../permissions';
 
 const inputStyle = s('width:100%; border:1px solid #E2E8F0; border-radius:14px; padding:12px 15px; font-family:Manrope,sans-serif; font-size:13.5px; font-weight:700; color:#131B2E; outline:0; background:#F2F3FF');
 const focusStyle = { borderColor: '#FFCB05', background: '#fff' };
@@ -20,6 +21,8 @@ const initialsOf = (name) =>
 
 export default function Profile() {
   const { user } = useAuth();
+  // Same matrix the sidebar uses, so the count and the visible menu can never disagree.
+  const allowedModules = ROLE_ACCESS[user?.role] || [];
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -59,6 +62,16 @@ export default function Profile() {
       <section style={{ ...s('background:#fff; border-radius:24px; padding:20px 22px; box-shadow:0 10px 28px -22px rgba(15,56,117,.35)'), animation: 'kUp .5s .08s ease both' }}>
         <div style={s('font-size:14.5px; font-weight:800')}>Périmètre d'accès</div>
         <div style={s('font-size:12.5px; color:#596171; font-weight:600; margin-top:8px; line-height:1.6')}>{user?.scope}</div>
+        <div style={s('display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px')}>
+          <div style={s('background:#F2F3FF; border-radius:16px; padding:13px')}>
+            <div style={s('font-size:10px; font-weight:800; color:#596171; letter-spacing:.09em')}>SESSION OUVERTE</div>
+            <div style={s('font-size:14px; font-weight:800; margin-top:7px')}>{user?.lastLoginAt || '—'}</div>
+          </div>
+          <div style={s('background:#F2F3FF; border-radius:16px; padding:13px')}>
+            <div style={s('font-size:10px; font-weight:800; color:#596171; letter-spacing:.09em')}>MODULES AUTORISÉS</div>
+            <div style={s('font-size:14px; font-weight:800; margin-top:7px')}>{allowedModules.length}</div>
+          </div>
+        </div>
       </section>
 
       <section style={{ ...s('background:#fff; border-radius:24px; padding:20px 22px; box-shadow:0 10px 28px -22px rgba(15,56,117,.35)'), animation: 'kUp .5s .12s ease both' }}>

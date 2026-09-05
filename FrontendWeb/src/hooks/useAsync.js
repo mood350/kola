@@ -5,8 +5,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * loading/error/data, and exposes `reload()` so callers can refresh after a
  * mutation. Every domain hook (useUsers, useCredit, ...) is a thin wrapper
  * around this — none of them re-implement loading/error bookkeeping.
+ *
+ * `refetchKey` is for the rare read whose arguments can change while the page
+ * stays mounted (the dashboard's 14 j / 30 j chart): pass a primitive that
+ * changes with them and the request is re-issued. It must stay primitive — a
+ * fresh array or object every render would refetch forever.
  */
-export function useAsync(factory) {
+export function useAsync(factory, refetchKey) {
   const [state, setState] = useState({ data: null, loading: true, error: null });
 
   // Keep the latest `factory` closure available to `reload` without making
@@ -43,9 +48,11 @@ export function useAsync(factory) {
     return runFetch();
   }, [runFetch]);
 
-  // Initial fetch on mount: state already starts as loading, so no
-  // synchronous setState is needed before firing the request.
-  useEffect(() => runFetch(), [runFetch]);
+  // Initial fetch on mount, and again whenever `refetchKey` changes: state
+  // already starts as loading, so no synchronous setState is needed before
+  // firing the request. The previous run's cleanup cancels it, so a fast
+  // switch can never let a stale response overwrite a newer one.
+  useEffect(() => runFetch(), [runFetch, refetchKey]);
 
   return { ...state, reload };
 }

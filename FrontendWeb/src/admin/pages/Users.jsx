@@ -92,7 +92,9 @@ export default function Users() {
             <div style={s('background:#F2F3FF; border-radius:16px; padding:14px')}><div style={s('font-size:10px; font-weight:800; color:#596171; letter-spacing:.09em')}>STATUT</div><div style={{ marginTop: 8 }}><span style={userStateStyle(selectedUser.state)}>{selectedUser.state}</span></div></div>
           </div>
           <div style={s('display:flex; gap:9px; margin-top:18px; flex-wrap:wrap')}>
-            <Hoverable as="button" disabled={actionPending} onClick={() => request({
+            {/* The server answers 409 "Ce compte est déjà actif" — offering the action on an
+                account that is not blocked only buys the reviewer an error banner. */}
+            <Hoverable as="button" disabled={actionPending || selectedUser.state === 'Actif'} onClick={() => request({
                 title: 'Débloquer ce compte ?',
                 message: `${selectedUser.name} retrouvera un accès immédiat à son compte et à ses coffres.`,
                 confirmLabel: 'Débloquer',

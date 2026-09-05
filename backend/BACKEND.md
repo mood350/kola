@@ -69,9 +69,17 @@ pages/*.jsx  →  hooks/use*.js  →  services/*.js  →  repositories/index.js 
   name: string,
   email: string,
   role: 'Super-admin' | 'Agent conformité' | 'Analyste crédit' | 'Support',
-  scope: string   // résumé libre affiché tel quel dans le profil, ex. "KYC, litiges, chargebacks (2e validation)"
+  scope: string,        // résumé libre affiché tel quel dans le profil, ex. "KYC, litiges, chargebacks (2e validation)"
+  lastLoginAt: string | null  // déjà formaté ("Il y a 2 h"). Sur /auth/me c'est la connexion
+                              // qui a ouvert la session courante, pas la précédente : le compte
+                              // n'en garde qu'une. L'écran profil l'affiche sous "Session ouverte".
 }
 ```
+
+⚠️ **`/auth/change-password` ne doit jamais répondre 401**, y compris quand le mot de passe actuel
+est faux : la session, elle, est valide. Le front déconnecte sur n'importe quel 401 (section 3), donc
+un 401 ici renvoie l'administrateur à l'écran de connexion au lieu de lui montrer sa faute de frappe.
+Un mot de passe actuel incorrect est un **400**.
 
 ### 4.2 Comptes admin de référence (seed actuel côté mock)
 
@@ -157,6 +165,8 @@ KycSubmission { id: string, name: string, fromTier: string, toTier: string, rece
 - `force-close-vault(id)` → dans le mock, ferme **un** coffre parmi ceux de l'utilisateur (`vaults - 1`, jamais < 0) sans préciser lequel. Le bouton est désactivé côté UI si `vaults === 0`. ⚠️ **À affiner en vrai** : un vrai backend a une table `Vault` avec des IDs (`modules/vault/entity/Vault.java` existe déjà côté backend) — il faudra probablement faire évoluer ce endpoint pour accepter un `vaultId` explicite plutôt que de fermer "un coffre au hasard". Le contrat actuel (`POST /users/:id/force-close-vault` sans body) est celui que le frontend appelle aujourd'hui ; si vous changez la signature, il faudra aussi modifier `Users.jsx` pour choisir le coffre.
 - `approveKyc(submissionId)` → fait passer `tier` de l'utilisateur cible de `fromTier` à `toTier`, puis retire l'entrée de la file KYC.
 - `rejectKyc(submissionId)` → retire simplement l'entrée de la file, sans toucher au `tier` de l'utilisateur. (Le mock ne capture pas de motif de rejet — la page n'a pas de champ "raison" ; à ajouter si le métier l'exige, ce serait un changement de contrat côté formulaire aussi.)
+
+✅ **Fait, et le motif est obligatoire** : `rejectKyc(submissionId, reason)` envoie `{ reason }` (300 caractères max, non vide, **400** sinon) et le serveur le notifie au client. « Rejeté » tout seul ne lui apprend pas quoi envoyer à la place — il renverrait la même pièce. L'entrée de file porte aussi désormais `documentType`, `contentType` et `fileName`, ce qui permet à la console d'afficher la pièce en ligne ou de la proposer en téléchargement (`DocumentViewer`) au lieu de trancher à l'aveugle.
 - Filtrage : la page propose 4 filtres fixes — `Tous`, `TIER_2`, `TIER_3`, `Litige` — appliqués **côté client** sur le tableau complet (`u.tier === filter || u.state === filter`). Le backend n'a pas besoin de paramètre de filtre pour `GET /users` tant que le volume reste gérable côté client.
 - Recherche : la barre de recherche du header (`AdminLayout`) redirige vers `/admin/users?q=...` ; la recherche `name`/`phone` (insensible à la casse, substring) est faite côté client sur la liste complète.
 - Chaque KYC queue entry correspond très probablement à une soumission de document dans `modules/kyc/entity/KycDocument.java` côté backend — c'est le point d'intégration naturel plutôt qu'une nouvelle table.
@@ -403,5 +413,5 @@ après coup aurait voulu dire repasser dans chacun d'eux.
 | Double validation des chargebacks | **Tranché** : 2 admins distincts (quota réglable), garanti par l'unicité `(disputeId, adminId)` et un 409 explicite. |
 | `force-close-vault` sans `vaultId` | **Non tranché** : le backend ferme le plus ancien coffre ouvert, en attendant un contrat par coffre. |
 | Granularité des permissions « Support » | **Non tranché** : la matrice reste par module, sans distinction lecture/écriture. Les écritures sensibles (barème de prêt, grille de frais) sont en revanche réservées au Super-admin. |
-| Motif de rejet KYC | **Non tranché côté back-office** : `/admin/kyc/documents/{id}/review` exige un `rejectionReason`, mais `/admin/users/kyc-queue/{id}/reject` n'en prend pas. |
+| Motif de rejet KYC | **Tranché** : `/admin/users/kyc-queue/{id}/reject` exige désormais `{ reason }` (300 caractères max, non vide, 400 sinon) et le notifie au client, comme `/admin/kyc/documents/{id}/review` le faisait déjà. |
 | Filtrage serveur | **Non tranché** : filtrage client conservé, à revisiter quand le volume l'imposera. |
