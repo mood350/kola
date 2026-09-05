@@ -23,7 +23,7 @@ export function AppHeader({navigate}:{navigate:(r:Route)=>void}) {
 }
 
 const tabs: {route:Route; label:string; icon:IconName}[] = [
-  {route:'home',label:'Accueil',icon:'wallet-outline'}, {route:'savings',label:'Épargne',icon:'business-outline'},
+  {route:'home',label:'Accueil',icon:'wallet-outline'}, {route:'savings',label:'Bankivi',icon:'business-outline'},
   {route:'scan',label:'',icon:'qr-code-outline'}, {route:'credit',label:'Prêts',icon:'cash-outline'},
   {route:'scheduled',label:'Planifié',icon:'calendar-outline'},
 ];
