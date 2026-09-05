@@ -14,7 +14,7 @@ const faqs:Faq[]=[
   {id:'pending',category:'Transferts',question:'Pourquoi mon transfert est-il en attente ?',answer:'Une opération peut rester en attente pendant la confirmation de l’opérateur. Consultez l’historique avant de recommencer afin d’éviter un double envoi.'},
   {id:'vault',category:'Coffres',question:'À quoi sert un coffre DOGAA ?',answer:'Un coffre vous permet de mettre de l’argent de côté pour un objectif. Vous pouvez définir un montant cible et une date, puis suivre votre progression.'},
   {id:'schedule',category:'Planification',question:'Comment programmer un envoi ?',answer:'Ouvrez « Planifié », choisissez une personne ou un coffre, saisissez le montant, la date et l’heure du Togo, puis confirmez la programmation.'},
-  {id:'credit',category:'Crédit',question:'Comment mon éligibilité au crédit est-elle calculée ?',answer:'Elle dépend notamment de votre vérification KYC, de votre activité, de votre discipline d’épargne et du remboursement de vos précédents crédits.'},
+  {id:'credit',category:'Crédit',question:'Comment mon éligibilité au crédit est-elle calculée ?',answer:'Elle dépend notamment de votre vérification KYC, de votre activité, de votre discipline Bankivi et du remboursement de vos précédents crédits.'},
   {id:'security',category:'Sécurité',question:'DOGAA me demandera-t-il mon OTP ou mon PIN ?',answer:'Non. Aucun agent DOGAA ne doit vous demander votre code OTP ou votre PIN. Refusez et signalez immédiatement toute demande de ce type.'},
 ];
 

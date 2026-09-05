@@ -164,7 +164,7 @@ function Expanded({ type }: { type: string }) {
   return (
     <View style={s.detail}>
       <Detail icon="wallet-outline" text="Dépôts réguliers : 95/100" />
-      <Detail icon="save-outline" text="Discipline d’épargne : 88/100" />
+      <Detail icon="business-outline" text="Discipline Bankivi : 88/100" />
       <Detail icon="storefront-outline" text="Transactions : 72/100" />
     </View>
   );
