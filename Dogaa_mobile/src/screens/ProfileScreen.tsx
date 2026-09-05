@@ -1,18 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Card, IconCircle, Pill, Progress, Screen } from "../components/Layout";
+import { IconCircle, Pill, Screen } from "../components/Layout";
 import { c } from "../theme";
 import { Route } from "../types";
 import { useDogaaData } from "../context/DogaaDataContext";
 
 const options = [
-  {
-    icon: "sparkles-outline" as const,
-    title: "XP & niveau",
-    sub: "7 800 XP • Niveau Élite",
-    key: "xp",
-  },
   {
     icon: "shield-checkmark-outline" as const,
     title: "Passer le KYC",
@@ -66,23 +60,6 @@ export default function ProfileScreen({
           <Ionicons name="create-outline" size={19} color={c.primary} />
         </TouchableOpacity>
       </View>
-      <Card style={s.level}>
-        <View style={s.levelTop}>
-          <View>
-            <Text style={s.overline}>NIVEAU DOGAA</Text>
-            <Text style={s.levelName}>Élite</Text>
-          </View>
-          <View style={s.xp}>
-            <Ionicons name="sparkles" size={17} color={c.yellowDark} />
-            <Text style={s.xpValue}>7 800 XP</Text>
-          </View>
-        </View>
-        <Progress value={78} color={c.yellow} />
-        <View style={s.levelBottom}>
-          <Text style={s.levelHint}>Progression vers TIER 3</Text>
-          <Text style={s.levelHint}>2 200 XP restants</Text>
-        </View>
-      </Card>
       <Text style={s.title}>Mon profil</Text>
       <View style={s.menu}>
         {options.map((item) => (
@@ -161,13 +138,7 @@ function Expanded({ type }: { type: string }) {
         />
       </View>
     );
-  return (
-    <View style={s.detail}>
-      <Detail icon="wallet-outline" text="Dépôts réguliers : 95/100" />
-      <Detail icon="business-outline" text="Discipline Bankivi : 88/100" />
-      <Detail icon="storefront-outline" text="Transactions : 72/100" />
-    </View>
-  );
+  return null;
 }
 function Detail({
   icon,
@@ -205,31 +176,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  level: { marginTop: 18, backgroundColor: c.primary },
-  levelTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 13,
-  },
-  overline: { fontSize: 8, fontWeight: "800", color: "#ADC6FF" },
-  levelName: { fontSize: 22, fontWeight: "900", color: c.white, marginTop: 2 },
-  xp: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: c.yellow,
-    borderRadius: 15,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  xpValue: { fontSize: 11, fontWeight: "900", color: c.primary },
-  levelBottom: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 8,
-  },
-  levelHint: { fontSize: 8, color: "#D8E2FF" },
   title: {
     fontSize: 19,
     fontWeight: "800",
