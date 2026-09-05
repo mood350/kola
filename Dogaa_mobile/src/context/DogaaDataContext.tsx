@@ -8,7 +8,7 @@ import { c, shadow } from '../theme';
 import { playTransactionSound } from '../services/sounds';
 
 type StoredData={user:DogaaUser|null;wallets:Wallet[];vaults:Vault[];transactions:Transaction[];eligibility:CreditEligibility|null;loans:Loan[];scheduled:ScheduledTask[]};
-type Data=StoredData&{loading:boolean;error:string|null;refresh:()=>Promise<void>;notifyTransaction:(transaction:Transaction)=>void};
+type Data=StoredData&{loading:boolean;error:string|null;refresh:()=>Promise<void>;replaceWallets:(wallets:Wallet[])=>void;notifyTransaction:(transaction:Transaction)=>void};
 const Context=createContext<Data|null>(null);
 const initialData:StoredData={user:null,wallets:[],vaults:[],transactions:[],eligibility:null,loans:[],scheduled:[]};
 type TransactionToast={id:string;type:string;amount:number;currency:string;counterparty?:string};
@@ -34,6 +34,7 @@ export function DogaaDataProvider({children}:{children:React.ReactNode}){
     finally{if(showLoader)setLoading(false);}
   },[]);
   const refresh=useCallback(()=>load(true),[load]);
+  const replaceWallets=useCallback((wallets:Wallet[])=>setData(current=>({...current,wallets})),[]);
 
   useEffect(()=>{load(true);},[load]);
   useEffect(()=>{
@@ -52,7 +53,7 @@ export function DogaaDataProvider({children}:{children:React.ReactNode}){
     return ()=>{cancelled=true;source?.removeAllEventListeners();source?.close();};
   },[load,notifyTransaction]);
 
-  return <Context.Provider value={{...data,loading,error,refresh,notifyTransaction}}><View style={styles.root}>{children}{toast&&<SuccessToast transaction={toast} onClose={()=>setToast(null)}/>}</View></Context.Provider>;
+  return <Context.Provider value={{...data,loading,error,refresh,replaceWallets,notifyTransaction}}><View style={styles.root}>{children}{toast&&<SuccessToast transaction={toast} onClose={()=>setToast(null)}/>}</View></Context.Provider>;
 }
 
 export function useDogaaData(){const value=useContext(Context);if(!value)throw new Error('useDogaaData must be used inside DogaaDataProvider');return value;}
@@ -61,7 +62,7 @@ function SuccessToast({transaction,onClose}:{transaction:TransactionToast;onClos
   const animation=React.useRef(new Animated.Value(0)).current;
   const close=()=>Animated.timing(animation,{toValue:0,duration:180,useNativeDriver:true}).start(onClose);
   useEffect(()=>{Animated.spring(animation,{toValue:1,useNativeDriver:true,bounciness:8}).start();const timer=setTimeout(close,5200);return()=>clearTimeout(timer);},[animation]);
-  const labels:Record<string,string>={P2P_TRANSFER:'Transfert P2P',CASH_IN:'Recharge',CASH_OUT:'Retrait',MERCHANT_PAYMENT:'Paiement marchand',VAULT_DEPOSIT:'Versement au coffre',VAULT_WITHDRAWAL:'Retrait du coffre',BILL_PAYMENT:'Paiement de facture',LOAN_REPAYMENT:'Remboursement'};
+  const labels:Record<string,string>={P2P_TRANSFER:'Transfert P2P',CASH_IN:'Recharge',CASH_OUT:'Retrait',MERCHANT_PAYMENT:'Paiement marchand',VAULT_DEPOSIT:'Versement au coffre',VAULT_WITHDRAWAL:'Retrait du coffre',SAVINGS_DEPOSIT:'Versement sur l’épargne',SAVINGS_WITHDRAWAL:'Retrait de l’épargne',BILL_PAYMENT:'Paiement de facture',LOAN_REPAYMENT:'Remboursement'};
   const confetti=[[24,62,c.yellow,15],[55,32,c.blue,-18],[92,73,c.mint,28],[133,38,'#FF6B6B',12],[178,62,c.yellow,-22],[224,31,c.green,18],[265,72,'#9B72FF',-12],[291,42,c.yellow,25],[39,126,'#9B72FF',-22],[278,130,c.blue,15],[70,161,c.green,30],[246,169,'#FF6B6B',-20]] as const;
   return <View style={styles.toastOverlay}><Animated.View style={[styles.toast,{opacity:animation,transform:[{scale:animation.interpolate({inputRange:[0,1],outputRange:[.82,1]})}]}]}>{confetti.map(([left,top,color,rotate],index)=><View key={index} style={[styles.confetti,{left,top,backgroundColor:color,transform:[{rotate:`${rotate}deg`}]}]}/>) }<TouchableOpacity onPress={close} style={styles.toastClose}><Ionicons name="close" size={20} color={c.muted}/></TouchableOpacity><Text style={styles.toastEyebrow}>DOGAA</Text><View style={styles.toastIcon}><Ionicons name="checkmark" size={43} color={c.white}/></View><Text style={styles.toastTitle}>Transaction réussie !</Text><Text style={styles.toastText}>{labels[transaction.type]||'Votre opération'} a été effectuée avec succès.</Text><Text style={styles.toastAmount}>{new Intl.NumberFormat('fr-FR').format(transaction.amount)} <Text style={styles.toastCurrency}>{transaction.currency}</Text></Text>{transaction.counterparty&&<Text numberOfLines={1} style={styles.toastCounterparty}>Avec {transaction.counterparty}</Text>}<View style={styles.toastReceipt}><View style={styles.toastPdf}><Ionicons name="receipt-outline" size={20} color={c.primary}/></View><View style={styles.toastReceiptCopy}><Text style={styles.toastReceiptTitle}>Reçu DOGAA</Text><Text style={styles.toastReceiptRef}>Réf. {transaction.id}</Text></View><Ionicons name="checkmark-circle" size={21} color={c.green}/></View><TouchableOpacity onPress={close} style={styles.toastButton}><Text style={styles.toastButtonText}>Voir le reçu</Text></TouchableOpacity></Animated.View></View>;
 }
