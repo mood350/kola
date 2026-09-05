@@ -9,6 +9,10 @@ import com.dogaa.backend.modules.vault.entity.Vault;
 import com.dogaa.backend.modules.vault.service.VaultService;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import com.dogaa.backend.common.enums.Biller;
+import com.dogaa.backend.common.enums.Currency;
+import com.dogaa.backend.modules.scheduling.dto.UpdateScheduledTaskRequest;
+import java.time.Instant;
 import com.dogaa.backend.common.enums.ScheduledTaskStatus;
 import com.dogaa.backend.exception.ConflictException;
 import com.dogaa.backend.exception.ResourceNotFoundException;
@@ -17,12 +21,14 @@ import com.dogaa.backend.modules.scheduling.dto.ScheduledTaskResponse;
 import com.dogaa.backend.modules.scheduling.entity.ScheduledTask;
 import com.dogaa.backend.modules.scheduling.mapper.ScheduledTaskMapper;
 import com.dogaa.backend.modules.scheduling.repository.ScheduledTaskRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @Transactional
 public class ScheduledTaskServiceImpl implements ScheduledTaskService {
@@ -60,6 +66,110 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
         return ScheduledTaskMapper.toResponse(repository.save(task));
     }
 
+    @Override
+    public ScheduledTaskResponse update(UUID ownerId, UUID taskId,
+                                        UpdateScheduledTaskRequest request) {
+        ScheduledTask task = requireOwner(ownerId, getOrThrow(taskId));
+        requireEditable(task);
+
+        if (request.amount() != null) {
+            task.setAmount(request.amount());
+        }
+        if (request.fundingVaultId() != null) {
+            task.setFundingVaultId(resolveVault(ownerId, request.fundingVaultId(), task.getCurrency()));
+        }
+        applyBeneficiary(task, request);
+        applyRecurrence(task, request);
+
+        // Cleared explicitly rather than by sending null: on a partial update null means
+        // "unchanged", so "no end date" needs a word of its own or it cannot be said at all.
+        if (request.clearEndDate()) {
+            task.setEndDate(null);
+        } else if (request.endDate() != null) {
+            task.setEndDate(request.endDate());
+        }
+        if (request.clearMaxOccurrences()) {
+            task.setMaxOccurrences(null);
+        } else if (request.maxOccurrences() != null) {
+            requireNotAlreadyPast(task, request.maxOccurrences());
+            task.setMaxOccurrences(request.maxOccurrences());
+        }
+
+        log.info("Scheduled task {} edited by its owner", taskId);
+        return ScheduledTaskMapper.toResponse(repository.save(task));
+    }
+
+    /**
+     * A cancelled or completed schedule is history, and history is not edited — reviving one by
+     * changing its amount would make the trail lie about what was agreed and when.
+     */
+    private void requireEditable(ScheduledTask task) {
+        if (task.getStatus() != ScheduledTaskStatus.ACTIVE
+                && task.getStatus() != ScheduledTaskStatus.PAUSED) {
+            throw new ConflictException("Une planification " + task.getStatus()
+                    + " ne peut plus être modifiée : créez-en une nouvelle.");
+        }
+    }
+
+    /**
+     * The beneficiary and the biller move together: a Canal+ card number is meaningless once the
+     * biller becomes Togocom, so changing one re-validates against the other rather than trusting
+     * whichever half arrived.
+     */
+    private void applyBeneficiary(ScheduledTask task, UpdateScheduledTaskRequest request) {
+        if (request.biller() == null && request.beneficiaryReference() == null) {
+            return;
+        }
+        if (task.getType() != ScheduledTaskType.BILL_PAYMENT) {
+            if (request.beneficiaryReference() != null) {
+                task.setBeneficiaryReference(request.beneficiaryReference());
+            }
+            return;
+        }
+
+        Biller biller = request.biller() != null ? request.biller() : task.getBiller();
+        String reference = request.beneficiaryReference() != null
+                ? request.beneficiaryReference()
+                : task.getBeneficiaryReference();
+
+        billerCatalog.requireSchedulable(biller);
+        task.setBiller(biller);
+        task.setBeneficiaryReference(billerCatalog.normaliseIdentifier(biller, reference));
+    }
+
+    private void applyRecurrence(ScheduledTask task, UpdateScheduledTaskRequest request) {
+        if (request.nextRunAt() != null) {
+            if (!request.nextRunAt().isAfter(Instant.now())) {
+                throw new BadRequestException("La prochaine échéance doit être dans le futur");
+            }
+            task.setNextRunAt(request.nextRunAt());
+        }
+        if (request.frequency() != null) {
+            task.setFrequency(request.frequency());
+        }
+        if (request.dayOfMonth() != null) {
+            task.setDayOfMonth(request.dayOfMonth());
+        }
+
+        // Leaving a monthly schedule without a chosen day would let it drift from whatever run it
+        // happens to be sitting on, which is the bug the stored day exists to prevent.
+        if (task.getFrequency() == ScheduleFrequency.MONTHLY && task.getDayOfMonth() == null) {
+            task.setDayOfMonth(LocalDateTime.ofInstant(task.getNextRunAt(), ZoneOffset.UTC)
+                    .getDayOfMonth());
+        }
+        if (task.getFrequency() != ScheduleFrequency.MONTHLY) {
+            task.setDayOfMonth(null);
+        }
+    }
+
+    /** A limit already reached would end the schedule the moment it is saved. */
+    private void requireNotAlreadyPast(ScheduledTask task, int maxOccurrences) {
+        if (maxOccurrences <= task.getOccurrencesCompleted()) {
+            throw new BadRequestException("Cette planification compte déjà "
+                    + task.getOccurrencesCompleted() + " exécutions : le maximum doit être supérieur.");
+        }
+    }
+
     /**
      * Resolves the vault the schedule will spend from.
      *
@@ -80,13 +190,18 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
                     "Choisissez le coffre qui financera cette planification");
         }
 
-        Vault vault = vaultService.getVault(ownerId, request.fundingVaultId());
+        return resolveVault(ownerId, request.fundingVaultId(), request.currency());
+    }
+
+    /** Shared by creation and edition, so switching vault is checked exactly as choosing one. */
+    private UUID resolveVault(UUID ownerId, UUID vaultId, Currency currency) {
+        Vault vault = vaultService.getVault(ownerId, vaultId);
         if (vault.getStatus() != VaultStatus.ACTIVE) {
             throw new BadRequestException("Ce coffre est clôturé");
         }
-        if (vault.getCurrency() != request.currency()) {
+        if (vault.getCurrency() != currency) {
             throw new BadRequestException("Le coffre « " + vault.getName() + " » est en "
-                    + vault.getCurrency() + ", la planification en " + request.currency());
+                    + vault.getCurrency() + ", la planification en " + currency);
         }
         return vault.getId();
     }

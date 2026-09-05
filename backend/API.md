@@ -347,6 +347,24 @@ existants ; considérez-le comme obligatoire.
 
 Déposer déplace l'argent du solde disponible vers le solde bloqué. `progressPercent` et `goalReached` sont calculés côté serveur — utilisez-les directement pour la barre de progression.
 
+### Modifier un coffre
+
+`PATCH /vaults/{id}` — un champ absent est laissé tel quel.
+
+```json
+{ "name": "Apport logement", "targetAmount": 900000,
+  "targetDate": "2027-06-30", "description": "acompte",
+  "clearTargetAmount": false, "clearTargetDate": false }
+```
+
+> **Il n'y a pas de champ `balance`, et il n'y en aura pas.** L'argent entre et sort d'un coffre
+> uniquement par un dépôt, un retrait ou une planification — chacun laissant une transaction.
+> La devise n'est pas modifiable non plus : elle est fixée par le portefeuille sur lequel
+> l'argent est bloqué.
+
+Refusé : un objectif **inférieur** à ce qui est déjà épargné (400), une échéance dans le passé
+(400), un coffre clôturé (400).
+
 ---
 
 ## 9. Transactions programmées
@@ -356,6 +374,7 @@ Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de 
 | Méthode | Route | Corps |
 |---|---|---|
 | `POST` | `/scheduling/tasks` | voir ci-dessous |
+| `PATCH` | `/scheduling/tasks/{id}` | **modifier** — voir ci-dessous |
 | `PATCH` | `/scheduling/tasks/{id}/pause` | — |
 | `PATCH` | `/scheduling/tasks/{id}/resume` | — |
 | `PATCH` | `/scheduling/tasks/{id}/cancel` | — |
@@ -373,6 +392,42 @@ Enveloppe `ApiResponse<T>`. Le propriétaire vient du token : **il n'y a pas de 
 Types : `P2P_TRANSFER`, `MERCHANT_PAYMENT`, `VAULT_DEPOSIT`, `BILL_PAYMENT`
 Fréquences : `ONCE`, `DAILY`, `WEEKLY`, `MONTHLY`
 Statuts : `ACTIVE`, `PAUSED`, `FAILED`, `COMPLETED`, `CANCELLED`
+
+### Modifier une planification
+
+`PATCH /scheduling/tasks/{id}` — **un champ absent est laissé tel quel.**
+
+```json
+{ "amount": 65000,
+  "beneficiaryReference": "+22890999888",
+  "biller": "canal_plus",
+  "fundingVaultId": "uuid-d-un-autre-coffre",
+  "frequency": "MONTHLY",
+  "dayOfMonth": 28,
+  "nextRunAt": "2026-11-28T00:00:00Z",
+  "endDate": "2027-12-31T00:00:00Z",
+  "maxOccurrences": 12,
+  "clearEndDate": false,
+  "clearMaxOccurrences": false }
+```
+
+> Comme `null` signifie « inchangé », **supprimer** une date de fin ou un nombre maximum
+> d'exécutions se fait avec `clearEndDate: true` / `clearMaxOccurrences: true`. Envoyer `null` ne
+> les efface pas.
+
+Ce qui n'est **pas** modifiable, et pourquoi :
+
+| Champ | Raison |
+|---|---|
+| `type`, `currency` | le bénéficiaire, le facturier et le coffre en dépendent — annulez et recréez |
+| `status` | passe par `/pause`, `/resume`, `/cancel`, pour que ça reste des événements distincts |
+
+Une planification `CANCELLED` ou `COMPLETED` répond **409** : c'est de l'historique.
+Une planification `PAUSED` reste modifiable — on ajuste avant de reprendre.
+
+Changer de coffre refait les mêmes contrôles qu'à la création (vous appartient, actif, même
+devise). Changer de facturier revalide le numéro d'abonné : un numéro de carte Canal+ ne veut
+rien dire une fois le facturier passé à Togocom.
 
 ### Le coffre de financement est obligatoire
 

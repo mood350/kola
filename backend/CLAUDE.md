@@ -254,6 +254,28 @@ returns that row, because a client told "conflict" for a payment that did go thr
 from one that did not. The scheduler's key is `task:{id}:{occurrence}`: a run retried the next
 morning is the same instalment. REST clients send `Idempotency-Key`; treat it as required.
 
+**Editing.** `PATCH /api/v1/scheduling/tasks/{id}` and `PATCH /api/v1/vaults/{id}` change a
+schedule or a savings goal in place; **an absent field is left alone**. Because null therefore means
+"unchanged", anything nullable that a user may want to *remove* carries an explicit flag
+(`clearEndDate`, `clearMaxOccurrences`, `clearTargetAmount`, `clearTargetDate`) — otherwise "no end
+date" cannot be said at all.
+
+What these updates deliberately refuse:
+
+- **A balance, anywhere.** Money moves only through a deposit, a withdrawal, a transfer or a
+  scheduled payment, each of which writes a transaction. A settable balance would create money the
+  ledger cannot account for.
+- **A schedule's `type` and `currency`, a vault's `currency`.** Its beneficiary, biller and funding
+  vault all hang off those; editing them in place would quietly invalidate the rest, where
+  cancelling and recreating states plainly what is happening.
+- **Status.** Pause / resume / cancel keep their own routes so that "j'ai suspendu" and "j'ai changé
+  le montant" stay separate events in the trail.
+- **A cancelled or completed schedule, a closed vault.** That is history, and history is not edited.
+
+Switching a schedule's vault runs the same `resolveVault` check as choosing one (owned, active,
+right currency), and changing a bill's biller re-validates the subscriber number against it — a
+Canal+ card number means nothing once the biller becomes Togocom.
+
 **Do not mark the key column `updatable = false`.** It is stamped just after the movement saves its
 row, so Hibernate must include it in that UPDATE — non-updatable silently dropped the stamp and
 every retry paid again.
