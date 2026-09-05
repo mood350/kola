@@ -5,7 +5,8 @@
 //   forceCloseVault(id)           -> Promise<ClientUser>
 //   getKycQueue()                 -> Promise<KycSubmission[]>
 //   approveKyc(submissionId)      -> Promise<void>
-//   rejectKyc(submissionId)       -> Promise<void>
+//   rejectKyc(submissionId, why)  -> Promise<void>   (reason is mandatory)
+//   getKycDocumentFile(id)        -> Promise<Blob>   (the piece under review)
 //
 // Tier/state filtering is done client-side (see hooks/useUsers.js) against
 // the full list, matching the single combined filter control in the UI.
@@ -24,9 +25,9 @@ let usersSeed = [
 ];
 
 let kycQueueSeed = [
-  { id: 'kyc-1', name: 'Yao Tchalla', fromTier: 'TIER_1', toTier: 'TIER_2', receivedAt: 'il y a 2 h' },
-  { id: 'kyc-2', name: 'Ama Domingo', fromTier: 'TIER_2', toTier: 'TIER_3', receivedAt: 'il y a 5 h' },
-  { id: 'kyc-3', name: 'Ibrahim Sy', fromTier: 'TIER_1', toTier: 'TIER_2', receivedAt: 'hier' },
+  { id: 'kyc-1', name: 'Yao Tchalla', fromTier: 'TIER_1', toTier: 'TIER_2', receivedAt: 'Il y a 2 h', documentType: "Carte d'identité", contentType: 'image/jpeg', fileName: 'cni-recto.jpg' },
+  { id: 'kyc-2', name: 'Ama Domingo', fromTier: 'TIER_2', toTier: 'TIER_3', receivedAt: 'Il y a 5 h', documentType: 'Justificatif de domicile', contentType: 'application/pdf', fileName: 'facture.pdf' },
+  { id: 'kyc-3', name: 'Ibrahim Sy', fromTier: 'TIER_1', toTier: 'TIER_2', receivedAt: 'Hier', documentType: 'Passeport', contentType: 'image/png', fileName: 'passeport.png' },
 ];
 
 export class MockUserRepository {
@@ -72,9 +73,16 @@ export class MockUserRepository {
     kycQueueSeed = kycQueueSeed.filter((k) => k.id !== submissionId);
   }
 
-  async rejectKyc(submissionId) {
+  async rejectKyc(submissionId, reason) {
     await delay();
+    if (!reason || !reason.trim()) throw new Error('Un motif de rejet est obligatoire.');
     kycQueueSeed = kycQueueSeed.filter((k) => k.id !== submissionId);
+  }
+
+  /** No file behind the seeded queue; the viewer says so rather than showing a broken image. */
+  async getKycDocumentFile() {
+    await delay(150);
+    throw new Error("Aperçu indisponible sur les données de démonstration.");
   }
 }
 
@@ -103,7 +111,11 @@ export class HttpUserRepository {
     return httpClient.post(endpoints.users.approveKyc(submissionId), {});
   }
 
-  rejectKyc(submissionId) {
-    return httpClient.post(endpoints.users.rejectKyc(submissionId), {});
+  rejectKyc(submissionId, reason) {
+    return httpClient.post(endpoints.users.rejectKyc(submissionId), { reason });
+  }
+
+  getKycDocumentFile(documentId) {
+    return httpClient.blob(endpoints.users.kycDocumentFile(documentId));
   }
 }

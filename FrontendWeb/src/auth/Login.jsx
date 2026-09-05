@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { s } from '../lib/style';
-import { BRAND_NAME, BRAND_INITIAL } from '../lib/brand';
+import { BRAND_NAME, BRAND_LOGO } from '../lib/brand';
 import Hoverable from '../components/Hoverable';
 import FocusableInput from '../components/FocusableInput';
 import { useAuth } from './useAuth';
@@ -48,7 +48,7 @@ export default function Login() {
     <div style={s('min-height:100vh; display:flex; align-items:center; justify-content:center; padding:32px; background:#FAF8FF; font-family:Manrope,Helvetica,sans-serif; color:#131B2E')}>
       <div style={{ ...s('width:100%; max-width:420px; background:#fff; border-radius:26px; padding:34px 32px; box-shadow:0 24px 60px -30px rgba(15,56,117,.45)'), animation: 'kUp .5s ease both' }}>
         <div style={s('display:flex; align-items:center; gap:11px')}>
-          <div style={s('width:42px; height:42px; border-radius:14px; background:linear-gradient(145deg,#FFCB05,#FFCB05); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:21px; color:#131B2E; box-shadow:0 8px 20px rgba(255,203,5,.34)')}>{BRAND_INITIAL}</div>
+          <img src={BRAND_LOGO} alt="" style={s('width:46px; height:46px; object-fit:contain; display:block')} />
           <div>
             <div style={s('font-weight:800; font-size:19px; letter-spacing:.02em; line-height:1; color:#131B2E')}>{BRAND_NAME}</div>
             <div style={s('color:#596171; font-size:9.5px; font-weight:700; letter-spacing:.14em; margin-top:3px')}>BACK-OFFICE ADMIN</div>

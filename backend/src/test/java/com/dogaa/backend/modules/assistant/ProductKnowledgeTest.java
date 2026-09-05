@@ -31,8 +31,11 @@ class ProductKnowledgeTest {
     private final AuthProperties auth = new AuthProperties();
     private final DisputeProperties disputes = new DisputeProperties();
 
-    // Null repository: with no saved fee grid the calculator falls back on the configured
-    // rates, which is exactly the baseline these tests are about.
+    /**
+     * No back-office grid saved, which is what these cases assume: the briefing quotes the
+     * configured base rate times the tier rebate. The schedule service reads an in-memory grid,
+     * empty until a version is loaded, so it never reaches the repository here.
+     */
     private final FeeCalculator feeCalculator =
             new FeeCalculator(fees, new FeeScheduleService(null));
 

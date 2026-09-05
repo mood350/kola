@@ -839,6 +839,17 @@ sauvegarde back-office, pas le barème de configuration — celui-ci reste dans
 client. Un prêt déjà soldé renvoie 400.
 
 ### Litiges & chargebacks
+### Litiges et chargebacks
+
+Côté client, contester une de ses transactions (enveloppe `ApiResponse` habituelle) :
+
+| Méthode | Route | Corps |
+|---|---|---|
+| `POST` | `/api/v1/disputes` | `{ transactionReference, tag, title }` |
+
+`tag` : `fraud`, `double_debit`, `p2p`.
+
+Côté back-office (DTO brut) :
 
 | Méthode | Route | Réponse |
 |---|---|---|
@@ -877,11 +888,15 @@ Nombre de validations réglable par `app.disputes.validations-required` (défaut
 `resolved` ou `rejected`. Ce sont les valeurs de fil, en minuscules — la console s'en sert pour
 choisir ses styles.
 
-**La double validation est réelle, pas déclarative.** Le même admin ne peut pas signer deux fois :
-la seconde tentative renvoie **403** en le disant. Le renversement des fonds s'exécute dans la même
-transaction que la validation qui le déclenche — si le portefeuille du bénéficiaire ne peut plus le
-couvrir, la validation est annulée avec lui. Un litige marqué résolu alors que l'argent n'a pas bougé
-serait pire qu'un litige encore en attente. Valider un litige sans chargeback en cours renvoie 409.
+**La double validation est réelle.** `validate` est refusé (`409`) si l'administrateur a déjà validé
+ce litige — un index unique `(dispute_id, admin_id)` l'empêche même en cas de requêtes simultanées.
+Il faut donc bien **deux administrateurs distincts**, et `lastValidationNote` les nomme tous les deux.
+
+Rien ne bouge tant que le quota n'est pas atteint. La dernière validation exécute le chargeback :
+le plaignant est **remboursé intégralement**, la récupération auprès du bénéficiaire est limitée à ce
+qu'il détient encore, et le manque éventuel apparaît dans `lastValidationNote`.
+
+Nombre de validations réglable par `app.disputes.validations-required` (défaut 2).
 
 ### Suivi financier
 
@@ -996,4 +1011,8 @@ Un rejet **doit** porter un `rejectionReason`, sinon `400`.
   vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
 - **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
 
+- **Les barèmes sont modifiables à chaud** : l'échelle de prêt (§12) et la grille de frais (§12)
+  vivent en base et priment sur `application.properties`. Ne figez ni les taux ni les plafonds dans le front.
+- **Les exports d'audit renvoient `url: null`** — la génération de fichier n'est pas implémentée (§12).
+- **L'assistant (§11 bis) répond 503 tant que `app.assistant.api-key` n'est pas renseignée** côté serveur. Le reste de l'application fonctionne normalement.
 Questions ou champ manquant → ouvrez une issue sur le dépôt, ou consultez Swagger qui reflète toujours le code déployé.

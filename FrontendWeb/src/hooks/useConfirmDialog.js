@@ -8,8 +8,10 @@ import { useCallback, useState } from 'react';
 export function useConfirmDialog() {
   const [pendingRequest, setPendingRequest] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [inputValue, setInputValue] = useState('');
 
   const request = useCallback((config, run) => {
+    setInputValue('');
     setPendingRequest({ ...config, run });
   }, []);
 
@@ -20,9 +22,12 @@ export function useConfirmDialog() {
 
   const confirm = useCallback(async () => {
     if (!pendingRequest) return;
+    // A required field guards the action here rather than in each caller: a rejection with no
+    // reason is refused by the server anyway, and failing at the dialog keeps the text typed.
+    if (pendingRequest.input?.required && !inputValue.trim()) return;
     setBusy(true);
     try {
-      await pendingRequest.run();
+      await pendingRequest.run(inputValue.trim());
     } catch {
       // The action's own error state (actionError) surfaces the failure —
       // just close the dialog either way.
@@ -30,7 +35,7 @@ export function useConfirmDialog() {
       setBusy(false);
       setPendingRequest(null);
     }
-  }, [pendingRequest]);
+  }, [pendingRequest, inputValue]);
 
   return {
     request,
@@ -41,6 +46,9 @@ export function useConfirmDialog() {
       message: pendingRequest?.message,
       danger: pendingRequest?.danger,
       confirmLabel: pendingRequest?.confirmLabel,
+      input: pendingRequest?.input,
+      inputValue,
+      onInputChange: setInputValue,
       onConfirm: confirm,
       onCancel: cancel,
     },

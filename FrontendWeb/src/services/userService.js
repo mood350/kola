@@ -10,7 +10,8 @@ export const userService = {
   unblock: (id) => userRepository.unblock(id),
   forceCloseVault: (id) => userRepository.forceCloseVault(id),
   approveKyc: (submissionId) => userRepository.approveKyc(submissionId),
-  rejectKyc: (submissionId) => userRepository.rejectKyc(submissionId),
+  rejectKyc: (submissionId, reason) => userRepository.rejectKyc(submissionId, reason),
+  getKycDocumentFile: (documentId) => userRepository.getKycDocumentFile(documentId),
 
   /** Same combined filter the UI exposes: a tier value OR a state value. */
   filterUsers(users, filter) {

@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { s } from '../../lib/style';
 import Hoverable from '../../components/Hoverable';
 import FocusableInput from '../../components/FocusableInput';
 import LoadingState from '../../components/LoadingState';
 import ErrorState from '../../components/ErrorState';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import DocumentViewer from '../../components/DocumentViewer';
 import { useUsers } from '../../hooks/useUsers';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { userStateStyle, tierBadgeStyle } from '../presentation';
@@ -15,9 +17,10 @@ export default function Users() {
     loading, error, actionError, actionPending, reload,
     users, kycQueue, filter, setFilter, query, setQuery,
     selectedUser, selectUser, clearSelection,
-    unblock, forceCloseVault, approveKyc, rejectKyc,
+    unblock, forceCloseVault, approveKyc, rejectKyc, getKycDocumentFile,
   } = useUsers();
   const { request, dialogProps } = useConfirmDialog();
+  const [viewing, setViewing] = useState(null);
 
   if (loading) return <LoadingState label="Chargement des comptes utilisateurs…" />;
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
@@ -122,14 +125,21 @@ export default function Users() {
           )}
           {kycQueue.map((k) => (
             <div key={k.id} style={s('display:flex; align-items:center; gap:16px; border:1px solid #E2E8F0; border-radius:18px; padding:14px 16px')}>
-              <div style={s("width:64px; height:44px; flex:0 0 64px; border-radius:10px; background:repeating-linear-gradient(45deg,#E2E7FF 0 5px,#F2F3FF 5px 10px); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#596171")}>pièce ID</div>
+              <Hoverable as="button" onClick={() => setViewing(k)}
+                style={s("width:64px; height:44px; flex:0 0 64px; border-radius:10px; border:0; cursor:pointer; background:repeating-linear-gradient(45deg,#E2E7FF 0 5px,#F2F3FF 5px 10px); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:8.5px; color:#596171")}
+                hoverStyle={{ filter: 'brightness(.95)' }}
+              >voir</Hoverable>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={s('font-size:13px; font-weight:700')}>{k.name}</div>
-                <div style={s('font-size:11px; color:#596171; font-weight:600; margin-top:3px')}>{k.fromTier} → {k.toTier} · pièce reçue {k.receivedAt}</div>
+                <div style={s('font-size:11px; color:#596171; font-weight:600; margin-top:3px')}>{k.documentType || 'Pièce justificative'} · {k.fromTier} → {k.toTier} · reçue {k.receivedAt}</div>
               </div>
+              <Hoverable as="button" onClick={() => setViewing(k)}
+                style={s('border:1px solid #E2E8F0; cursor:pointer; background:#fff; color:#131B2E; font-family:Manrope,sans-serif; font-size:12px; font-weight:800; padding:9px 14px; border-radius:11px')}
+                hoverStyle={{ borderColor: '#FFCB05' }}
+              >Voir la pièce</Hoverable>
               <Hoverable as="button" disabled={actionPending} onClick={() => request({
                   title: 'Approuver cette demande KYC ?',
-                  message: `${k.name} passera du palier ${k.fromTier} au palier ${k.toTier}.`,
+                  message: `${k.name} passera du palier ${k.fromTier} au palier ${k.toTier}. Le client en est informé.`,
                   confirmLabel: 'Approuver',
                 }, () => approveKyc(k.id))}
                 style={s('border:0; cursor:pointer; background:rgba(16,185,129,.12); color:#005236; font-family:Manrope,sans-serif; font-size:12px; font-weight:800; padding:9px 14px; border-radius:11px')}
@@ -137,10 +147,17 @@ export default function Users() {
               >Approuver</Hoverable>
               <Hoverable as="button" disabled={actionPending} onClick={() => request({
                   title: 'Rejeter cette demande KYC ?',
-                  message: `La demande de passage au palier ${k.toTier} pour ${k.name} sera rejetée.`,
+                  message: `Le motif ci-dessous sera envoyé à ${k.name}, qui pourra renvoyer une pièce corrigée.`,
                   confirmLabel: 'Rejeter',
                   danger: true,
-                }, () => rejectKyc(k.id))}
+                  input: {
+                    label: 'MOTIF DU REJET',
+                    placeholder: 'Ex. : photo illisible, document expiré, nom différent du compte…',
+                    required: true,
+                    requiredMessage: 'Le motif est obligatoire : il est envoyé au client.',
+                    maxLength: 300,
+                  },
+                }, (reason) => rejectKyc(k.id, reason))}
                 style={s('border:0; cursor:pointer; background:rgba(186,26,26,.1); color:#BA1A1A; font-family:Manrope,sans-serif; font-size:12px; font-weight:800; padding:9px 14px; border-radius:11px')}
                 hoverStyle={{ background: 'rgba(186,26,26,.16)' }}
               >Rejeter</Hoverable>
@@ -150,6 +167,12 @@ export default function Users() {
       </section>
 
       <ConfirmDialog {...dialogProps} />
+      <DocumentViewer
+        open={Boolean(viewing)}
+        submission={viewing}
+        load={getKycDocumentFile}
+        onClose={() => setViewing(null)}
+      />
     </div>
   );
 }

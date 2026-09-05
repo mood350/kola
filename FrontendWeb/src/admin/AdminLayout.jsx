@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { s, badge } from '../lib/style';
-import { BRAND_NAME, BRAND_INITIAL } from '../lib/brand';
+import { BRAND_NAME, BRAND_LOGO } from '../lib/brand';
 import Hoverable from '../components/Hoverable';
 import { useAuth } from '../auth/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
@@ -59,7 +59,10 @@ export default function AdminLayout() {
     <div style={s('display:flex; min-height:100vh; background:#FAF8FF; font-family:Manrope,Helvetica,sans-serif; color:#131B2E')}>
       <aside style={s('width:252px; flex:0 0 252px; background:linear-gradient(185deg,#0F3875 0%,#002353 62%,#002353 100%); position:sticky; top:0; height:100vh; display:flex; flex-direction:column; padding:24px 16px 20px; overflow-y:auto')}>
         <div style={s('display:flex; align-items:center; gap:11px; padding:4px 6px 0')}>
-          <div style={s('width:38px; height:38px; border-radius:12px; background:linear-gradient(145deg,#FFCB05,#FFCB05); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px; color:#131B2E; box-shadow:0 8px 20px rgba(255,203,5,.34)')}>{BRAND_INITIAL}</div>
+          {/* White tile: the mark is mostly navy and would sink into the navy rail without it. */}
+          <div style={s('width:38px; height:38px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(0,0,0,.22)')}>
+            <img src={BRAND_LOGO} alt="" style={s('width:28px; height:28px; object-fit:contain; display:block')} />
+          </div>
           <div>
             <div style={s('color:#fff; font-weight:800; font-size:16.5px; letter-spacing:.02em; line-height:1')}>{BRAND_NAME}</div>
             <div style={s('color:rgba(255,255,255,.5); font-size:9.5px; font-weight:700; letter-spacing:.14em; margin-top:3px')}>BACK-OFFICE ADMIN</div>

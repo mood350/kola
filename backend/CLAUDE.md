@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Dogaa backend — a mobile-money wallet / programmed-savings / algorithmic-microcredit platform targeting the UEMOA zone (Togo, Senegal, Côte d'Ivoire, Ghana). The functional spec lives in `../DOGAA.md` (French); read it before implementing any domain feature — it is the source of truth for business rules (fee percentages, KYC tiers, scoring signals, scheduler semantics).
 
-Current state: the twelve domain modules listed under *Package layout* are all implemented — registration/auth, KYC, wallets, vaults, transactions, scheduling, scoring, credit, notifications, audit and the admin back-office. `../FrontendWeb/BACKEND.md` is the contract the React back-office expects (sections 4-13, all served today) and `API.md` is the reference handed to the mobile and web clients; both are kept in step with the code, so update them in the same change as the endpoint.
+Current state: the fifteen domain modules listed under *Package layout* are all implemented — registration/auth, KYC, wallets, vaults, transactions, scheduling, scoring, credit, notifications, audit, disputes, the conversational assistant, payment QR codes and the admin back-office. `../FrontendWeb/BACKEND.md` is the contract the React back-office expects (sections 4-13, all served today) and `API.md` is the reference handed to the mobile and web clients; both are kept in step with the code, so update them in the same change as the endpoint.
 
 ## Commands
 
@@ -150,6 +150,55 @@ Nightly jobs, staggered on purpose: scheduled transactions at 00:00, rescoring p
 at 00:30, loan recovery at 01:00. Reading balances while transfers execute would make the score
 depend on which job won the race.
 
+## Admin back-office
+
+A second, separate authentication realm (`modules/admin`) plus a transverse journal
+(`modules/audit`). The contract it serves is `../FrontendWeb/BACKEND.md`; the invariants below are
+the ones a plausible-looking change breaks.
+
+- **Admin accounts are not users.** `AdminAccount` has an email and a password (BCrypt), where a
+  `User` has a phone and a PIN. The two never meet: an admin JWT carries a `CurrentAdmin` principal,
+  sessions last 8 h and there is no refresh token, because the console does not implement one.
+  `AdminAccountSeeder` writes the four reference accounts on first boot when the table is empty —
+  turn it off with `app.admin.seed.enabled=false` before production, they share one password.
+- **A forbidden module is 403, never 401.** The role matrix (`AdminRole` × `AdminModule`) is
+  enforced server-side, and the distinction matters to the client: the console redirects to
+  `/login` on 401, so answering 401 for "your role cannot see this page" would bounce a legitimately
+  logged-in admin out of the app.
+- **Sensitive writes are narrower than the module.** Reaching the credit or config module is not
+  permission to edit its scales: `PUT /admin/credit/tier-config` and `PUT /admin/config/fees` are
+  Super-admin only. The matrix is per module; these two checks are in the services.
+- **Chargebacks need two distinct admins, and the database is what guarantees it.**
+  `DisputeValidation` (`modules/dispute`) carries the signer's id under a unique
+  `(disputeId, adminId)` constraint — the same admin signing twice gets a 409, and the index holds
+  even for simultaneous requests. The quota itself is configurable
+  (`app.disputes.validations-required`). The reversal executes inside the transaction of the
+  validation that reaches it, and it deliberately does *not* wait for a solvent beneficiary: the
+  complainant is refunded in full, recovery is capped at what the beneficiary still holds, and the
+  gap is recorded as a shortfall the platform absorbs. Holding the refund until the beneficiary can
+  pay would make the victim carry the fraud.
+- **Editable scales append a version, never overwrite.** `CreditLadderService` (credit) and
+  `FeeScheduleService` (transaction) own the live values: each loads the latest saved version into
+  its properties bean at startup and replaces it on every approved edit. `CreditPolicy` and
+  `FeeCalculator` stay pure arithmetic that never learns a database exists. Two consequences worth
+  remembering: version 1 is the first back-office save, *not* the configured baseline (an empty
+  table means `application.properties` is in force), and a saved fee grid is already per-tier, so
+  the tier multiplier must not be applied on top of it a second time.
+- **The audit log is the store, not a copy of one.** `AuditService.record(...)` is called by every
+  service that mutates something an admin is accountable for. `/admin/support/manual-actions` is a
+  projection of that journal rather than its own table — a manual intervention *is* an audit line,
+  and storing it twice would create two truths that drift.
+- **The console formats nothing.** Amounts, ages, rates and states arrive as display strings
+  (`"100 000 XOF"`, `"14 mois"`, `"7 %/mois"`, `"Actif"`), built by `BackOfficeFormat` and
+  `common/util/RelativeTime` so that "how an amount looks" is defined once instead of once per
+  screen. Scales travel as strings in both directions because the screen edits them as free text;
+  the services parse them back and reject what they cannot read with a 400 that quotes the offending
+  value, rather than silently storing a zero.
+- **Enums that reach the console serialise to lowercase wire codes** via `@JsonValue`
+  (`fraud`, `chargeback_pending`, `reconciled`, `in_progress`). The React side styles on those
+  strings, so renaming a constant is a breaking API change even though Java sees only a rename.
+- **Aggregations return zeros, never invented numbers.** An empty database is a valid state for the
+  dashboard and finance screens, and an empty `alerts` list means nothing is wrong — not an error.
 ## Assistant
 
 The in-app chat (`modules/assistant`) answers a customer's questions about Dogaa and about their
@@ -348,7 +397,7 @@ modules/<module>/{entity,dto,mapper,repository,service,controller}
 `modules/auth` additionally has a `security/` package (JWT issuing/parsing, the servlet filter, the
 `CurrentUser` principal, the PIN policy) — framework plumbing that is neither a service nor a controller.
 
-Modules: `auth`, `user`, `kyc`, `wallet`, `transaction`, `vault`, `scheduling`, `credit`, `scoring`, `notification`, `audit`, `admin`.
+Modules: `auth`, `user`, `kyc`, `wallet`, `transaction`, `vault`, `scheduling`, `credit`, `scoring`, `notification`, `audit`, `dispute`, `assistant`, `qr`, `admin`.
 
 Everything cross-cutting stays **outside** `modules`:
 
