@@ -11,6 +11,7 @@ public class WalletMapper {
         return new WalletResponse(
                 wallet.getId(),
                 wallet.getCurrency(),
+                wallet.getType(),
                 wallet.getAvailableBalance(),
                 wallet.getLockedBalance(),
                 wallet.getTotalBalance(),

@@ -25,9 +25,11 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
     }
 
     @Override
-    public ScheduledTaskResponse create(ScheduledTaskRequest request) {
+    public ScheduledTaskResponse create(UUID ownerId, ScheduledTaskRequest request) {
         ScheduledTask task = new ScheduledTask();
-        task.setUserId(request.userId());
+        // The owner comes from the token, not from the payload: trusting the body
+        // would let anyone schedule a transfer out of someone else's wallet.
+        task.setUserId(ownerId);
         task.setType(request.type());
         task.setFrequency(request.frequency());
         task.setAmount(request.amount());
@@ -41,15 +43,15 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
     }
 
     @Override
-    public ScheduledTaskResponse pause(UUID taskId) {
-        ScheduledTask task = findActiveOrPaused(taskId);
+    public ScheduledTaskResponse pause(UUID ownerId, UUID taskId) {
+        ScheduledTask task = requireOwner(ownerId, findActiveOrPaused(taskId));
         task.setStatus(ScheduledTaskStatus.PAUSED);
         return ScheduledTaskMapper.toResponse(repository.save(task));
     }
 
     @Override
-    public ScheduledTaskResponse resume(UUID taskId) {
-        ScheduledTask task = getOrThrow(taskId);
+    public ScheduledTaskResponse resume(UUID ownerId, UUID taskId) {
+        ScheduledTask task = requireOwner(ownerId, getOrThrow(taskId));
         if (task.getStatus() != ScheduledTaskStatus.PAUSED) {
             throw new ConflictException("Seule une tache en pause peut etre reprise.");
         }
@@ -58,10 +60,21 @@ public class ScheduledTaskServiceImpl implements ScheduledTaskService {
     }
 
     @Override
-    public ScheduledTaskResponse cancel(UUID taskId) {
-        ScheduledTask task = findActiveOrPaused(taskId);
+    public ScheduledTaskResponse cancel(UUID ownerId, UUID taskId) {
+        ScheduledTask task = requireOwner(ownerId, findActiveOrPaused(taskId));
         task.setStatus(ScheduledTaskStatus.CANCELLED);
         return ScheduledTaskMapper.toResponse(repository.save(task));
+    }
+
+    /**
+     * Someone else's task answers exactly like one that does not exist. Saying "forbidden" would
+     * confirm the id is real, which is itself information the caller has no business having.
+     */
+    private ScheduledTask requireOwner(UUID ownerId, ScheduledTask task) {
+        if (!task.getUserId().equals(ownerId)) {
+            throw new ResourceNotFoundException("Tache programmee introuvable : " + task.getId());
+        }
+        return task;
     }
 
     @Override
