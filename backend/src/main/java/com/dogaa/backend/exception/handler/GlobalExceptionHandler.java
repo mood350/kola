@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,6 +53,15 @@ public class GlobalExceptionHandler {
         String message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of("BAD_REQUEST", message, request.getRequestURI()));
+    }
+
+    /** No controller matches this path — a real 404, not the generic 500 below. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(NoResourceFoundException ex,
+                                                         HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("NOT_FOUND", "No route matches this request",
+                        request.getRequestURI()));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

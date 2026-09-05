@@ -3,7 +3,9 @@ import Hoverable from '../../components/Hoverable';
 import FocusableInput from '../../components/FocusableInput';
 import LoadingState from '../../components/LoadingState';
 import ErrorState from '../../components/ErrorState';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useUsers } from '../../hooks/useUsers';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { userStateStyle, tierBadgeStyle } from '../presentation';
 
 const FILTER_NAMES = ['Tous', 'TIER_2', 'TIER_3', 'Litige'];
@@ -15,6 +17,7 @@ export default function Users() {
     selectedUser, selectUser, clearSelection,
     unblock, forceCloseVault, approveKyc, rejectKyc,
   } = useUsers();
+  const { request, dialogProps } = useConfirmDialog();
 
   if (loading) return <LoadingState label="Chargement des comptes utilisateurs…" />;
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
@@ -86,11 +89,20 @@ export default function Users() {
             <div style={s('background:#F2F3FF; border-radius:16px; padding:14px')}><div style={s('font-size:10px; font-weight:800; color:#596171; letter-spacing:.09em')}>STATUT</div><div style={{ marginTop: 8 }}><span style={userStateStyle(selectedUser.state)}>{selectedUser.state}</span></div></div>
           </div>
           <div style={s('display:flex; gap:9px; margin-top:18px; flex-wrap:wrap')}>
-            <Hoverable as="button" disabled={actionPending} onClick={() => unblock(selectedUser.id)}
+            <Hoverable as="button" disabled={actionPending} onClick={() => request({
+                title: 'Débloquer ce compte ?',
+                message: `${selectedUser.name} retrouvera un accès immédiat à son compte et à ses coffres.`,
+                confirmLabel: 'Débloquer',
+              }, () => unblock(selectedUser.id))}
               style={s('border:0; cursor:pointer; background:#002353; color:#fff; font-family:Manrope,sans-serif; font-size:12.5px; font-weight:800; padding:11px 16px; border-radius:12px')}
               hoverStyle={{ background: '#0F3875' }}
             >Débloquer le compte</Hoverable>
-            <Hoverable as="button" disabled={actionPending || selectedUser.vaults === 0} onClick={() => forceCloseVault(selectedUser.id)}
+            <Hoverable as="button" disabled={actionPending || selectedUser.vaults === 0} onClick={() => request({
+                title: 'Forcer la fermeture d\'un coffre ?',
+                message: `Un coffre actif de ${selectedUser.name} sera clôturé de force. Cette action est irréversible et journalisée.`,
+                confirmLabel: 'Fermer le coffre',
+                danger: true,
+              }, () => forceCloseVault(selectedUser.id))}
               style={s('border:1px solid #E2E8F0; cursor:pointer; background:#F2F3FF; color:#131B2E; font-family:Manrope,sans-serif; font-size:12.5px; font-weight:800; padding:11px 16px; border-radius:12px')}
               hoverStyle={{ borderColor: '#FFCB05', background: '#fff' }}
             >Forcer fermeture d'un coffre</Hoverable>
@@ -115,11 +127,20 @@ export default function Users() {
                 <div style={s('font-size:13px; font-weight:700')}>{k.name}</div>
                 <div style={s('font-size:11px; color:#596171; font-weight:600; margin-top:3px')}>{k.fromTier} → {k.toTier} · pièce reçue {k.receivedAt}</div>
               </div>
-              <Hoverable as="button" disabled={actionPending} onClick={() => approveKyc(k.id)}
+              <Hoverable as="button" disabled={actionPending} onClick={() => request({
+                  title: 'Approuver cette demande KYC ?',
+                  message: `${k.name} passera du palier ${k.fromTier} au palier ${k.toTier}.`,
+                  confirmLabel: 'Approuver',
+                }, () => approveKyc(k.id))}
                 style={s('border:0; cursor:pointer; background:rgba(16,185,129,.12); color:#005236; font-family:Manrope,sans-serif; font-size:12px; font-weight:800; padding:9px 14px; border-radius:11px')}
                 hoverStyle={{ background: 'rgba(16,185,129,.18)' }}
               >Approuver</Hoverable>
-              <Hoverable as="button" disabled={actionPending} onClick={() => rejectKyc(k.id)}
+              <Hoverable as="button" disabled={actionPending} onClick={() => request({
+                  title: 'Rejeter cette demande KYC ?',
+                  message: `La demande de passage au palier ${k.toTier} pour ${k.name} sera rejetée.`,
+                  confirmLabel: 'Rejeter',
+                  danger: true,
+                }, () => rejectKyc(k.id))}
                 style={s('border:0; cursor:pointer; background:rgba(186,26,26,.1); color:#BA1A1A; font-family:Manrope,sans-serif; font-size:12px; font-weight:800; padding:9px 14px; border-radius:11px')}
                 hoverStyle={{ background: 'rgba(186,26,26,.16)' }}
               >Rejeter</Hoverable>
@@ -127,6 +148,8 @@ export default function Users() {
           ))}
         </div>
       </section>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

@@ -2,9 +2,11 @@
 // mock data or a real backend. Services import their repository from here
 // and never instantiate Mock*/Http* themselves.
 //
-// Today VITE_API_BASE_URL is unset, so every domain resolves to its Mock
-// repository. The moment it's set (see .env.example), every domain switches
-// to the real HTTP repository with no other code change required.
+// Without VITE_API_BASE_URL (see .env.example) every domain resolves to its
+// Mock repository. With it set, a domain switches to HTTP only if it is listed
+// in BACKEND_READY below: the Spring back-office covers auth, dashboard, users,
+// roles and audit today, and the remaining routes answer 404. Move a domain
+// into the list the day its controller lands — that is the only change needed.
 
 import { isBackendConfigured } from '../api/httpClient';
 
@@ -19,17 +21,24 @@ import { MockAuditRepository, HttpAuditRepository } from './auditRepository';
 import { MockRoleRepository, HttpRoleRepository } from './roleRepository';
 import { MockSupportRepository, HttpSupportRepository } from './supportRepository';
 
-const USE_HTTP = isBackendConfigured();
+const BACKEND_READY = new Set(['auth', 'dashboard', 'users', 'roles', 'audit']);
 
-export const authRepository = USE_HTTP ? new HttpAuthRepository() : new MockAuthRepository();
-export const dashboardRepository = USE_HTTP ? new HttpDashboardRepository() : new MockDashboardRepository();
-export const userRepository = USE_HTTP ? new HttpUserRepository() : new MockUserRepository();
-export const creditRepository = USE_HTTP ? new HttpCreditRepository() : new MockCreditRepository();
-export const financeRepository = USE_HTTP ? new HttpFinanceRepository() : new MockFinanceRepository();
-export const disputeRepository = USE_HTTP ? new HttpDisputeRepository() : new MockDisputeRepository();
-export const configRepository = USE_HTTP ? new HttpConfigRepository() : new MockConfigRepository();
-export const auditRepository = USE_HTTP ? new HttpAuditRepository() : new MockAuditRepository();
-export const roleRepository = USE_HTTP ? new HttpRoleRepository() : new MockRoleRepository();
-export const supportRepository = USE_HTTP ? new HttpSupportRepository() : new MockSupportRepository();
+const backendConfigured = isBackendConfigured();
 
-export const usingMockData = !USE_HTTP;
+const pick = (domain, Http, Mock) =>
+  backendConfigured && BACKEND_READY.has(domain) ? new Http() : new Mock();
+
+export const authRepository = pick('auth', HttpAuthRepository, MockAuthRepository);
+export const dashboardRepository = pick('dashboard', HttpDashboardRepository, MockDashboardRepository);
+export const userRepository = pick('users', HttpUserRepository, MockUserRepository);
+export const creditRepository = pick('credit', HttpCreditRepository, MockCreditRepository);
+export const financeRepository = pick('finance', HttpFinanceRepository, MockFinanceRepository);
+export const disputeRepository = pick('disputes', HttpDisputeRepository, MockDisputeRepository);
+export const configRepository = pick('config', HttpConfigRepository, MockConfigRepository);
+export const auditRepository = pick('audit', HttpAuditRepository, MockAuditRepository);
+export const roleRepository = pick('roles', HttpRoleRepository, MockRoleRepository);
+export const supportRepository = pick('support', HttpSupportRepository, MockSupportRepository);
+
+/** True while a page still reads fabricated data — the console says so, so nobody acts on it. */
+export const domainUsesMockData = (domain) =>
+  !(backendConfigured && BACKEND_READY.has(domain));

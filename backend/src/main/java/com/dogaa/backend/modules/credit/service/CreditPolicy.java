@@ -38,9 +38,15 @@ public class CreditPolicy {
                 .findFirst();
     }
 
-    /** Collateral times leverage, rounded down to the nearest whole unit of currency. */
-    public BigDecimal maxLoanAmount(BigDecimal collateral, BigDecimal leverage) {
-        return collateral.multiply(leverage).setScale(0, RoundingMode.DOWN);
+    /**
+     * Collateral times leverage, rounded down, then capped by the rung's own ceiling. Leverage
+     * alone scales without limit with the borrower's savings; the ceiling is what bounds the
+     * platform's exposure to a single borrower.
+     */
+    public BigDecimal maxLoanAmount(BigDecimal collateral, CreditProperties.Rung rung) {
+        BigDecimal secured = collateral.multiply(rung.getLeverage()).setScale(0, RoundingMode.DOWN);
+        BigDecimal ceiling = rung.getMaxAmount();
+        return ceiling == null ? secured : secured.min(ceiling);
     }
 
     public BigDecimal interestOn(BigDecimal principal, BigDecimal monthlyRatePercent) {

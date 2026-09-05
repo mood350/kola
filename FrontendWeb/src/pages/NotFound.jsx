@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { s } from '../lib/style';
 import { BRAND_NAME, BRAND_INITIAL } from '../lib/brand';
 import Hoverable from '../components/Hoverable';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 
 export default function NotFound() {
   const { isAuthenticated } = useAuth();

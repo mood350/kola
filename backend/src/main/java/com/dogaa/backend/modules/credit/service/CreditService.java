@@ -85,7 +85,9 @@ public class CreditService {
         boolean eligible = blockers.isEmpty() && rung.isPresent();
         BigDecimal leverage = rung.map(CreditProperties.Rung::getLeverage).orElse(BigDecimal.ZERO);
         BigDecimal rate = rung.map(CreditProperties.Rung::getMonthlyRatePercent).orElse(BigDecimal.ZERO);
-        BigDecimal maxAmount = eligible ? policy.maxLoanAmount(collateral, leverage) : BigDecimal.ZERO;
+        BigDecimal maxAmount = eligible
+                ? policy.maxLoanAmount(collateral, rung.orElseThrow())
+                : BigDecimal.ZERO;
         BigDecimal repayable = eligible ? maxAmount.add(policy.interestOn(maxAmount, rate)) : BigDecimal.ZERO;
 
         return new CreditEligibilityResponse(

@@ -6,6 +6,8 @@ import LoadingState from '../../components/LoadingState';
 import ErrorState from '../../components/ErrorState';
 import { useDashboard } from '../../hooks/useDashboard';
 import { alertDotColor } from '../presentation';
+import { useAuth } from '../../auth/useAuth';
+import { canAccessNav } from '../permissions';
 
 const QUICK_LINKS = [
   { id: 'users', label: 'Utilisateurs' },
@@ -17,6 +19,8 @@ const QUICK_LINKS = [
 
 export default function Dashboard() {
   const { loading, error, reload, metrics, chart, alerts, loanBook } = useDashboard();
+  const { user } = useAuth();
+  const visibleQuickLinks = QUICK_LINKS.filter((q) => canAccessNav(user?.role, q.id));
 
   if (loading) return <LoadingState label="Chargement du tableau de bord…" />;
   if (error) return <ErrorState message={error.message} onRetry={reload} />;
@@ -101,7 +105,7 @@ export default function Dashboard() {
           <div style={s('font-size:11.5px; color:#596171; font-weight:600; margin-top:4px; line-height:1.55')}>{BRAND_NAME} opère en partenariat avec un établissement de monnaie électronique agréé BCEAO. Chiffrement des données au repos et en transit, authentification à deux facteurs et gestion des sessions/appareils actifs.</div>
         </div>
         <div style={s('display:flex; gap:8px; flex-wrap:wrap')}>
-          {QUICK_LINKS.map((q) => (
+          {visibleQuickLinks.map((q) => (
             <Link key={q.id} to={`/admin/${q.id}`} style={{ textDecoration: 'none' }}>
               <Hoverable as="button"
                 style={s('border:1px solid #E2E8F0; background:#F2F3FF; color:#131B2E; font-family:Manrope,sans-serif; font-size:11.5px; font-weight:800; padding:9px 13px; border-radius:11px; cursor:pointer')}

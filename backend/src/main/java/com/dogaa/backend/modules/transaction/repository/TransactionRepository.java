@@ -29,14 +29,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
      * type, status and/or a creation-date window — any filter left {@code null} is
      * ignored. Includes {@code FAILED} traces (scheduler misfires included), so this is
      * the one place a user's transactional activity is fully visible.
+     *
+     * <p>Each filter neutralises itself through {@code coalesce} rather than a {@code :param is null}
+     * test: PostgreSQL cannot infer the type of a standalone null bind parameter and rejects the
+     * statement. Inside {@code coalesce} it takes the type from the column it sits next to.
      */
     @Query("""
             select t from Transaction t
             where (t.senderId = :userId or t.recipientId = :userId)
-              and (:type is null or t.type = :type)
-              and (:status is null or t.status = :status)
-              and (:from is null or t.createdAt >= :from)
-              and (:to is null or t.createdAt <= :to)
+              and t.type = coalesce(:type, t.type)
+              and t.status = coalesce(:status, t.status)
+              and t.createdAt >= coalesce(:from, t.createdAt)
+              and t.createdAt <= coalesce(:to, t.createdAt)
             order by t.createdAt desc
             """)
     Page<Transaction> findForUser(@Param("userId") UUID userId,

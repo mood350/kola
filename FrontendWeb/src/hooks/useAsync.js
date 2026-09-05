@@ -17,9 +17,12 @@ export function useAsync(factory) {
     factoryRef.current = factory;
   });
 
-  const reload = useCallback(() => {
+  // Kicks off the request without touching `loading` synchronously — safe to
+  // call directly from an effect since state only changes inside the
+  // (async) .then()/.catch() callbacks, never during the effect's own
+  // synchronous execution.
+  const runFetch = useCallback(() => {
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
     factoryRef
       .current()
       .then((data) => {
@@ -33,7 +36,16 @@ export function useAsync(factory) {
     };
   }, []);
 
-  useEffect(() => reload(), [reload]);
+  // Manual reload (retry button, after a mutation): flip back to loading
+  // immediately since the previous data/error is stale.
+  const reload = useCallback(() => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    return runFetch();
+  }, [runFetch]);
+
+  // Initial fetch on mount: state already starts as loading, so no
+  // synchronous setState is needed before firing the request.
+  useEffect(() => runFetch(), [runFetch]);
 
   return { ...state, reload };
 }

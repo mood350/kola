@@ -4,6 +4,10 @@
 
 const TOKEN_STORAGE_KEY = 'dogaa_admin_token';
 
+/** Fired whenever the backend rejects the current token; AuthContext listens
+ * for this to clear the session and let ProtectedRoute redirect to /login. */
+export const UNAUTHORIZED_EVENT = 'dogaa:unauthorized';
+
 export class ApiError extends Error {
   constructor(message, { status, payload } = {}) {
     super(message);
@@ -66,6 +70,9 @@ async function request(method, path, { body, params, signal } = {}) {
   const payload = text ? safeJsonParse(text) : null;
 
   if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
     throw new ApiError(payload?.message || `${method} ${path} failed with HTTP ${res.status}`, {
       status: res.status,
       payload,

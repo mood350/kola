@@ -3,10 +3,12 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { s, badge } from '../lib/style';
 import { BRAND_NAME, BRAND_INITIAL } from '../lib/brand';
 import Hoverable from '../components/Hoverable';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
 import { alertDotColor } from './presentation';
 import { NAV_ITEMS } from './nav';
+import { canAccessNav } from './permissions';
+import { domainUsesMockData } from '../repositories';
 
 const PROFILE_NAV = { label: 'Mon profil', sub: 'Identité et sécurité du compte' };
 
@@ -26,6 +28,8 @@ export default function AdminLayout() {
   const { alerts } = useNotifications();
   const activeId = location.pathname.split('/')[2] || 'dashboard';
   const current = activeId === 'profile' ? PROFILE_NAV : NAV_ITEMS.find((i) => i.id === activeId) || NAV_ITEMS[0];
+  const visibleNavItems = NAV_ITEMS.filter((item) => canAccessNav(user?.role, item.id));
+  const allowed = canAccessNav(user?.role, activeId);
 
   const [search, setSearch] = useState('');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -63,7 +67,7 @@ export default function AdminLayout() {
         </div>
 
         <nav style={s('display:flex; flex-direction:column; gap:3px; margin-top:26px')}>
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const on = item.id === activeId;
             return (
               <NavLink key={item.id} to={`/admin/${item.id}`} style={{ textDecoration: 'none' }}>
@@ -170,7 +174,25 @@ export default function AdminLayout() {
         </header>
 
         <div style={s('padding:24px 30px 50px; display:flex; flex-direction:column; gap:20px')}>
-          <Outlet />
+          {allowed && domainUsesMockData(activeId) && (
+            <div style={s('background:#FFF7DB; border:1px solid #FFCB05; border-radius:14px; padding:11px 15px; font-size:12px; font-weight:700; color:#7A5B00')}>
+              Données de démonstration — le backend de cette section n'est pas encore branché.
+            </div>
+          )}
+          {allowed ? (
+            <Outlet />
+          ) : (
+            <div style={s('background:#fff; border-radius:24px; padding:40px 32px; box-shadow:0 10px 28px -22px rgba(15,56,117,.35); text-align:center')}>
+              <div style={s('font-size:17px; font-weight:800')}>Accès refusé</div>
+              <div style={s('font-size:12.5px; color:#596171; font-weight:600; margin-top:8px; line-height:1.6; max-width:420px; margin-left:auto; margin-right:auto')}>
+                Votre rôle ({user?.role || '—'}) n'a pas accès à cette section. Contactez un super-admin si vous pensez qu'il s'agit d'une erreur.
+              </div>
+              <Hoverable as={Link} to="/admin/dashboard"
+                style={s('display:inline-block; margin-top:20px; border:0; cursor:pointer; background:#FFCB05; color:#002353; font-family:Manrope,sans-serif; font-weight:800; font-size:13px; padding:11px 20px; border-radius:12px; text-decoration:none')}
+                hoverStyle={{ filter: 'brightness(1.05)' }}
+              >Retour au tableau de bord</Hoverable>
+            </div>
+          )}
         </div>
       </main>
     </div>

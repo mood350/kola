@@ -4,7 +4,7 @@ import { s } from '../lib/style';
 import { BRAND_NAME, BRAND_INITIAL } from '../lib/brand';
 import Hoverable from '../components/Hoverable';
 import FocusableInput from '../components/FocusableInput';
-import { useAuth } from './AuthContext';
+import { useAuth } from './useAuth';
 
 export default function Login() {
   const { login } = useAuth();

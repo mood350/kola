@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { s } from '../../lib/style';
 import Hoverable from '../../components/Hoverable';
 import FocusableInput from '../../components/FocusableInput';
-import { useAuth } from '../../auth/AuthContext';
+import { useAuth } from '../../auth/useAuth';
 import { authService } from '../../services/authService';
 import { roleBadgeStyle } from '../presentation';
 
