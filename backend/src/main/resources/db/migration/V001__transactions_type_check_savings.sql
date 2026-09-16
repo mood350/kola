@@ -17,7 +17,7 @@
 -- pas de bloc DO $$ ... $$, pas de fonction PL/pgSQL : le script serait tronqué au premier
 -- point-virgule interne et le démarrage échouerait.
 --
--- À MAINTENIR : toute nouvelle valeur ajoutée à com.dogaa.backend.common.enums.TransactionType
+-- À MAINTENIR : toute nouvelle valeur ajoutée à com.kola.backend.common.enums.TransactionType
 -- doit être ajoutée à la liste ci-dessous dans le même commit, sinon le même silence se
 -- reproduira sur le type suivant.
 

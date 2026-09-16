@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Dogaa backend — a mobile-money wallet / programmed-savings / algorithmic-microcredit platform targeting the UEMOA zone (Togo, Senegal, Côte d'Ivoire, Ghana). The functional spec lives in `../DOGAA.md` (French); read it before implementing any domain feature — it is the source of truth for business rules (fee percentages, KYC tiers, scoring signals, scheduler semantics).
+Kola backend — a mobile-money wallet / programmed-savings / algorithmic-microcredit platform targeting the UEMOA zone (Togo, Senegal, Côte d'Ivoire, Ghana). The functional spec lives in `../KOLA.md` (French); read it before implementing any domain feature — it is the source of truth for business rules (fee percentages, KYC tiers, scoring signals, scheduler semantics).
 
 Current state: the fifteen domain modules listed under *Package layout* are all implemented — registration/auth, KYC, wallets, vaults, transactions, scheduling, scoring, credit, notifications, audit, disputes, the conversational assistant, payment QR codes and the admin back-office. `../FrontendWeb/BACKEND.md` is the contract the React back-office expects (sections 4-13, all served today) and `API.md` is the reference handed to the mobile and web clients; both are kept in step with the code, so update them in the same change as the endpoint.
 
@@ -48,7 +48,7 @@ Phone + PIN, no passwords. Implemented across `modules/auth`, `modules/user` and
   rollback would erase the counter and the lockout would never fire. Any future "count the failure,
   then reject" path needs the same treatment.
 - **Wiring**: `config/BeansConfig` declares `PasswordEncoder`, the `DaoAuthenticationProvider` and the
-  `AuthenticationManager`; `config/SecurityConfig` only wires the filter chain. `DogaaUserDetails`
+  `AuthenticationManager`; `config/SecurityConfig` only wires the filter chain. `KolaUserDetails`
   adapts a `User` (username = phone, password = PIN hash) and maps the lockout and account status onto
   `isAccountNonLocked` / `isEnabled`, so the provider enforces them before comparing the PIN.
   `AuthenticationService.login` calls the manager and translates `LockedException` /
@@ -63,7 +63,7 @@ Phone + PIN, no passwords. Implemented across `modules/auth`, `modules/user` and
 
 ## KYC
 
-Progressive verification and the ceilings that hang off it (DOGAA.md 4.4), in `modules/kyc`.
+Progressive verification and the ceilings that hang off it (KOLA.md 4.4), in `modules/kyc`.
 
 - **The tier is derived, never assigned.** `KycTierRules.resolve(user, approvedDocumentTypes)` is the
   single source of truth, and every path that could move a user ends in `KycService.recomputeTier`.
@@ -122,7 +122,7 @@ encourage. Both wallet ids go on the trace, which is what lets `ScoringDataColle
 internal move — counted as savings, not as new income. A running loan needs no special case: it
 locks the whole savings balance and `WalletService.debit` only spends the available side.
 
-**Scoring** (`modules/scoring`, DOGAA.md 3.2) is 5 axes over 30 days: savings discipline 30,
+**Scoring** (`modules/scoring`, KOLA.md 3.2) is 5 axes over 30 days: savings discipline 30,
 financial stability 25, inflow regularity 20, usage intensity 15, credit history 10. `ScoreCalculator`
 is pure arithmetic over a `ScoringInputs` record; `ScoringDataCollector` does the gathering. Three
 anti-gaming mechanisms hold the model up and must not be removed piecemeal:
@@ -135,7 +135,7 @@ anti-gaming mechanisms hold the model up and must not be removed piecemeal:
 
 Together they turn "score 100 for 500 XOF" into "score under 10". `ScoreCalculatorTest` pins this.
 
-**Credit** (`modules/credit`, DOGAA.md 4.3) lends against the savings balance. The leverage ladder in
+**Credit** (`modules/credit`, KOLA.md 4.3) lends against the savings balance. The leverage ladder in
 `CreditProperties` is the risk model: **at 1.0x the collateral covers the principal, so a first loan
 cannot lose money and defaulting costs the borrower more than it gains them. Above 1.0x that reverses
 — at 1.6x, walking away nets the borrower 60% of their own savings.** Leverage is therefore earned by
@@ -201,7 +201,7 @@ the ones a plausible-looking change breaks.
   dashboard and finance screens, and an empty `alerts` list means nothing is wrong — not an error.
 ## Assistant
 
-The in-app chat (`modules/assistant`) answers a customer's questions about Dogaa and about their
+The in-app chat (`modules/assistant`) answers a customer's questions about Kola and about their
 own account. Four properties hold it up.
 
 - **The briefing is derived, never written.** `ProductKnowledge.briefing()` builds the product
@@ -289,7 +289,7 @@ short month.
 service asks for* — Canal+ the 14-digit card number under the decoder, Cash Power the meter number,
 CEET and TdE a customer reference. Asking for "votre numéro" is how a payment lands elsewhere. Only
 Canal+ publishes a format, so `BillerCatalog` validates a character class and a length range and
-nothing invented beyond that: a made-up pattern would reject real customers and look like a Dogaa
+nothing invented beyond that: a made-up pattern would reject real customers and look like a Kola
 bug. `fixedAmount` gates scheduling — a consumption bill (electricity, water, prepaid meter) cannot
 carry a fixed monthly sum, since it would silently underpay or overpay for ever.
 `GET /api/v1/scheduling/tasks/billers` serves the labels so they are not hard-coded in the app.
@@ -366,7 +366,7 @@ name resolved today would rewrite what the user remembers confirming.
 
 ## Package layout
 
-Vertical slices under `com.dogaa.backend.modules.<module>`, each with the same six sub-packages:
+Vertical slices under `com.kola.backend.modules.<module>`, each with the same six sub-packages:
 
 ```
 modules/<module>/{entity,dto,mapper,repository,service,controller}
@@ -402,4 +402,4 @@ The spec implies these subsystems, mapped onto the modules above:
 - **KYC** — progressive tiers TIER_0 (phone) → TIER_1 (email) → TIER_2 (ID document) → TIER_3 (validated), each raising transaction limits; TIER_2 is the credit gate. Tier checks belong at the transaction-execution boundary, since the scheduler must enforce them too.
 - **Admin back-office** — live metrics, dispute/fraud handling including chargebacks that reverse funds between the involved accounts, manual account unblocking, forced vault closure. Implemented; see *Admin back-office* below for the invariants that are easy to break.
 
-Note the groupId is `com.doga` while the Java package is `com.dogaa.backend` — the package name is the one to follow.
+Note the groupId is `com.doga` while the Java package is `com.kola.backend` — the package name is the one to follow.

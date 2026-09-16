@@ -13,10 +13,10 @@ import { endpoints } from '../api/endpoints';
 import { delay } from './mockUtils';
 
 const ADMIN_SEED = [
-  { id: 'sena.ametepe@dogaa.io', name: 'Sena Amétépé', email: 'sena.ametepe@dogaa.io', role: 'Super-admin', scope: 'Accès total · configuration produit', lastLoginAt: 'Il y a 12 min' },
-  { id: 'koffi.messan@dogaa.io', name: 'Koffi Messan', email: 'koffi.messan@dogaa.io', role: 'Agent conformité', scope: 'KYC, litiges, chargebacks (2e validation)', lastLoginAt: 'Il y a 12 min' },
-  { id: 'aya.djobo@dogaa.io', name: 'Aya Djobo', email: 'aya.djobo@dogaa.io', role: 'Analyste crédit', scope: 'Scoring, paliers de prêt, défauts', lastLoginAt: 'Il y a 12 min' },
-  { id: 'prisca.lawson@dogaa.io', name: 'Prisca Lawson', email: 'prisca.lawson@dogaa.io', role: 'Support', scope: 'Tickets, consultation comptes (lecture seule)', lastLoginAt: 'Il y a 12 min' },
+  { id: 'sena.ametepe@kola.io', name: 'Sena Amétépé', email: 'sena.ametepe@kola.io', role: 'Super-admin', scope: 'Accès total · configuration produit', lastLoginAt: 'Il y a 12 min' },
+  { id: 'koffi.messan@kola.io', name: 'Koffi Messan', email: 'koffi.messan@kola.io', role: 'Agent conformité', scope: 'KYC, litiges, chargebacks (2e validation)', lastLoginAt: 'Il y a 12 min' },
+  { id: 'aya.djobo@kola.io', name: 'Aya Djobo', email: 'aya.djobo@kola.io', role: 'Analyste crédit', scope: 'Scoring, paliers de prêt, défauts', lastLoginAt: 'Il y a 12 min' },
+  { id: 'prisca.lawson@kola.io', name: 'Prisca Lawson', email: 'prisca.lawson@kola.io', role: 'Support', scope: 'Tickets, consultation comptes (lecture seule)', lastLoginAt: 'Il y a 12 min' },
 ];
 
 const normalizeEmail = (email) => (email || '').trim().toLowerCase();

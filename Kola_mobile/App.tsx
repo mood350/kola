@@ -1,0 +1,47 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import HomeScreen from './src/screens/HomeScreen';
+import VaultsScreen from './src/screens/VaultsScreen';
+import VaultDetailScreen from './src/screens/VaultDetailScreen';
+import CreditScreen from './src/screens/CreditScreen';
+import LoanScreen from './src/screens/LoanScreen';
+import LoanDetailScreen from './src/screens/LoanDetailScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import FaqScreen from './src/screens/FaqScreen';
+import KycScreen from './src/screens/KycScreen';
+import TransactionHistoryScreen from './src/screens/TransactionHistoryScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import AuthScreen from './src/screens/AuthScreen';
+import ScheduledScreen from './src/screens/ScheduledScreen';
+import ScanScreen from './src/screens/ScanScreen';
+import ServicePaymentsScreen from './src/screens/ServicePaymentsScreen';
+import SubscriptionDetailScreen from './src/screens/SubscriptionDetailScreen';
+import SavingsScreen from './src/screens/SavingsScreen';
+import { Route } from './src/types';
+import SplashScreen from './src/screens/SplashScreen';
+import { authApi, AuthSession } from './src/services/api';
+import { KolaDataProvider } from './src/context/KolaDataContext';
+import AssistantWidget from './src/components/AssistantWidget';
+import AppLockScreen from './src/screens/AppLockScreen';
+import { AppHeader } from './src/components/Layout';
+
+export default function App(){
+  const [route,setRoute]=useState<Route>('home');
+  const [selectedVaultId,setSelectedVaultId]=useState<string|null>(null);
+  const [selectedSubscriptionId,setSelectedSubscriptionId]=useState<string|null>(null);
+  const [entry,setEntry]=useState<'loading'|'onboarding'|'auth'|'lock'|'app'>('loading');
+  const [savedSession,setSavedSession]=useState<AuthSession|null>(null),backgroundAt=useRef<number|null>(null);
+  useEffect(()=>{Promise.all([AsyncStorage.getItem('kola.onboarding.seen'),AsyncStorage.getItem('kola.session'),new Promise(resolve=>setTimeout(resolve,2600))]).then(([seen,session])=>{if(session){const parsed=JSON.parse(session) as AuthSession;setSavedSession(parsed);setEntry('lock');}else setEntry(seen?'auth':'onboarding');}).catch(()=>setEntry('onboarding'));},[]);
+  useEffect(()=>{const listener=AppState.addEventListener('change',state=>{if(state==='background'||state==='inactive')backgroundAt.current=Date.now();if(state==='active'&&entry==='app'&&backgroundAt.current&&Date.now()-backgroundAt.current>30000)setEntry('lock');});return()=>listener.remove();},[entry]);
+  const finishOnboarding=async()=>{await AsyncStorage.setItem('kola.onboarding.seen','true');setEntry('auth');};
+  const authenticate=async(session:AuthSession)=>{await AsyncStorage.setItem('kola.session',JSON.stringify(session));setSavedSession(session);setEntry('app');};
+  const unlock=async(session?:AuthSession)=>{if(session){await AsyncStorage.setItem('kola.session',JSON.stringify(session));setSavedSession(session);}backgroundAt.current=null;setEntry('app');};
+  const logout=async()=>{const saved=await AsyncStorage.getItem('kola.session');try{if(saved){const session=JSON.parse(saved) as AuthSession;await authApi.logout(session.refreshToken);}}catch{}finally{await AsyncStorage.removeItem('kola.session');setSavedSession(null);setRoute('home');setEntry('auth');}};
+  const openVault=(id:string)=>{setSelectedVaultId(id);setRoute('vaultDetail');};
+  const openSubscription=(id:string)=>{setSelectedSubscriptionId(id);setRoute('subscriptionDetail');};
+  const screens:Record<Route,React.ReactNode>={home:<HomeScreen navigate={setRoute} onOpenVault={openVault}/>,savings:<SavingsScreen navigate={setRoute}/>,vaults:<VaultsScreen navigate={setRoute} onOpenVault={openVault}/>,vaultDetail:<VaultDetailScreen navigate={setRoute} vaultId={selectedVaultId}/>,scan:<ScanScreen navigate={setRoute}/>,bills:<ServicePaymentsScreen navigate={setRoute} mode="bills"/>,subscriptions:<ServicePaymentsScreen navigate={setRoute} mode="subscriptions" onOpenSubscription={openSubscription}/>,subscriptionDetail:<SubscriptionDetailScreen navigate={setRoute} subscriptionId={selectedSubscriptionId}/>,credit:<CreditScreen navigate={setRoute}/>,loan:<LoanScreen navigate={setRoute}/>,loanDetail:<LoanDetailScreen navigate={setRoute}/>,profile:<ProfileScreen navigate={setRoute} onLogout={logout}/>,faq:<FaqScreen navigate={setRoute}/>,kyc:<KycScreen navigate={setRoute}/>,transactionHistory:<TransactionHistoryScreen navigate={setRoute}/>,scheduled:<ScheduledScreen navigate={setRoute}/>};
+  return <SafeAreaProvider><StatusBar style={entry==='loading'?'light':'dark'}/>{entry==='loading'?<SplashScreen/>:entry==='onboarding'?<OnboardingScreen onFinish={finishOnboarding}/>:entry==='auth'?<AuthScreen onAuthenticated={authenticate}/>:entry==='lock'&&savedSession?<AppLockScreen session={savedSession} onUnlock={unlock} onLogout={logout}/>:<KolaDataProvider><SafeAreaView edges={['top']} style={{flex:1,backgroundColor:'#FAF8FF'}}><AppHeader navigate={setRoute}/><View style={{flex:1}}>{screens[route]}</View><AssistantWidget/></SafeAreaView></KolaDataProvider>}</SafeAreaProvider>;
+}

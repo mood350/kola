@@ -42,10 +42,10 @@ pages/*.jsx  →  hooks/use*.js  →  services/*.js  →  repositories/index.js 
 
 ## 3. Conventions API générales
 
-- **Base URL** : `VITE_API_BASE_URL` (préfixe brut, sans slash final) + chemin ci-dessous. Ex. `https://api.dogaa.io/admin` + `/users` → `GET https://api.dogaa.io/admin/users`.
+- **Base URL** : `VITE_API_BASE_URL` (préfixe brut, sans slash final) + chemin ci-dessous. Ex. `https://api.kola.io/admin` + `/users` → `GET https://api.kola.io/admin/users`.
 - **Format** : JSON partout, `Content-Type: application/json` envoyé sur chaque requête (même GET).
-- **Auth** : `Authorization: Bearer <token>` sur chaque requête après login (`src/api/httpClient.js`). Le token est lu depuis `localStorage['dogaa_admin_token']`.
-- **401 global** : toute réponse HTTP 401 déclenche un événement `dogaa:unauthorized` → le frontend efface le token et redirige vers `/login` immédiatement, sur **n'importe quel** appel. Donc : renvoyer 401 uniquement pour "token absent/expiré/invalide", jamais pour un refus de permission métier (utiliser 403 pour ça — voir section 4).
+- **Auth** : `Authorization: Bearer <token>` sur chaque requête après login (`src/api/httpClient.js`). Le token est lu depuis `localStorage['kola_admin_token']`.
+- **401 global** : toute réponse HTTP 401 déclenche un événement `kola:unauthorized` → le frontend efface le token et redirige vers `/login` immédiatement, sur **n'importe quel** appel. Donc : renvoyer 401 uniquement pour "token absent/expiré/invalide", jamais pour un refus de permission métier (utiliser 403 pour ça — voir section 4).
 - **Erreurs** : le body d'erreur doit contenir `{ "message": "texte affichable à l'admin" }`. C'est ce message qui est montré tel quel dans les bandeaux d'erreur de l'UI (`ErrorState`, `actionError`).
 - **Requêtes de mutation sans payload** : le frontend envoie quand même un body `{}` (ex. `unblock`, `takeCharge`). Le backend doit accepter un body vide/`{}` sur ces routes.
 - **Pas de pagination actuellement** : toutes les listes (`GET /users`, `GET /disputes`, `GET /support/tickets`, etc.) sont récupérées en une fois ; le filtrage/la recherche sont faits **côté client** sur la liste complète (voir `userService.filterUsers/searchUsers`). Si le volume réel impose une pagination serveur, c'est un changement de contrat qui devra être coordonné avec le frontend (pas juste une addition rétrocompatible, puisque le filtrage client suppose la liste complète).
@@ -85,14 +85,14 @@ Un mot de passe actuel incorrect est un **400**.
 
 | Email | Nom | Rôle | Scope affiché |
 |---|---|---|---|
-| sena.ametepe@dogaa.io | Sena Amétépé | Super-admin | Accès total · configuration produit |
-| koffi.messan@dogaa.io | Koffi Messan | Agent conformité | KYC, litiges, chargebacks (2e validation) |
-| aya.djobo@dogaa.io | Aya Djobo | Analyste crédit | Scoring, paliers de prêt, défauts |
-| prisca.lawson@dogaa.io | Prisca Lawson | Support | Tickets, consultation comptes (lecture seule) |
+| sena.ametepe@kola.io | Sena Amétépé | Super-admin | Accès total · configuration produit |
+| koffi.messan@kola.io | Koffi Messan | Agent conformité | KYC, litiges, chargebacks (2e validation) |
+| aya.djobo@kola.io | Aya Djobo | Analyste crédit | Scoring, paliers de prêt, défauts |
+| prisca.lawson@kola.io | Prisca Lawson | Support | Tickets, consultation comptes (lecture seule) |
 
 Ces 4 comptes doivent probablement devenir les premières lignes d'une table `admin_account` réelle (avec mot de passe haché — le mock ne vérifie **aucun** mot de passe, ce n'est évidemment pas acceptable en prod).
 
-✅ **Fait** : `AdminAccountSeeder` crée ces 4 lignes au premier démarrage si la table est vide, mot de passe BCrypt commun `DogaaAdmin2026!`. Désactiver avec `app.admin.seed.enabled=false` avant la prod.
+✅ **Fait** : `AdminAccountSeeder` crée ces 4 lignes au premier démarrage si la table est vide, mot de passe BCrypt commun `KolaAdmin2026!`. Désactiver avec `app.admin.seed.enabled=false` avant la prod.
 
 ### 4.3 Matrice de permissions par rôle — ✅ appliquée côté serveur
 

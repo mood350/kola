@@ -41,7 +41,7 @@ export default function Login() {
     setError('');
     setPending(true);
     try {
-      await login('sena.ametepe@dogaa.io', 'demo');
+      await login('sena.ametepe@kola.io', 'demo');
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err?.message || 'Connexion impossible.');
@@ -73,7 +73,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="sena.ametepe@dogaa.io"
+              placeholder="sena.ametepe@kola.io"
               style={s('width:100%; border:1px solid #E2E8F0; border-radius:14px; padding:13px 15px; font-family:Manrope,sans-serif; font-size:14px; font-weight:700; color:#131B2E; outline:0; background:#F2F3FF')}
               focusStyle={{ borderColor: '#FFCB05', background: '#fff' }}
             />

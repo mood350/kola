@@ -1,4 +1,4 @@
-# Dogaa — support de présentation
+# Kola — support de présentation
 
 > Contenu source pour générer une présentation (Gamma, Canva, Beautiful.ai, PowerPoint…).
 > Tous les chiffres de ce document sont mesurés sur le dépôt au 5 septembre 2026, pas estimés.
@@ -8,7 +8,7 @@
 
 ## Slide 1 — Titre
 
-**Dogaa**
+**Kola**
 Le portefeuille mobile qui transforme l'épargne en pouvoir d'emprunt
 
 Zone UEMOA — Togo, Sénégal, Côte d'Ivoire, Ghana
@@ -31,7 +31,7 @@ n'a toujours aucun moyen de prouver qu'il est solvable.
 
 ## Slide 3 — Notre réponse
 
-Dogaa réunit trois choses que le marché sépare :
+Kola réunit trois choses que le marché sépare :
 
 | | |
 |---|---|
@@ -118,7 +118,7 @@ Nous avons cherché des garanties **structurelles** plutôt que des règles qu'o
 
 **Le QR ne contient jamais le numéro de téléphone.**
 Un QR se photographie, s'imprime, se transfère. Y encoder le numéro reviendrait à le
-donner définitivement. Dogaa encode une référence aléatoire, révocable en un clic.
+donner définitivement. Kola encode une référence aléatoire, révocable en un clic.
 
 **Une planification ne puise jamais dans le compte courant.**
 L'utilisateur désigne le coffre qui la finance. L'argent doit avoir été mis de côté
@@ -213,7 +213,7 @@ support multi-devises réel.
 
 ## Slide 16 — Clôture
 
-**Dogaa**
+**Kola**
 
 > L'épargne comme preuve. Le comportement comme dossier.
 
@@ -225,7 +225,7 @@ support multi-devises réel.
 À coller dans Gamma, ChatGPT, Claude, ou tout générateur de présentation.
 
 ```
-Crée une présentation professionnelle de 16 slides pour "Dogaa", une fintech de la
+Crée une présentation professionnelle de 16 slides pour "Kola", une fintech de la
 zone UEMOA (Togo, Sénégal, Côte d'Ivoire, Ghana).
 
 TON ET STYLE
@@ -235,7 +235,7 @@ Palette : bleu nuit et vert, typographie moderne, beaucoup de blanc. Utilise des
 et des schémas simples plutôt que des listes à puces partout.
 
 LE PRODUIT
-Dogaa est un portefeuille mobile money qui réunit trois choses habituellement séparées :
+Kola est un portefeuille mobile money qui réunit trois choses habituellement séparées :
 un portefeuille du quotidien, une épargne programmée par coffres, et un microcrédit
 algorithmique adossé à cette épargne.
 

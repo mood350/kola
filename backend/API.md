@@ -1,4 +1,4 @@
-# API Dogaa — référence pour le front (mobile & web)
+# API Kola — référence pour le front (mobile & web)
 
 Backend Spring Boot. Toutes les routes sont préfixées par `/api/v1`.
 
@@ -336,7 +336,7 @@ travers.
 |---|---|
 | `phone` | le numéro **normalisé** — renvoyez celui-ci dans `/transfer`, pas ce que l'utilisateur a tapé |
 | `name` | à afficher en gros sur l'écran de confirmation. `null` si le compte n'affiche pas de nom |
-| `registered` | `false` = pas de compte Dogaa. Le virement marche quand même, mais il part par Mobile Money et **il n'y a aucun nom à vérifier** — prévenez-en l'utilisateur |
+| `registered` | `false` = pas de compte Kola. Le virement marche quand même, mais il part par Mobile Money et **il n'y a aucun nom à vérifier** — prévenez-en l'utilisateur |
 | `self` | `true` = c'est son propre numéro. Le virement à soi-même est refusé ; dites-le ici plutôt que de laisser échouer après confirmation |
 
 > Un numéro inconnu répond **200 avec `registered: false`**, pas 404 : c'est une réponse, pas un
@@ -726,7 +726,7 @@ Deux types de codes :
   maximum) et **n'est payable qu'une fois** : un reçu photographié ne doit pas être payé deux fois.
 
 La réponse contient `payload` : c'est exactement ce que l'image encode
-(`https://dogaa.app/p/{code}`). **Dessinez le QR côté mobile à partir de ce champ** ; l'endpoint
+(`https://kola.app/p/{code}`). **Dessinez le QR côté mobile à partir de ce champ** ; l'endpoint
 PNG ne sert qu'au partage ou à l'impression.
 
 ### Payer un code scanné
@@ -788,8 +788,8 @@ Comptes séparés des utilisateurs de l'application : **email + mot de passe**, 
 `role` circule avec son **libellé exact** : `"Super-admin"`, `"Agent conformité"`, `"Analyste crédit"`, `"Support"`.
 
 **Comptes de démarrage** (créés au premier lancement si la table est vide) :
-`sena.ametepe@dogaa.io`, `koffi.messan@dogaa.io`, `aya.djobo@dogaa.io`, `prisca.lawson@dogaa.io` —
-mot de passe commun `DogaaAdmin2026!`, à changer et à désactiver (`app.admin.seed.enabled=false`) avant la prod.
+`sena.ametepe@kola.io`, `koffi.messan@kola.io`, `aya.djobo@kola.io`, `prisca.lawson@kola.io` —
+mot de passe commun `KolaAdmin2026!`, à changer et à désactiver (`app.admin.seed.enabled=false`) avant la prod.
 
 ### Matrice de permissions — appliquée côté serveur
 

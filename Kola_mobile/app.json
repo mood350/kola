@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "KOLA",
+    "slug": "kola-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#FAF8FF"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#002353"
+      },
+      "permissions": [
+        "READ_CONTACTS",
+        "CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.WRITE_CONTACTS"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSContactsUsageDescription": "KOLA utilise vos contacts pour choisir un bénéficiaire.",
+        "NSCameraUsageDescription": "KOLA utilise la caméra pour scanner les QR codes de paiement."
+      }
+    },
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Autorisez KOLA à utiliser Face ID pour déverrouiller votre compte."
+        }
+      ],
+      "expo-contacts",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorisez KOLA à utiliser la caméra pour scanner les QR codes de paiement.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
+    ]
+  }
+}

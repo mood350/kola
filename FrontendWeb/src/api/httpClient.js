@@ -2,11 +2,11 @@
 // exists. Nothing above this layer (services, hooks, pages) ever imports
 // `fetch` directly — this is the one place that knows about HTTP.
 
-const TOKEN_STORAGE_KEY = 'dogaa_admin_token';
+const TOKEN_STORAGE_KEY = 'kola_admin_token';
 
 /** Fired whenever the backend rejects the current token; AuthContext listens
  * for this to clear the session and let ProtectedRoute redirect to /login. */
-export const UNAUTHORIZED_EVENT = 'dogaa:unauthorized';
+export const UNAUTHORIZED_EVENT = 'kola:unauthorized';
 
 export class ApiError extends Error {
   constructor(message, { status, payload, cause } = {}) {

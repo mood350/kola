@@ -3,7 +3,7 @@ spring.application.name=backend
 server.server-header=
 
 # --- Datasource (PostgreSQL) ---
-spring.datasource.url=jdbc:postgresql://localhost:5432/dogaa
+spring.datasource.url=jdbc:postgresql://localhost:5432/kola
 spring.datasource.username=CHANGE_ME
 spring.datasource.password=CHANGE_ME
 spring.datasource.driver-class-name=org.postgresql.Driver
@@ -32,7 +32,7 @@ server.port=8080
 # Base64 or raw passphrase; must decode to at least 32 bytes (HS256).
 # Generate one with: openssl rand -base64 48
 app.security.jwt.secret=CHANGE_ME_BASE64_SECRET_AT_LEAST_32_BYTES
-app.security.jwt.issuer=dogaa
+app.security.jwt.issuer=kola
 app.security.jwt.access-token-ttl=15m
 app.security.jwt.refresh-token-ttl=30d
 
@@ -52,7 +52,7 @@ app.security.otp.verification-token-ttl=15m
 # --- Back-office admin ---
 # Cree les 4 comptes de reference si la table est vide. A DESACTIVER EN PRODUCTION.
 app.admin.seed.enabled=true
-app.admin.seed.password=DogaaAdmin2026!
+app.admin.seed.password=KolaAdmin2026!
 # Session back-office : le front admin ne gere pas de refresh token.
 app.security.jwt.admin-token-ttl=8h
 
@@ -64,7 +64,7 @@ app.disputes.validations-required=2
 # Comma-separated front-end origins allowed to call the API.
 app.security.cors.allowed-origins=http://localhost:3000,http://127.0.0.1:3000,http://10.0.2.2:8081
 
-# --- KYC (DOGAA.md 4.4). Amounts in XOF; an empty ceiling means unlimited. ---
+# --- KYC (KOLA.md 4.4). Amounts in XOF; an empty ceiling means unlimited. ---
 app.kyc.limits.TIER_0.per-transaction=25000
 app.kyc.limits.TIER_0.daily=50000
 app.kyc.limits.TIER_0.monthly=200000
@@ -88,7 +88,7 @@ app.kyc.upload.storage-directory=var/kyc-documents
 spring.servlet.multipart.max-file-size=5MB
 spring.servlet.multipart.max-request-size=6MB
 
-# --- Credit scoring (DOGAA.md 3.2). Five axes, weights must total 100. ---
+# --- Credit scoring (KOLA.md 3.2). Five axes, weights must total 100. ---
 app.scoring.window-days=30
 app.scoring.savings-discipline-weight=30
 app.scoring.financial-stability-weight=25
@@ -105,7 +105,7 @@ app.scoring.outflow-ratio-for-full-mark=0.6
 # Exponential moving average: one good evening cannot move the published score.
 app.scoring.smoothing-factor=0.7
 
-# --- Credit (DOGAA.md 4.3). Loans are secured on the savings account. ---
+# --- Credit (KOLA.md 4.3). Loans are secured on the savings account. ---
 app.credit.minimum-score=60
 app.credit.term-days=30
 app.credit.grace-period-days=3
@@ -148,7 +148,7 @@ app.scheduling.scheduled-transactions-poll-ms=60000
 app.scheduling.credit-scoring-cron=0 30 0 * * *
 app.scheduling.loan-recovery-cron=0 0 1 * * *
 
-# --- Business rules (see DOGAA.md) ---
+# --- Business rules (see KOLA.md) ---
 app.fees.p2p-percent=1.5
 app.fees.merchant-percent=1.0
 app.fees.cash-out-percent=1.0
@@ -163,7 +163,7 @@ springdoc.swagger-ui.path=/swagger-ui.html
 management.endpoints.web.exposure.include=health,info
 
 # --- Logging ---
-logging.level.com.dogaa.backend=INFO
+logging.level.com.kola.backend=INFO
 
 # --- Assistant conversationnel (modules/assistant) ---------------------------
 # Sans cle API, les routes /api/v1/assistant repondent 503 et le reste de
@@ -184,7 +184,7 @@ app.assistant.model=claude-sonnet-5
 # --- QR codes de paiement (modules/qr) ---------------------------------------
 # Prefixe de ce que l'image encode. Le mobile l'intercepte comme deep link ;
 # un appareil photo generique doit y trouver une page explicative.
-app.qr.payload-base-url=https://dogaa.app/p/
+app.qr.payload-base-url=https://kola.app/p/
 # app.qr.default-request-ttl=24h
 # app.qr.max-request-ttl=7d
 # app.qr.default-image-size=512
@@ -192,7 +192,7 @@ app.qr.payload-base-url=https://dogaa.app/p/
 
 # --- Compte admin proprietaire -----------------------------------------------
 # Quatre comptes de demonstration sont crees sur une base VIDE uniquement
-# (sena.ametepe@dogaa.io ... , mot de passe app.admin.seed.password).
+# (sena.ametepe@kola.io ... , mot de passe app.admin.seed.password).
 # Le compte ci-dessous, lui, est verifie a chaque demarrage : il peut donc etre
 # ajoute a une base qui contient deja des admins. Laisser l'email vide le
 # desactive. Un compte deja present n'est jamais modifie, mot de passe compris.
