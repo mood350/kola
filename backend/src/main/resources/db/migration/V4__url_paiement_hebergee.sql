@@ -1,0 +1,26 @@
+-- ---------------------------------------------------------------------
+-- Page de paiement hébergée par le prestataire.
+--
+-- Le prélèvement direct (POST /v1/{mode}, la demande poussée sur le
+-- téléphone) suppose une autorisation commerciale que tout compte
+-- marchand n'a pas : sans elle, FedaPay répond 400 « Opération non
+-- autorisée ». Le repli est leur page de paiement, dont l'URL naît avec
+-- la transaction.
+--
+-- ═══ POURQUOI LA STOCKER PLUTÔT QUE LA RENVOYER ET L'OUBLIER ═══
+--
+-- Parce qu'un dépôt se reprend. Le client ferme l'onglet, revient, et
+-- rejoue la même clé d'idempotence : le service reconnaît l'écriture
+-- existante et ne redemande RIEN au prestataire — c'est ce qui empêche
+-- deux demandes de débit pour un seul dépôt voulu. Sans la colonne, ce
+-- rejeu correct renverrait une écriture en attente sans aucun moyen de
+-- la payer, et le dépôt serait perdu jusqu'à expiration.
+--
+-- Nullable, et pour longtemps : seules les écritures passées par une
+-- page hébergée en portent une. Un prélèvement direct n'en a pas, un
+-- virement interne encore moins.
+--
+-- 512 caractères : l'URL porte un JWT signé (~200 caractères aujourd'hui),
+-- on laisse la marge d'une rotation d'algorithme.
+-- ---------------------------------------------------------------------
+alter table transactions add column provider_payment_url varchar(512);

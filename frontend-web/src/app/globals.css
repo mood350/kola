@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   KOLA — APPLICATION WEB : JETONS DE DESIGN
-   Tailwind v4 : la configuration vit dans le CSS (@theme), il n'y a pas de
-   tailwind.config.ts. Chaque jeton déclaré ici génère ses utilitaires
-   (bg-kola-600, font-display, text-ink-500…).
-
-   Les valeurs ne sont PAS choisies ici : elles reprennent celles de
-   `landing/src/app/globals.css` et de `mobile/lib/core/theme/app_colors.dart`.
-   Le site vitrine, l'application mobile et cette application web doivent se
-   reconnaître comme un seul produit — un utilisateur qui passe du téléphone au
-   navigateur ne doit pas avoir l'impression de changer de banque.
+   KOLA — DESIGN TOKENS
+   Feuille unique du site public ET de l'espace client, depuis leur fusion.
+   Les deux partagent la marque, l'encre et les surfaces ; ils divergent sur
+   deux points seulement, tous deux explicites plus bas : les rayons (le
+   marketing s'autorise des formes plus expressives que l'interface produit) et
+   les couleurs d'ETAT, qui n'existent que là où il y a des opérations.
+   Tailwind v4 : la configuration vit dans le CSS (@theme), il n'y a plus de
+   tailwind.config.ts. Chaque token déclaré ici génère automatiquement ses
+   utilitaires (bg-kola-600, font-display, shadow-lifted...).
    ========================================================================= */
 
 @theme {
   /* --- Marque -------------------------------------------------------------
-     #2E32C7 (kola-600) est la couleur d'action, #494FDF (kola-500) sa variante
-     claire. Le reste de la rampe est dérivé à teinte constante. */
+     #2E32C7 et #494FDF sont imposés (kola-600 et kola-500). Le reste de la
+     rampe est dérivé autour d'eux à teinte constante, pour disposer de
+     surfaces claires et de profondeurs sombres sans jamais désaturer vers le
+     gris — ce qui casserait la cohérence de marque. */
   --color-kola-50: #eef0fe;
   --color-kola-100: #e0e2fd;
   --color-kola-200: #c2c4fb;
@@ -30,9 +31,11 @@
   --color-kola-950: #101138;
 
   /* --- Encre --------------------------------------------------------------
-     Ce ne sont pas des gris : chaque valeur porte une pointe de violet
-     désaturé, héritée de la teinte de marque. Posé à côté de l'indigo, un gris
-     neutre paraît sale et fait lire l'écran comme deux systèmes juxtaposés. */
+     Ce ne sont pas des gris. Chaque valeur porte une pointe de violet
+     désaturé, héritée de la teinte de marque : posé à côté de l'indigo, un
+     gris neutre paraît sale et fait lire la page comme deux systèmes juxtaposés.
+     C'est le réglage le plus discret de cette palette, et celui qui fait le
+     plus pour la cohésion d'ensemble. */
   --color-ink-50: #f4f2fc;
   --color-ink-100: #e9e6f6;
   --color-ink-200: #d8d4e9;
@@ -45,9 +48,25 @@
   --color-ink-900: #2a2247;
   --color-ink-950: #1e1834;
 
-  /* --- Statuts ------------------------------------------------------------
-     Ce sont des ÉTATS, jamais des décorations : le vert dit « réussi », pas
-     « joli ». Mêmes valeurs que AppColors.success / warning / danger. */
+  /* --- Accents ------------------------------------------------------------
+     L'ocre est l'accent éditorial : complémentaire naturel de l'indigo, et
+     clin d'œil à la noix de kola. Il reste rare — un mot surligné, une
+     bordure — pour ne jamais concurrencer la marque.
+     L'émeraude est un statut (positif), jamais une décoration. */
+  --color-ochre-200: #f8e4c0;
+  --color-ochre-300: #f3cd8e;
+  --color-ochre-400: #e9a23b;
+  --color-ochre-500: #c9832a;
+  --color-signal-400: #2fcb92;
+  --color-signal-500: #0f9d63;
+  --color-signal-600: #0b7a4d;
+
+  /* --- États --------------------------------------------------------------
+     Propres à l'espace client : ce sont des ÉTATS d'opération, jamais des
+     décorations. Le site public n'en a pas l'usage — il ne montre aucune
+     transaction. Mêmes valeurs que AppColors.success / warning / danger côté
+     Flutter, pour qu'une opération réussie ait la même couleur sur les deux
+     clients. */
   --color-positive-50: #e6f7f2;
   --color-positive-100: #c4ece1;
   --color-positive-500: #00a87e;
@@ -72,35 +91,71 @@
   --color-info-600: #044278;
 
   /* --- Surfaces -----------------------------------------------------------
-     Le fond de page n'est jamais blanc : une lavande très claire dérivée de la
-     marque. Le blanc pur est réservé aux panneaux posés dessus — c'est ce
-     contraste faible qui fait exister les cartes sans ombres appuyées. */
+     Le fond de page n'est jamais blanc : une lavande très claire, dérivée de
+     la marque. Le blanc pur est réservé aux panneaux posés dessus — c'est ce
+     contraste faible qui fait exister les cartes sans avoir besoin d'ombres
+     appuyées. */
   --color-canvas: #f5f3fd;
   --color-sunken: #ebe8f9;
   --color-surface: #ffffff;
+  --color-raised: #ffffff;
 
   --color-line: rgb(30 24 52 / 0.08);
   --color-line-strong: rgb(30 24 52 / 0.14);
 
   /* --- Typographies -------------------------------------------------------
-     Sora pour les titres et les montants (géométrique, crédible en fintech),
-     Inter pour le texte courant (lisible à petite taille). Les deux sont
-     auto-hébergées par next/font : aucune requête vers un tiers. */
+     Sora pour les titres (géométrique, légèrement technique — crédible en
+     fintech), Inter pour le texte courant (lisibilité à petite taille). */
   --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  /* --- Rayons -------------------------------------------------------------
-     Repris de AppRadius côté mobile : cartes généreusement arrondies (20px),
-     champs à 12px, boutons en pilule. C'est la signature de forme du produit. */
-  --radius-card: 20px;
-  --radius-panel: 24px;
+  /* --- Échelle typographique fluide --------------------------------------
+     clamp() plutôt que des paliers par breakpoint : le titre respire de façon
+     continue entre 375px et 1440px, sans saut brutal aux points de rupture. */
+  /* Le plafond (4,25rem ≈ 68px) est calé sur la largeur réelle de la colonne
+     du hero, pas sur celle du viewport : à 6rem, « construit votre » débordait
+     et se coupait au milieu d'une expression. */
+  --text-display: clamp(2.5rem, 1.5rem + 3.4vw, 4.25rem);
+  --text-display--line-height: 0.94;
+  --text-display--letter-spacing: -0.04em;
+  --text-h1: clamp(2.125rem, 1.45rem + 3vw, 3.75rem);
+  --text-h1--line-height: 1.04;
+  --text-h1--letter-spacing: -0.03em;
+  --text-h2: clamp(1.625rem, 1.25rem + 1.7vw, 2.5rem);
+  --text-h2--line-height: 1.15;
+  --text-h2--letter-spacing: -0.02em;
+  --text-lead: clamp(1.0625rem, 1rem + 0.4vw, 1.3125rem);
+  --text-lead--line-height: 1.6;
+
+  /* --- Courbe -------------------------------------------------------------
+     Une seule courbe « maison », partagée entre CSS et GSAP, pour que les
+     micro-interactions et les animations de scroll aient le même caractère. */
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* --- Rayons et ombres ---------------------------------------------------
+     Ombres teintées indigo et non noires : une ombre noire sur un fond bleuté
+     paraît grise et sale. */
+  /* Rayons généreux : c'est ce qui distingue un « panneau » d'une simple
+     boîte, et ce que le référentiel pousse le plus loin. */
+  --radius-card: 1.75rem;
+  --radius-panel: 2.25rem;
+
+  /* Rayons de l'ESPACE CLIENT, volontairement distincts.
+     Une carte de solde n'est pas une section éditoriale : à 28px, une liste de
+     transactions prend un air de brochure. Ces valeurs reprennent AppRadius du
+     Flutter (20 / 24 / 12), pour qu'un utilisateur passant du téléphone au
+     navigateur retrouve la même forme. Deux familles de rayons pour un seul
+     site est assumé : le marketing et le produit n'ont pas le même langage de
+     formes, et les confondre appauvrit les deux. */
+  --radius-surface: 20px;
+  --radius-sheet: 24px;
   --radius-field: 12px;
 
-  /* --- Ombres -------------------------------------------------------------
-     Teintées d'indigo plutôt que noires : une ombre neutre sur un fond lavande
-     se voit comme une salissure. */
-  --shadow-card: 0 1px 2px rgb(30 24 52 / 0.04), 0 8px 24px -12px rgb(30 24 52 / 0.12);
-  --shadow-raised: 0 2px 4px rgb(30 24 52 / 0.05), 0 18px 40px -16px rgb(30 24 52 / 0.22);
+  /* Ombres teintées indigo, jamais noires : une ombre neutre sur un fond
+     lavande vire au gris et salit la couleur. */
+  --shadow-soft: 0 1px 2px rgb(46 50 199 / 0.04), 0 8px 24px -8px rgb(46 50 199 / 0.1);
+  --shadow-lifted: 0 2px 4px rgb(46 50 199 / 0.06), 0 24px 48px -12px rgb(46 50 199 / 0.16);
+  --shadow-glow: 0 0 0 1px rgb(46 50 199 / 0.06), 0 32px 64px -16px rgb(46 50 199 / 0.22);
 }
 
 /* ============================================================================
@@ -109,27 +164,44 @@
 
 @layer base {
   html {
+    /* Lenis pilote le défilement : on neutralise le smooth natif pour que les
+       deux ne se combattent pas sur les ancres. */
+    scroll-behavior: auto;
     -webkit-text-size-adjust: 100%;
   }
 
   body {
     background-color: var(--color-canvas);
-    color: var(--color-ink-900);
+    color: var(--color-ink-600);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
   }
 
-  /* Le contour de focus est visible et de la couleur de marque : sur une
-     application où l'on saisit des montants, la navigation au clavier doit
-     rester praticable — et un contour supprimé est une régression
-     d'accessibilité, pas un choix esthétique. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    color: var(--color-ink-950);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Anneau de focus unique et toujours visible. Jamais supprimé : c'est la
+     seule affordance dont dispose la navigation au clavier. */
   :focus-visible {
-    outline: 2px solid var(--color-kola-500);
-    outline-offset: 2px;
+    outline: 2px solid var(--color-kola-600);
+    outline-offset: 3px;
+    border-radius: 6px;
   }
 
-  /* Les champs numériques de montant n'affichent pas les flèches : elles
-     invitent à modifier une somme d'un pixel de trop. */
+  /* Les champs de montant n'affichent pas les flèches : elles invitent à
+     modifier une somme d'un pixel de trop. */
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     appearance: none;
@@ -139,20 +211,129 @@
   input[type="number"] {
     -moz-appearance: textfield;
   }
+
+  ::selection {
+    background-color: var(--color-kola-600);
+    color: #fff;
+  }
+}
+
+/* ============================================================================
+   ÉTAT INITIAL DES ANIMATIONS
+   Les éléments révélés au scroll partent invisibles. C'est exprimé en CSS et
+   non en JS pour éviter le flash de contenu non animé entre le premier paint
+   et l'exécution de GSAP.
+   Filet de sécurité : sans JS, .no-js les repasse visibles — un visiteur ne
+   doit jamais tomber sur une page vide.
+   ========================================================================= */
+
+[data-animate] {
+  opacity: 0;
+  /* `visibility` autant qu'`opacity` : un élément à opacité nulle reste
+     cliquable et focusable au clavier. Sans ça, on peut tabuler dans du
+     contenu invisible et perdre complètement le focus visible.
+     GSAP anime `autoAlpha`, qui pilote les deux d'un coup. */
+  visibility: hidden;
+}
+
+/* Filet de sécurité sans JavaScript.
+   `scripting: none` est évalué par le navigateur lui-même : contrairement à
+   une classe `no-js` retirée par un script inline, il ne modifie pas le DOM
+   et ne provoque donc aucune divergence d'hydratation React. */
+@media (scripting: none) {
+  [data-animate] {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* ============================================================================
+   ACCESSIBILITÉ — MOUVEMENT RÉDUIT
+   Le contenu doit rester intégralement lisible sans la moindre animation.
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-animate] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ============================================================================
    UTILITAIRES
    ========================================================================= */
 
-/* Chiffres à chasse fixe : sans cela, une colonne de montants danse d'une
-   ligne à l'autre au gré des « 1 » plus étroits que les « 8 ». */
+@utility text-gradient-brand {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-kola-700) 0%,
+    var(--color-kola-500) 55%,
+    var(--color-kola-400) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility hairline {
+  border: 1px solid var(--color-line);
+}
+
+@utility hairline-t {
+  border-top: 1px solid var(--color-line);
+}
+
+/* Trame technique de fond — le repère « produit » du référentiel SaaS.
+   Deux gradients répétés plutôt qu'une image : aucun octet réseau, et la
+   maille suit la densité de pixels de l'écran. Masquée en radial pour qu'elle
+   s'efface sur les bords au lieu de s'arrêter net. */
+@utility tech-grid {
+  background-image:
+    linear-gradient(to right, rgb(46 50 199 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(46 50 199 / 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+/* Trame fine appliquée aux grands aplats : casse le côté plat des surfaces
+   colorées et donne le rendu imprimé recherché. Purement décorative. */
+@utility noise {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.22;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+}
+
+/* ============================================================================
+   UTILITAIRES DE L'ESPACE CLIENT
+   ========================================================================= */
+
+/* Chiffres à chasse fixe : sans cela, une colonne de montants danse d'une ligne
+   à l'autre au gré des « 1 » plus étroits que les « 8 ». */
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* Animation de chargement des squelettes. Respecte `prefers-reduced-motion`
-   plus bas — un scintillement permanent est pénible pour qui y est sensible. */
+/* Squelettes de chargement. La règle `prefers-reduced-motion` plus haut les
+   fige — un scintillement permanent est pénible pour qui y est sensible. */
 @utility shimmer {
   background: linear-gradient(
     90deg,
@@ -186,14 +367,4 @@
 
 @utility rise {
   animation: kola-rise 0.28s ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
 }

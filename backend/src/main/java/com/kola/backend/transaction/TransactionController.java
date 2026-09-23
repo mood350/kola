@@ -1,6 +1,8 @@
 package com.kola.backend.transaction;
 
 import com.kola.backend.payment.MobileMoneyDepositService;
+import com.kola.backend.payment.MobileMoneyWithdrawalRequest;
+import com.kola.backend.payment.MobileMoneyWithdrawalService;
 import com.kola.backend.user.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final MobileMoneyDepositService mobileMoneyDepositService;
+    private final MobileMoneyWithdrawalService mobileMoneyWithdrawalService;
 
     @PostMapping("/deposit")
     @ResponseStatus(HttpStatus.CREATED)
@@ -48,6 +51,26 @@ public class TransactionController {
             @RequestBody @Valid MobileMoneyDepositRequest request
     ) {
         return mobileMoneyDepositService.deposit(currentUser, request);
+    }
+
+    /**
+     * Retrait réel vers un compte Mobile Money, via le prestataire.
+     *
+     * 202 ACCEPTED : le portefeuille est débité immédiatement — sans quoi la
+     * somme resterait dépensable pendant le traitement — mais l'argent n'est
+     * pas encore arrivé chez l'opérateur. L'écran doit dire « retrait en
+     * cours ». En cas d'échec, montant et frais sont recrédités.
+     *
+     * À NE PAS CONFONDRE avec POST /withdraw, qui débite sans rien envoyer
+     * nulle part et n'existe que pour le développement.
+     */
+    @PostMapping("/withdraw/mobile-money")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public TransactionResponse withdrawByMobileMoney(
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody @Valid MobileMoneyWithdrawalRequest request
+    ) {
+        return mobileMoneyWithdrawalService.withdraw(currentUser, request);
     }
 
     @PostMapping("/withdraw")

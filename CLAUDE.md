@@ -4,15 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository overview
 
-Kola is a fintech app (mobile money / savings / micro-credit, currency XOF) with five active codebases in this monorepo:
+Kola is a fintech app (mobile money / savings / micro-credit, currency XOF) with four active codebases in this monorepo:
 
 - `backend/` — Spring Boot 3.5 (Java 17) REST API
 - `mobile/` — Flutter app (the client)
-- `frontend-web/` — Next.js 16 **web version of the mobile app** (authenticated end-user space, same API surface as `mobile/`)
-- `landing/` — Next.js 16 marketing site (public-facing, no auth, no backend calls except its own contact route)
+- `frontend-web/` — Next.js 16, **the public site and the client space in one application**: marketing pages at `/`, `/a-propos`, `/etudes-de-cas`… and the authenticated space at `/mon-compte`, `/coffres`, `/credit`… One build, one port, one domain.
 - `frontend-admin/` — Next.js 16 internal admin console (authenticated, ADMIN-only, talks to `/api/admin/**`)
 
-There is currently **no CI workflow for `landing/`**; `frontend-admin/` and `frontend-web/` are covered by `.github/workflows/frontend-admin-ci.yml` and `.github/workflows/frontend-web-ci.yml` (both Node 20, `npm ci` → `npm run lint` → `npm run build`).
+**`landing/` no longer runs on its own.** Its pages, components and content modules were merged into `frontend-web/`; the folder is kept only until the merge is validated, and nothing should be added to it. Both remaining Next apps are covered by `.github/workflows/frontend-admin-ci.yml` and `frontend-web-ci.yml` (Node 20, `npm ci` → `npm run lint` → `npm run build`).
 
 ### Dev ports — they are not interchangeable
 
@@ -21,9 +20,10 @@ There is currently **no CI workflow for `landing/`**; `frontend-admin/` and `fro
 | App | Port | Why |
 |---|---|---|
 | `frontend-admin/` | **3000** | a browser origin the API accepts; pinned in its `dev`/`start` scripts |
-| `landing/` | **3001** | pinned in its `dev`/`start` scripts — it calls no backend, so CORS doesn't apply |
-| `frontend-web/` | **3002** | the other accepted browser origin; pinned in its `dev`/`start` scripts |
+| `frontend-web/` | **3002** | public site **and** client space, one server; the other accepted origin |
 | `backend/` | 8081 | `server.port` in `application.properties` |
+
+Port 3001 is now free: the marketing site is served by `frontend-web` on 3002. Running it separately again would put the public pages on an origin the API rejects, and split one domain in two.
 
 Running any of these apps on another port silently breaks every API request with a CORS failure. Adding a new browser origin means editing the Java CORS list (a wildcard is not an option — `setAllowCredentials(true)` forbids it).
 
@@ -69,12 +69,17 @@ Key flows to understand before making changes:
   - **Knock-out conditions** (`LoanNotEligibleException`, 422) sit outside the score because a weighted score always compensates: account ≥ 90 days, KYC ≥ TIER_1. No transaction volume buys those.
   - `GET /api/credit/capacity` is what a loan form must read. **Never bound the amount field on `ScoreBreakdown.maxLoanAmount`** — that is the tier ceiling, usually unreachable.
 - **Scheduling**: `scheduler/ScheduledTransferService` + `ScheduledTransferJob` handle recurring/future-dated transfers independent of the credit scoring scheduler.
-- **Mobile-money deposits** (`payment/`, sandbox-only for now): `POST /api/transactions/deposit/mobile-money` answers **202** and credits nothing. It opens a `PENDING` ledger entry, then calls FedaPay (create transaction -> generate token -> `POST /transactions/{mode}`); the wallet is credited only when `POST /api/webhooks/fedapay` receives `transaction.approved`. Four rules hold this together:
+- **Mobile-money deposits** (`payment/`, sandbox-only for now): `POST /api/transactions/deposit/mobile-money` answers **202** and credits nothing. It opens a `PENDING` ledger entry, then calls FedaPay (create transaction -> generate token -> `POST /{mode}` — the operator code sits at the API root, **not** under `/transactions`, which answers 404); the wallet is credited only when `POST /api/webhooks/fedapay` receives `transaction.approved`. Four rules hold this together:
   1. **The ledger entry is written before the provider is called.** The reverse order loses deposits: a crash after the operator accepted would leave money debited from the customer with no trace here. The worst case is now an orphan `PENDING` row — visible and repairable.
   2. **The provider call happens outside any DB transaction** (`MobileMoneyDepositService` is a separate bean on purpose). Holding a connection across a multi-second HTTP call exhausts the pool under load.
   3. **The webhook route is public and the HMAC signature is the only lock** (`WebhookSignatureVerifier`, `t=<ts>,s=<sig>` over `<ts>.<raw body>`, 300s tolerance). The body must be read as a raw `String` — re-serializing invalidates a genuine signature. With no `fedapay.webhook-secret` set, every notification is refused.
   4. **Settlement is idempotent twice over**: a pessimistic lock (`findByProviderTransactionIdForUpdate`) serializes concurrent retries, and a status guard ignores anything no longer `PENDING`. FedaPay retries up to 9 times. Non-matching events are acknowledged with 200 — returning an error would get the endpoint auto-disabled after 10 failures.
+  5. **Two collection paths, one settlement.** Direct charge (`POST /{mode}`, the request pushed to the phone) requires a commercial authorisation FedaPay grants per merchant account; without it every operator answers `400 Opération non autorisée`. `fedapay.direct-charge` (`FEDAPAY_DIRECT_CHARGE`) is therefore **false by default** and the fallback is the provider's hosted page, whose URL comes back with the created transaction and is stored on the ledger entry (`provider_payment_url`, V4). Storing it is what makes an idempotent replay usable — a customer who closes the tab gets the same link back instead of an unpayable pending row. Both paths end at the same `transaction.approved` webhook: nothing downstream distinguishes them, and nothing should. `GET /api/payments/methods` exposes `directCharge` so the UI announces the right gesture before the form is filled.
   **The old `POST /api/transactions/deposit` still credits instantly** and is dev/manual-only. Before going live it must be locked down to ADMIN or removed — it is a self-service money printer otherwise.
+- **Mobile-money withdrawals** (`payment/MobileMoneyWithdrawalService`, `PayoutReconciliationJob`): `POST /api/transactions/withdraw/mobile-money` answers **202**, debits the wallet **immediately** (otherwise the amount stays spendable while the operator processes it) and settles later. Three things hold it together:
+  1. **Payouts are a separate FedaPay authorisation from collection.** `POST /v1/payouts` answers `403 Opération non autorisée` until the merchant account is cleared for it, and **there is no fallback** — a payout leaves the merchant balance, there is no hosted page where a customer could pay themselves. Hence `fedapay.payouts-enabled` (`FEDAPAY_PAYOUTS_ENABLED`), false by default, surfaced as `PaymentProvider.payoutsAvailable()` and asked **before the ledger entry is opened**: a closed channel must not make a balance dip and come back. Refusal is `PaymentMethodUnavailableException` → 503 `PAYMENT_METHOD_UNAVAILABLE`, logged WARN — it is a configuration, not an incident (`PaymentProviderException` stays 502/ERROR for real failures).
+  2. **Every failure path refunds amount *and* fees.** Fees pay for a service that was not rendered. `abandonPendingWithdrawal` covers the provider refusing up front, `settleMobileMoneyWithdrawal(id, false)` covers a payout that failed later; both are guarded by status so a replayed reconciliation refunds once. `MobileMoneyWithdrawalTest` pins all of it.
+  3. **No webhook covers payouts** — FedaPay only emits events for transactions and customers — so `PayoutReconciliationJob` re-reads statuses every 5 min and never concludes from silence: only `sent`/`failed` are verdicts. Provider ids are stored with a `payout_` prefix, since transaction and payout ids are separate sequences sharing one unique column.
 - **Errors**: all exceptions funnel through `exception/GlobalExceptionHandler.java` into one `ErrorResponse` shape (`code`, `message`, `details`, `path`, `timestamp`). Custom domain exceptions (`InsufficientFundsException`, `VaultLockedException`, `WalletInactiveException`, `KycLimitExceededException`, `InsufficientCreditScoreException`, `ActiveLoanExistsException`, `InvalidTokenException` — a wrong/expired/already-used activation or reset code, 400 not 500; `InvalidRefreshTokenException` — a refresh token that no longer authenticates anyone, 401 not 500, etc.) map to specific HTTP statuses there — add new business-rule exceptions there rather than throwing generic ones.
 - Swagger/OpenAPI UI is available at `/swagger-ui.html` (springdoc), permitted without auth. Actuator exposes `health`, `info`, `mappings` only.
 
@@ -105,9 +110,26 @@ Two behaviors that are easy to get wrong because they diverge from typical auth 
 - `POST /api/auth/register` returns 202 and does **not** log the user in — the account stays disabled until the user clicks the emailed confirmation link. `AuthProvider.register()` intentionally leaves status as `unauthenticated` on success.
 - Login is email + password only; there is no OTP login route wired up currently (`otp_verification_screen.dart` exists but is unused/reserved for future 2FA).
 
-## Web app (`frontend-web/`)
+## Web app (`frontend-web/`) — public site + client space
 
-The **web version of the mobile app** — same users, same JWT, same endpoints as `mobile/`, minus the admin surface. When a behaviour differs between this app and `mobile/`, one of the two is wrong.
+One Next application serves two publics since the merge of `landing/`:
+
+| Group | Routes | Layout | Indexed |
+|---|---|---|---|
+| `(marketing)` | `/`, `/a-propos`, `/etudes-de-cas` (+ `[slug]`), `/contact`, `/merci`, `/cgu`, `/confidentialite`, `/cookies` | header, footer, Lenis smooth scroll, cookie banner, GA | yes |
+| `(private)/(app)` | `/mon-compte` (dashboard), `/operations/**`, `/transactions`, `/coffres`, `/credit`, `/virements-programmes`, `/beneficiaires`, `/notifications`, `/comptes`, `/profil` | app shell (sidebar + bottom nav), auth guard | **no** |
+| `(private)/(auth)` | `/connexion`, `/inscription`, `/confirmation`, `/mot-de-passe-oublie`, `/reinitialiser` | centered auth shell | **no** |
+
+**`/` belongs to the marketing site**; the dashboard lives at `/mon-compte`. Route groups add no path segment, so two groups cannot both define `/` — that is the one collision the merge had to resolve.
+
+Four rules the merge introduced, each easy to break:
+
+1. **The root layout carries only what both publics share** — language, fonts, entity JSON-LD, skip link. Header/footer/Lenis/consent live in `(marketing)/layout.tsx`; the session provider lives in `(private)/layout.tsx`. Hoisting the provider back to the root would make the public homepage call `/users/me` for every visitor still holding a token.
+2. **`(private)/layout.tsx` is a server component** so it can export `metadata: { robots: { index: false } }`. Private routes would otherwise inherit the marketing metadata — and its indexing. `robots.ts` disallows them as well: `noindex` stops indexing, `Disallow` stops crawling, and one without the other leaves a gap.
+3. **Google Analytics is mounted in `(marketing)/layout.tsx` and nowhere else.** Session tokens live in the `localStorage` of an origin now shared by both publics. Confining the tag keeps third-party scripts off authenticated pages — the residual risk (same origin) is documented there and only `HttpOnly` cookies would close it.
+4. **Two radius families on purpose**: `rounded-card`/`rounded-panel` (1.75/2.25rem) belong to the marketing sections; `rounded-surface`/`rounded-sheet`/`rounded-field` (20/24/12px) belong to the product UI and mirror Flutter's `AppRadius`. A dashboard built at editorial radii reads as a brochure.
+
+The client space remains the **web version of the mobile app** — same users, same JWT, same endpoints as `mobile/`, minus the admin surface. When a behaviour differs between this app and `mobile/`, one of the two is wrong.
 
 ### Commands
 
@@ -118,6 +140,8 @@ npm run dev      # :3002 — must be this port, see CORS table above
 npm run build    # production build + TypeScript check
 npm run lint     # what CI runs
 ```
+
+Stack: Next 16 App Router, React 19, Tailwind v4 (tokens in `@theme`), plus GSAP + Lenis inherited from the marketing site — the animation libraries are imported by `(marketing)` components only, so client-space pages never load them.
 
 `landing/AGENTS.md`'s rule applies here too: consult `node_modules/next/dist/docs/` rather than older App Router memory. `params` is a `Promise` — in client components unwrap it with `use()`.
 

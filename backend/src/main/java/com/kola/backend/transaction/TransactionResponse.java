@@ -18,6 +18,14 @@ public record TransactionResponse(
         String receiverCountryCode,
         String description,
         String idempotencyKey,
+        /**
+         * Page où régler un dépôt encore en attente, s'il en existe une.
+         *
+         * Nulle sur la quasi-totalité des écritures. Elle n'est rendue qu'au
+         * propriétaire de l'opération — les mêmes contrôles que le reste de
+         * cette réponse — et cesse d'être utile dès que le webhook a crédité.
+         */
+        String paymentUrl,
         LocalDateTime createdAt
 ) {
     public static TransactionResponse fromEntity(Transaction tx) {
@@ -36,6 +44,7 @@ public record TransactionResponse(
                 tx.getReceiverCountryCode(),
                 tx.getDescription(),
                 tx.getIdempotencyKey(),
+                tx.getProviderPaymentUrl(),
                 tx.getCreatedAt()
         );
     }

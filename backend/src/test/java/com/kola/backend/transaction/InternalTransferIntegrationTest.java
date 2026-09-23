@@ -7,6 +7,7 @@ import com.kola.backend.notification.NotificationRepository;
 import com.kola.backend.role.Role;
 import com.kola.backend.role.RoleRepository;
 import com.kola.backend.user.KycLevel;
+import com.kola.backend.credit.CreditScoreRepository;
 import com.kola.backend.user.User;
 import com.kola.backend.user.UserRepository;
 import com.kola.backend.wallet.Wallet;
@@ -51,6 +52,8 @@ class InternalTransferIntegrationTest {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private CreditScoreRepository creditScoreRepository;
+    @Autowired
     private RoleRepository roleRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -70,6 +73,11 @@ class InternalTransferIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        /* Le score est recalculé après chaque transaction : ces utilisateurs
+           ont donc des lignes dans credit_scores, qui référencent _user. Elles
+           partent en premier, sinon la suppression viole la clé étrangère. */
+        created.forEach(u -> creditScoreRepository.deleteAll(
+                creditScoreRepository.findByUserIdOrderByCreatedAtDesc(u.getId())));
         created.forEach(u -> {
             beneficiaryRepository.deleteAll(beneficiaryRepository.findByOwnerId(u.getId()));
             walletRepository.findByOwnerId(u.getId()).forEach(w ->

@@ -106,4 +106,19 @@ public class Transaction extends Listeners {
      */
     @Column(unique = true, length = 64)
     private String providerTransactionId;
+
+    /**
+     * Page de paiement du prestataire, quand le débit ne peut pas être poussé
+     * directement sur le téléphone du client.
+     *
+     * Conservée et non simplement renvoyée : rejouer une clé d'idempotence
+     * rend l'écriture existante SANS repasser par le prestataire — le seul
+     * moyen d'éviter deux demandes de débit pour un dépôt voulu une fois. Sans
+     * cette colonne, ce rejeu correct rendrait une écriture impayable.
+     *
+     * Nulle partout ailleurs : un prélèvement direct n'a pas de page, un
+     * virement interne n'a pas de prestataire.
+     */
+    @Column(length = 512)
+    private String providerPaymentUrl;
 }

@@ -7,6 +7,7 @@ import 'providers/beneficiary_provider.dart';
 import 'providers/credit_provider.dart';
 import 'providers/merchant_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/payment_method_provider.dart';
 import 'providers/scheduled_transfer_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/user_provider.dart';
@@ -33,6 +34,7 @@ class KolaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MerchantProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ScheduledTransferProvider()),
+        ChangeNotifierProvider(create: (_) => PaymentMethodProvider()),
       ],
       child: const _KolaMaterialApp(),
     );

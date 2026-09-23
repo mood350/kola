@@ -64,29 +64,10 @@ class _CreditScreenState extends State<CreditScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text('Crédit', style: AppTypography.headingSm),
-        actions: [
-          IconButton(
-            tooltip: 'Recalculer mon score',
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
-            onPressed: creditProvider.isLoadingScore
-                ? null
-                : () async {
-                    final provider = context.read<CreditProvider>();
-                    final messenger = ScaffoldMessenger.of(context);
-                    final ok = await provider.refreshScore();
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          ok
-                              ? 'Score recalculé'
-                              : provider.scoreError ??
-                                    'Impossible de recalculer le score',
-                        ),
-                      ),
-                    );
-                  },
-          ),
-        ],
+        /* Plus de bouton « Recalculer » : le score est recalculé à chaque
+           consultation de cet écran (GET /credit/score) et après chaque
+           transaction validée. Demander à l'utilisateur d'actionner un
+           recalcul, c'était lui faire porter l'existence d'un cache. */
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -250,39 +231,20 @@ class _ScoreCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text('Détail du score', style: AppTypography.bodyMdBold),
-            children: score.details
-                .map(
-                  (rule) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                rule.label,
-                                style: AppTypography.bodySm,
-                              ),
-                            ),
-                            Text(
-                              '${rule.points}/${rule.maxPoints}',
-                              style: AppTypography.bodySm.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(rule.explanation, style: AppTypography.labelXs),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
+          /* ═══ LE DÉTAIL DU BARÈME N'EST PLUS AFFICHÉ ═══
+             Un panneau dépliable listait chaque règle, ses points et son
+             plafond. Publier les poids apprend à les optimiser — cinq
+             bénéficiaires enregistrés pour cinq points, un dépôt hebdomadaire
+             plutôt que mensuel pour le même argent. Un score que l'on sait
+             fabriquer ne mesure plus rien.
+             Reste ce qui engage Kola : la note, le palier, le taux.
+             ⚠️ Masquage d'interface seulement : `details` arrive toujours dans
+             la réponse de GET /credit/score. */
+          Text(
+            "Votre score est recalculé à partir de votre usage du compte : son "
+            "ancienneté, la régularité de vos entrées, votre épargne, vos "
+            "remboursements et votre niveau de vérification.",
+            style: AppTypography.bodySm,
           ),
         ],
       ),

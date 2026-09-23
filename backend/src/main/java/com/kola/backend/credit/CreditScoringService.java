@@ -1,5 +1,6 @@
 package com.kola.backend.credit;
 
+import com.kola.backend.aml.TransactionCompletedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kola.backend.transaction.Transaction;
@@ -16,6 +17,9 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -53,41 +57,151 @@ public class CreditScoringService {
     public CreditScore computeAndSave(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable"));
+        return persist(user, compute(user));
+    }
 
+    /** Résultat d'un calcul, avant toute décision d'écriture. */
+    private record Computation(int total, CreditTier tier, String breakdownJson) {}
+
+    /**
+     * Applique les huit règles. Ne touche à rien.
+     *
+     * Séparé de l'écriture parce que le calcul sert deux usages désormais :
+     * produire une nouvelle ligne, ou seulement vérifier que rien n'a changé.
+     */
+    private Computation compute(User user) {
         List<ScoreBreakdown.RuleScore> details = new ArrayList<>();
         int total = 0;
 
-        // Calcul de chaque règle
         for (ScoringRule rule : ScoringRule.values()) {
             ScoreBreakdown.RuleScore ruleScore = evaluate(rule, user);
             details.add(ruleScore);
             total += ruleScore.points();
         }
 
-        total = Math.min(total, 100); // plafond de sécurité
-        CreditTier tier = CreditTier.fromScore(total);
+        /* Plafond de sécurité, devenu théorique : les plafonds des règles
+           totalisent exactement 100 et un test le garantit (cf. ScoringRule).
+           Conservé comme garde-fou si une règle venait à être ajoutée sans
+           rééquilibrage. */
+        total = Math.min(total, 100);
 
-        // Invalider le score précédent avant de sauvegarder le nouveau
-        creditScoreRepository.markAllAsNotLatest(userId);
+        return new Computation(total, CreditTier.fromScore(total), serializeDetails(details));
+    }
+
+    /** Écrit un nouveau score et retire le drapeau « courant » au précédent. */
+    private CreditScore persist(User user, Computation computed) {
+        creditScoreRepository.markAllAsNotLatest(user.getId());
 
         CreditScore score = CreditScore.builder()
                 .user(user)
-                .score(total)
-                .tier(tier)
-                .breakdownJson(serializeDetails(details))
-                .maxLoanAmount(tier.getMaxLoanAmount())
-                .monthlyRate(tier.getMonthlyRate())
+                .score(computed.total())
+                .tier(computed.tier())
+                .breakdownJson(computed.breakdownJson())
+                .maxLoanAmount(computed.tier().getMaxLoanAmount())
+                .monthlyRate(computed.tier().getMonthlyRate())
                 .expiresAt(LocalDateTime.now().plusDays(SCORE_VALIDITY_DAYS))
                 .latest(true)
                 .build();
 
         creditScoreRepository.save(score);
-        log.info("Score calculé pour user {} : {}/100 ({})", userId, total, tier);
+        log.info("Score calculé pour user {} : {}/100 ({})",
+                user.getId(), computed.total(), computed.tier());
         return score;
     }
 
     /**
+     * Le calcul redonne-t-il exactement ce qui est déjà enregistré ?
+     *
+     * Le détail est comparé autant que la note : deux scores de 48 peuvent
+     * reposer sur des règles différentes (un point gagné en épargne, un perdu
+     * en régularité). Ne comparer que le total masquerait ce mouvement, et
+     * l'historique cesserait de raconter ce qui s'est passé.
+     */
+    private boolean isUnchanged(CreditScore current, Computation computed) {
+        return current.getScore() == computed.total()
+                && current.getTier() == computed.tier()
+                && java.util.Objects.equals(current.getBreakdownJson(), computed.breakdownJson());
+    }
+
+    /**
+     * Recalcule le score et le renvoie — appelé à chaque consultation.
+     *
+     * ═══ POURQUOI RECALCULER À CHAQUE LECTURE ═══
+     *
+     * Parce qu'un score affiché doit être vrai au moment où on le regarde. Le
+     * bouton « Recalculer » a disparu des deux applications : il faisait
+     * porter à l'utilisateur une mécanique interne — savoir que sa note était
+     * périmée, et penser à la rafraîchir. Personne n'a à connaître l'existence
+     * d'un cache.
+     *
+     * ═══ CE QUI EST ÉCRIT, ET CE QUI NE L'EST PAS ═══
+     *
+     * Le calcul est refait à chaque appel, mais RIEN N'EST PERSISTÉ tant que le
+     * résultat est identique au dernier enregistré. C'est ce qui rend ce choix
+     * tenable : sans cette comparaison, ouvrir la page trois fois de suite
+     * insérerait trois lignes dans `credit_scores`, et l'historique — celui que
+     * `GET /credit/score/history` expose et qu'un litige exige de pouvoir
+     * relire — se remplirait de doublons jusqu'à devenir illisible.
+     *
+     * Une ligne n'est donc écrite que lorsque la note, le palier ou le détail
+     * ont réellement bougé. L'historique redevient ce qu'il prétend être : la
+     * suite des CHANGEMENTS de score.
+     */
+    @Transactional
+    public ScoreBreakdown getFresh(User user) {
+        Computation computed = compute(user);
+        CreditScore current = creditScoreRepository
+                .findByUserIdAndLatestTrue(user.getId())
+                .orElse(null);
+
+        if (current != null && isUnchanged(current, computed)) {
+            /* Rien n'a bougé : on ne touche pas à la base. La date d'expiration
+               du score conservé n'est pas repoussée non plus — elle date sa
+               dernière VALEUR, pas sa dernière consultation. */
+            return toBreakdown(current);
+        }
+
+        return toBreakdown(persist(user, computed));
+    }
+
+    /**
+     * Recalcule après une opération d'argent.
+     *
+     * ═══ APRÈS LE COMMIT, ET HORS DU CHEMIN CRITIQUE ═══
+     *
+     * Deux garanties, calquées sur la surveillance LAB-FT qui écoute le même
+     * événement :
+     *
+     *  1. `AFTER_COMMIT` : on ne score jamais une transaction qui pourrait
+     *     encore être annulée.
+     *  2. `REQUIRES_NEW` + `try/catch` : un échec de calcul ne doit pas pouvoir
+     *     faire échouer — ni même ralentir — un virement déjà validé. Le score
+     *     est une lecture de l'activité, jamais une condition de celle-ci.
+     *
+     * Sans cet écouteur, le score ne bougerait qu'à la prochaine ouverture de
+     * la page. Avec lui, le pavé « score » de l'accueil est déjà juste quand
+     * l'utilisateur y revient après un dépôt.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onTransactionCompleted(TransactionCompletedEvent event) {
+        try {
+            User user = userRepository.findById(event.userId()).orElse(null);
+            if (user == null) return;
+            getFresh(user);
+        } catch (Exception e) {
+            log.error("Échec du recalcul de score après la transaction {}",
+                    event.transactionId(), e);
+        }
+    }
+
+    /**
      * Retourne le score courant, en le recalculant s'il est périmé ou absent.
+     *
+     * Conservé pour les appelants qui ont besoin d'une VALEUR ENGAGEANTE plutôt
+     * que d'un affichage : `LoanService` fige ce score dans le prêt qu'il
+     * accorde. Le recalcul systématique de `getFresh` n'y apporterait rien —
+     * l'écouteur ci-dessus l'a déjà rafraîchi à la dernière opération.
      */
     @Transactional
     public ScoreBreakdown getOrCompute(User user) {

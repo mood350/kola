@@ -9,6 +9,7 @@ import com.kola.backend.transaction.TransactionRepository;
 import com.kola.backend.transaction.TransactionService;
 import com.kola.backend.transaction.TransactionStatus;
 import com.kola.backend.user.KycLevel;
+import com.kola.backend.credit.CreditScoreRepository;
 import com.kola.backend.user.User;
 import com.kola.backend.user.UserRepository;
 import com.kola.backend.wallet.Wallet;
@@ -53,6 +54,8 @@ class MobileMoneyDepositSettlementTest {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private CreditScoreRepository creditScoreRepository;
+    @Autowired
     private RoleRepository roleRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -71,6 +74,11 @@ class MobileMoneyDepositSettlementTest {
 
     @AfterEach
     void tearDown() {
+        /* Le score est recalculé après chaque transaction : ces utilisateurs
+           ont donc des lignes dans credit_scores, qui référencent _user. Elles
+           partent en premier, sinon la suppression viole la clé étrangère. */
+        created.forEach(u -> creditScoreRepository.deleteAll(
+                creditScoreRepository.findByUserIdOrderByCreatedAtDesc(u.getId())));
         created.forEach(u -> walletRepository.findByOwnerId(u.getId()).forEach(w ->
                 transactionRepository.deleteAll(
                         transactionRepository.findByWalletIdOrderByCreatedAtDesc(w.getId()))));
@@ -179,7 +187,7 @@ class MobileMoneyDepositSettlementTest {
     /** Simule la prise en charge par le prestataire, sans l'appeler. */
     private String attacher(Transaction pending) {
         String providerId = "fedapay-" + UUID.randomUUID();
-        transactionService.attachProviderTransaction(pending.getId(), "FEDAPAY", providerId);
+        transactionService.attachProviderTransaction(pending.getId(), "FEDAPAY", providerId, null);
         return providerId;
     }
 

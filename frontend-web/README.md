@@ -1,8 +1,12 @@
-# frontend-web — l'espace client Kola dans le navigateur
+# frontend-web — le site public et l'espace client Kola
 
-Version web de l'application mobile Flutter (`mobile/`). Même compte, même API,
-mêmes opérations : ce que l'on peut faire sur le téléphone, on peut le faire
-ici.
+**Une seule application, un seul port, un seul domaine.** Les pages marketing
+(`/`, `/a-propos`, `/etudes-de-cas`…) et l'espace client authentifié
+(`/mon-compte`, `/coffres`, `/credit`…) sont servis par le même build depuis la
+fusion de `landing/`.
+
+L'espace client est la version web de l'application Flutter (`mobile/`) : même
+compte, même API, mêmes opérations.
 
 ## Démarrer
 
@@ -23,9 +27,12 @@ contrôleur. Le tableau des ports du monorepo :
 | Application | Port | Rôle |
 |---|---|---|
 | `frontend-admin/` | 3000 | console d'administration |
-| `landing/` | 3001 | site vitrine (n'appelle pas l'API) |
-| **`frontend-web/`** | **3002** | **espace client (cette application)** |
+| **`frontend-web/`** | **3002** | **site public + espace client (cette application)** |
 | `backend/` | 8081 | API Spring Boot |
+
+Le port 3001 est libre : `landing/` ne tourne plus séparément. Le relancer
+placerait les pages publiques sur une origine que l'API refuse, et couperait le
+domaine en deux.
 
 ## Commandes
 
@@ -36,14 +43,26 @@ npm run start    # sert le build de production
 npm run lint     # ce que vérifie la CI
 ```
 
-## Couverture fonctionnelle
+## Les trois groupes de routes
+
+| Groupe | Routes | Coque | Indexé |
+|---|---|---|---|
+| `(marketing)` | `/`, `/a-propos`, `/etudes-de-cas` (+ `[slug]`), `/contact`, `/merci`, `/cgu`, `/confidentialite`, `/cookies` | en-tête, pied de page, défilement Lenis, bandeau cookies, GA | oui |
+| `(private)/(app)` | espace client (voir ci-dessous) | coque applicative, garde d'authentification | **non** |
+| `(private)/(auth)` | `/connexion`, `/inscription`, `/confirmation`, `/mot-de-passe-oublie`, `/reinitialiser` | coque centrée | **non** |
+
+**La racine `/` appartient au site public** ; le tableau de bord vit à
+`/mon-compte`. Deux groupes ne peuvent pas définir la même URL — c'était la
+seule collision à résoudre.
+
+## Couverture fonctionnelle de l'espace client
 
 Tout ce que fait `mobile/`, écran pour écran :
 
 | Domaine | Écrans web | API |
 |---|---|---|
 | Authentification | `/connexion`, `/inscription`, `/confirmation`, `/mot-de-passe-oublie`, `/reinitialiser` | `/api/auth/**` |
-| Accueil | `/` — solde, actions rapides, dernières opérations, épargne, score | `/api/wallets`, `/api/transactions/**`, `/api/vaults`, `/api/credit/score` |
+| Accueil | `/mon-compte` — solde, actions rapides, dernières opérations, épargne, score | `/api/wallets`, `/api/transactions/**`, `/api/vaults`, `/api/credit/score` |
 | Opérations | `/operations/depot`, `/retrait`, `/envoi`, `/paiement` | `/api/transactions/**`, `/api/merchants/{code}` |
 | Historique | `/transactions`, `/transactions/{reference}` | `/api/transactions/**` |
 | Coffres | `/coffres`, `/coffres/{id}` | `/api/vaults/**` |
@@ -76,6 +95,24 @@ avec `use()`.
 - `src/lib/labels.ts` — traduction et couleur des énumérations. Un statut = une
   couleur, partout.
 - `src/components/ui/primitives.tsx` — toute la base d'interface, en un module.
+
+### Ce que la fusion impose
+
+1. **Le layout racine ne porte que ce qui vaut pour les deux publics** — langue,
+   polices, JSON-LD d'entité, lien d'évitement. L'en-tête, le pied de page,
+   Lenis et le consentement vivent dans `(marketing)/layout.tsx` ; le
+   fournisseur de session dans `(private)/layout.tsx`. Le remonter à la racine
+   ferait interroger `/users/me` depuis la page d'accueil publique.
+2. **`(private)/layout.tsx` est un composant serveur** : c'est ce qui lui permet
+   d'exporter `robots: noindex`. `robots.ts` interdit en plus l'exploration —
+   `noindex` empêche l'indexation, `Disallow` empêche la visite, et l'un sans
+   l'autre laisse un trou.
+3. **Google Analytics n'est monté que dans le groupe marketing.** Les jetons
+   vivent dans le `localStorage` d'une origine désormais partagée : aucune page
+   authentifiée ne doit charger de script tiers.
+4. **Deux familles de rayons, volontairement.** `rounded-card`/`rounded-panel`
+   (1,75/2,25rem) au marketing ; `rounded-surface`/`rounded-sheet`/`rounded-field`
+   (20/24/12px) au produit, alignés sur `AppRadius` du Flutter.
 
 ### Trois règles qui tiennent le reste
 

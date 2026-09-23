@@ -70,6 +70,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * de leur côté. Le contrôle de statut ne suffit pas : il faut que la
      * seconde ATTENDE la fin de la première pour voir SUCCESS.
      */
+    /**
+     * Opérations encore en attente chez un prestataire.
+     *
+     * Le rapprochement s'en sert pour relire les versements : contrairement aux
+     * encaissements, ils ne sont notifiés par aucun webhook et doivent être
+     * demandés un par un.
+     */
+    @Query("SELECT t FROM Transaction t WHERE t.status = :status AND t.type = :type "
+            + "AND t.providerTransactionId IS NOT NULL")
+    List<Transaction> findByStatusAndTypeAndProviderNotNull(
+            @Param("status") TransactionStatus status, @Param("type") TransactionType type);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Transaction t WHERE t.providerTransactionId = :providerTransactionId")
     Optional<Transaction> findByProviderTransactionIdForUpdate(

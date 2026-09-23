@@ -20,13 +20,6 @@ class CreditService {
   }
 
   /// Force le recalcul serveur (contourne le cache de 30 jours).
-  Future<ApiResult<CreditScoreBreakdown>> refreshScore() {
-    return _api.post<CreditScoreBreakdown>(
-      '/credit/score/refresh',
-      decode: (json) =>
-          CreditScoreBreakdown.fromJson(json as Map<String, dynamic>),
-    );
-  }
 
   Future<ApiResult<List<CreditScoreBreakdown>>> getScoreHistory() {
     return _api.get<List<CreditScoreBreakdown>>(

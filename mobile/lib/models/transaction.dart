@@ -171,6 +171,15 @@ class Transaction {
   final String? receiverCountryCode;
   final String? description;
   final String? idempotencyKey;
+
+  /// Page où régler un dépôt encore en attente, quand le prestataire ne pousse
+  /// pas la demande sur le téléphone mais fait payer sur sa propre page.
+  ///
+  /// Nulle partout ailleurs. Stockée côté serveur : elle ressort d'une simple
+  /// relecture de l'écriture, ce qui permet de reprendre un dépôt interrompu
+  /// au lieu d'en ouvrir un second.
+  final String? paymentUrl;
+
   final DateTime createdAt;
 
   const Transaction({
@@ -188,6 +197,7 @@ class Transaction {
     this.receiverCountryCode,
     this.description,
     this.idempotencyKey,
+    this.paymentUrl,
     required this.createdAt,
   });
 
@@ -226,6 +236,7 @@ class Transaction {
       receiverCountryCode: json['receiverCountryCode'] as String?,
       description: json['description'] as String?,
       idempotencyKey: json['idempotencyKey'] as String?,
+      paymentUrl: json['paymentUrl'] as String?,
       createdAt:
           DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),

@@ -142,6 +142,42 @@ class TransactionProvider extends ChangeNotifier {
     );
   }
 
+  Future<bool> depositMobileMoney({
+    required int walletId,
+    required double amount,
+    required String mode,
+    required String phoneNumber,
+    required String idempotencyKey,
+  }) {
+    return _runAction(
+      () => _service.depositMobileMoney(
+        walletId: walletId,
+        amount: amount,
+        mode: mode,
+        phoneNumber: phoneNumber,
+        idempotencyKey: idempotencyKey,
+      ),
+    );
+  }
+
+  Future<bool> withdrawMobileMoney({
+    required int walletId,
+    required double amount,
+    required String mode,
+    required String phoneNumber,
+    required String idempotencyKey,
+  }) {
+    return _runAction(
+      () => _service.withdrawMobileMoney(
+        walletId: walletId,
+        amount: amount,
+        mode: mode,
+        phoneNumber: phoneNumber,
+        idempotencyKey: idempotencyKey,
+      ),
+    );
+  }
+
   Future<bool> transfer({
     required int sourceWalletId,
     required int beneficiaryId,

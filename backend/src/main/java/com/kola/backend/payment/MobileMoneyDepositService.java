@@ -40,11 +40,14 @@ public class MobileMoneyDepositService {
     private final PaymentProvider paymentProvider;
 
     /**
-     * Déclenche une demande de débit sur le téléphone du client.
+     * Ouvre une demande de rechargement chez le prestataire.
      *
-     * Le retour est une écriture EN ATTENTE — jamais un succès. Le client doit
-     * encore composer son code Mobile Money, et c'est le webhook qui créditera.
-     * L'interface doit donc afficher « demande envoyée », pas « dépôt effectué ».
+     * Le retour est une écriture EN ATTENTE — jamais un succès. Selon ce que le
+     * compte marchand autorise, le client doit encore composer son code Mobile
+     * Money sur son téléphone, ou régler sur la page dont l'URL accompagne
+     * l'écriture ({@code paymentUrl}). Dans les deux cas c'est le webhook qui
+     * créditera : l'interface affiche « en attente de validation », jamais
+     * « dépôt effectué ».
      */
     public TransactionResponse deposit(User currentUser, MobileMoneyDepositRequest request) {
         Transaction pending = transactionService.openMobileMoneyDeposit(currentUser, request);
@@ -52,7 +55,12 @@ public class MobileMoneyDepositService {
         /* Rejeu d'une clé d'idempotence déjà utilisée : l'écriture existe et sa
            demande est déjà partie chez l'opérateur. La renvoyer telle quelle,
            sans repartir vers FedaPay — sinon le client verrait deux demandes de
-           débit s'afficher sur son téléphone pour un seul dépôt voulu. */
+           débit s'afficher sur son téléphone pour un seul dépôt voulu.
+
+           C'est ce chemin qui rend l'URL de paiement PERSISTÉE nécessaire : un
+           client qui ferme la page et recommence repasse exactement ici, et
+           doit retrouver le lien du paiement en cours plutôt qu'une écriture
+           en attente que rien ne permet de régler. */
         if (pending.getProviderTransactionId() != null
                 || pending.getStatus() != TransactionStatus.PENDING) {
             return TransactionResponse.fromEntity(pending);
@@ -83,7 +91,8 @@ public class MobileMoneyDepositService {
         }
 
         transactionService.attachProviderTransaction(
-                pending.getId(), PROVIDER, initiation.providerTransactionId());
+                pending.getId(), PROVIDER, initiation.providerTransactionId(),
+                initiation.paymentUrl());
 
         /* Relecture plutôt que retour de l'objet en mémoire : celui-ci a été
            chargé avant que l'identifiant du prestataire ne soit posé, et le

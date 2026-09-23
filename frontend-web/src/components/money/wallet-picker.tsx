@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { formatAmount } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { Card, EmptyState, Select } from "@/components/ui/primitives";
-import { WalletIcon } from "@/components/ui/icons";
+import { EyeIcon, EyeOffIcon, WalletIcon } from "@/components/ui/icons";
 import type { Wallet } from "@/lib/types";
 
 /**
@@ -94,13 +95,79 @@ export function NoWalletNotice() {
   );
 }
 
+/* ═══ LE MASQUAGE DU SOLDE, MÉMORISÉ LOCALEMENT ═══
+
+   Le choix survit au rechargement : quelqu'un qui consulte son compte dans un
+   lieu public ne veut pas re-cliquer à chaque page. La valeur reste dans le
+   navigateur, n'est jamais envoyée, et MASQUER N'EST PAS PROTÉGER — le montant
+   transite et reste lisible dans l'onglet réseau. C'est un cache-œil contre les
+   regards par-dessus l'épaule, pas un secret.
+
+   Un petit magasin externe plutôt qu'un état local, pour deux raisons :
+   `useSyncExternalStore` lit le navigateur sans provoquer la divergence
+   d'hydratation qu'un état initialisé depuis `localStorage` créerait ; et les
+   abonnés étant partagés, les deux cartes de solde (accueil et page Comptes)
+   basculent ensemble au lieu de se contredire. */
+const HIDDEN_KEY = "kola_web_hide_balance";
+
+const listeners = new Set<() => void>();
+
+function subscribeHidden(onChange: () => void) {
+  listeners.add(onChange);
+  return () => {
+    listeners.delete(onChange);
+  };
+}
+
+function readHidden(): boolean {
+  try {
+    return window.localStorage.getItem(HIDDEN_KEY) === "1";
+  } catch {
+    /* Navigation privée, stockage bloqué : on reste visible. */
+    return false;
+  }
+}
+
+/** Le serveur ne masque jamais : c'est ce qui fait coïncider HTML et hydratation. */
+function readHiddenOnServer(): boolean {
+  return false;
+}
+
+function writeHidden(next: boolean) {
+  try {
+    window.localStorage.setItem(HIDDEN_KEY, next ? "1" : "0");
+  } catch {
+    /* Le masquage vaut alors pour cette page seulement. */
+  }
+  listeners.forEach((notify) => notify());
+}
+
 /** Carte de solde réutilisée par l'accueil et la page des comptes. */
 export function WalletBalanceCard({ wallet }: { wallet: Wallet }) {
+  const hidden = useSyncExternalStore(subscribeHidden, readHidden, readHiddenOnServer);
+  const toggle = () => writeHidden(!hidden);
+
+  /* Une longueur fixe, sans rapport avec le montant : des points au nombre des
+     chiffres laisseraient deviner l'ordre de grandeur. */
+  const masque = "•••••••";
+
   return (
     <Card variant="brand">
-      <p className="text-sm text-kola-100">Solde disponible · {wallet.currency}</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-kola-100">Solde disponible · {wallet.currency}</p>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={hidden}
+          aria-label={hidden ? "Afficher le solde" : "Masquer le solde"}
+          title={hidden ? "Afficher le solde" : "Masquer le solde"}
+          className="-mr-1 inline-flex size-9 shrink-0 items-center justify-center rounded-full text-kola-100 transition-colors hover:bg-white/15 hover:text-white"
+        >
+          {hidden ? <EyeOffIcon className="text-lg" /> : <EyeIcon className="text-lg" />}
+        </button>
+      </div>
       <p className="tabular mt-1 font-display text-3xl font-semibold sm:text-4xl">
-        {formatAmount(wallet.availableBalance)}
+        {hidden ? masque : formatAmount(wallet.availableBalance)}
       </p>
 
       {/* Le solde bloqué n'est affiché que s'il existe : une ligne « 0 F
@@ -111,11 +178,15 @@ export function WalletBalanceCard({ wallet }: { wallet: Wallet }) {
         <div className="mt-4 flex gap-6 border-t border-white/15 pt-3 text-sm">
           <div>
             <p className="text-kola-200">Total</p>
-            <p className="tabular font-semibold">{formatAmount(wallet.balance)}</p>
+            <p className="tabular font-semibold">
+              {hidden ? masque : formatAmount(wallet.balance)}
+            </p>
           </div>
           <div>
             <p className="text-kola-200">Bloqué en coffres</p>
-            <p className="tabular font-semibold">{formatAmount(wallet.lockedBalance)}</p>
+            <p className="tabular font-semibold">
+              {hidden ? masque : formatAmount(wallet.lockedBalance)}
+            </p>
           </div>
         </div>
       ) : null}

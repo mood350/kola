@@ -3,6 +3,7 @@ package com.kola.backend.exception;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
+import com.kola.backend.payment.PaymentMethodUnavailableException;
 import com.kola.backend.payment.PaymentProviderException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -419,6 +420,17 @@ public class GlobalExceptionHandler {
     // ═══════════════════════════════════════════════════════════════
     //  PRESTATAIRE DE PAIEMENT
     // ═══════════════════════════════════════════════════════════════
+
+    @ExceptionHandler(PaymentMethodUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentMethodUnavailable(
+            PaymentMethodUnavailableException ex, HttpServletRequest request) {
+        // 503 et non 502 : rien n'a été tenté ni n'a échoué, le canal n'est
+        // simplement pas ouvert sur ce serveur. WARN et non ERROR pour la même
+        // raison — c'est une configuration, pas un incident.
+        log.warn("Moyen de paiement indisponible : {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("PAYMENT_METHOD_UNAVAILABLE", ex.getMessage(), request.getRequestURI()));
+    }
 
     @ExceptionHandler(PaymentProviderException.class)
     public ResponseEntity<ErrorResponse> handlePaymentProvider(

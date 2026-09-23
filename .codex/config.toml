@@ -1,0 +1,10 @@
+[mcp_servers.flutter-docs]
+command = "npx"
+args = ["flutter-mcp"]
+
+[mcp_servers.next-devtools]
+command = "npx"
+args = [
+    "-y",
+    "next-devtools-mcp@latest",
+]

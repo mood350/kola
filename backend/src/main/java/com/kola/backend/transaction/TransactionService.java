@@ -7,6 +7,7 @@ import com.kola.backend.exception.InsufficientFundsException;
 import com.kola.backend.exception.KycLimitExceededException;
 import com.kola.backend.merchant.Merchant;
 import com.kola.backend.merchant.MerchantRepository;
+import com.kola.backend.payment.MobileMoneyWithdrawalRequest;
 import com.kola.backend.notification.NotificationService;
 import com.kola.backend.notification.NotificationType;
 import com.kola.backend.user.User;
@@ -42,6 +43,165 @@ public class TransactionService {
     private final MerchantRepository merchantRepository;
     private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  RETRAIT MOBILE MONEY — versement par un prestataire externe
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Ouvre un retrait : DÉBITE IMMÉDIATEMENT, puis attend le prestataire.
+     *
+     * ═══ POURQUOI L'ARGENT PART DU PORTEFEUILLE TOUT DE SUITE ═══
+     *
+     * C'est l'inverse du dépôt, et pour une raison qui n'a rien de symétrique.
+     * Un dépôt en attente ne crédite pas : au pire l'utilisateur attend son
+     * argent. Un retrait en attente qui ne débiterait pas laisserait la somme
+     * disponible pendant tout le traitement — le temps de la dépenser une
+     * seconde fois, par virement ou par paiement marchand. Le portefeuille
+     * afficherait alors un solde que la banque ne peut plus honorer.
+     *
+     * Le débit est donc immédiat, et c'est l'échec qui recrédite.
+     *
+     * Les frais suivent la même règle que le retrait de test
+     * ({@code TransactionPolicy.computeWithdrawalFee}) : le prestataire ne
+     * change pas le tarif appliqué au client.
+     */
+    @Transactional
+    public Transaction openMobileMoneyWithdrawal(User currentUser, MobileMoneyWithdrawalRequest request) {
+        String idempotencyKey = normalizeKey(request.idempotencyKey());
+
+        if (idempotencyKey != null) {
+            Transaction replay = transactionRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
+            if (replay != null) {
+                return replay;
+            }
+        }
+
+        Wallet wallet = walletService.findOwnedWalletForUpdateOrThrow(currentUser, request.walletId());
+
+        BigDecimal fee = TransactionPolicy.computeWithdrawalFee(request.amount());
+        BigDecimal totalDebit = request.amount().add(fee);
+
+        checkSufficientFunds(wallet, totalDebit);
+        checkDailyLimit(currentUser, request.amount());
+
+        wallet.setBalance(wallet.getBalance().subtract(totalDebit));
+
+        Transaction tx = Transaction.builder()
+                .reference(referenceGenerator.generate())
+                .type(TransactionType.WITHDRAWAL)
+                .status(TransactionStatus.PENDING)
+                .amount(request.amount())
+                .fee(fee)
+                .currency(wallet.getCurrency())
+                .wallet(wallet)
+                .sender(currentUser)
+                .receiverPhoneNumber(request.phoneNumber())
+                .receiverCountryCode(request.mode().getCountryCode())
+                .idempotencyKey(idempotencyKey)
+                .description("Retrait " + request.mode().getLabel())
+                .build();
+
+        return transactionRepository.save(tx);
+    }
+
+    /**
+     * Applique l'issue d'un versement : solde le retrait, ou rend l'argent.
+     *
+     * ═══ LE RECRÉDIT EST LA PARTIE CRITIQUE ═══
+     *
+     * Un versement qui échoue chez l'opérateur (numéro invalide, compte
+     * plafonné, réseau indisponible) laisse un portefeuille débité d'un argent
+     * qui n'est jamais arrivé. Sans ce chemin, l'utilisateur perd la somme et
+     * les frais, et seul un correctif manuel le rattrape.
+     *
+     * Les FRAIS SONT RENDUS AUSSI : ils rémunèrent un service qui n'a pas été
+     * rendu. Les garder sur un échec technique est indéfendable.
+     *
+     * Idempotent par la même mécanique que le dépôt — verrou pessimiste sur
+     * l'écriture, puis garde de statut. La réconciliation peut repasser sur le
+     * même retrait autant de fois qu'elle veut.
+     */
+    @Transactional
+    public void settleMobileMoneyWithdrawal(String providerTransactionId, boolean sent) {
+        Transaction tx = transactionRepository
+                .findByProviderTransactionIdForUpdate(providerTransactionId)
+                .orElse(null);
+
+        if (tx == null) {
+            log.warn("Issue de versement pour une opération inconnue : {}", providerTransactionId);
+            return;
+        }
+
+        if (tx.getStatus() != TransactionStatus.PENDING) {
+            log.info("Versement déjà soldé pour {} (statut {}) — ignoré",
+                    tx.getReference(), tx.getStatus());
+            return;
+        }
+
+        if (sent) {
+            tx.setStatus(TransactionStatus.SUCCESS);
+            transactionRepository.save(tx);
+
+            notificationService.notify(
+                    tx.getSender(),
+                    "Retrait effectué",
+                    "Votre retrait de " + tx.getAmount() + " " + tx.getCurrency()
+                            + " a été envoyé sur votre compte Mobile Money.",
+                    NotificationType.TRANSACTION
+            );
+
+            eventPublisher.publishEvent(new TransactionCompletedEvent(tx.getSender().getId(), tx.getId()));
+            log.info("Retrait {} confirmé par le prestataire ({})",
+                    tx.getReference(), providerTransactionId);
+            return;
+        }
+
+        /* Échec : on rend le montant ET les frais, sous verrou — le solde a pu
+           bouger depuis le débit (un transfert reçu, un dépôt confirmé). */
+        Wallet wallet = walletService.lockForUpdate(tx.getWallet().getId());
+        wallet.setBalance(wallet.getBalance().add(tx.getAmount()).add(tx.getFee()));
+
+        tx.setStatus(TransactionStatus.FAILED);
+        transactionRepository.save(tx);
+
+        notificationService.notify(
+                tx.getSender(),
+                "Retrait échoué",
+                "Votre retrait de " + tx.getAmount() + " " + tx.getCurrency()
+                        + " n'a pas abouti. Le montant et les frais ont été recrédités.",
+                NotificationType.TRANSACTION
+        );
+
+        log.warn("Retrait {} échoué chez le prestataire ({}) — portefeuille recrédité",
+                tx.getReference(), providerTransactionId);
+    }
+
+    /**
+     * Referme un retrait dont l'ordre n'a jamais pu être ouvert.
+     *
+     * Le portefeuille a été débité à l'ouverture, le prestataire n'a rien pris
+     * en charge : il faut rendre, exactement comme sur un échec.
+     */
+    @Transactional
+    public void abandonPendingWithdrawal(Long transactionId) {
+        transactionRepository.findById(transactionId).ifPresent(tx -> {
+            if (tx.getStatus() != TransactionStatus.PENDING) return;
+
+            Wallet wallet = walletService.lockForUpdate(tx.getWallet().getId());
+            wallet.setBalance(wallet.getBalance().add(tx.getAmount()).add(tx.getFee()));
+
+            tx.setStatus(TransactionStatus.FAILED);
+            transactionRepository.save(tx);
+        });
+    }
+
+    /** Retraits encore en attente chez le prestataire, pour la réconciliation. */
+    @Transactional(readOnly = true)
+    public List<Transaction> findPendingProviderWithdrawals() {
+        return transactionRepository.findByStatusAndTypeAndProviderNotNull(
+                TransactionStatus.PENDING, TransactionType.WITHDRAWAL);
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  DÉPÔT MOBILE MONEY — encaissement par un prestataire externe
@@ -102,11 +262,16 @@ public class TransactionService {
 
     /** Relie l'écriture en attente à l'opération ouverte chez le prestataire. */
     @Transactional
-    public void attachProviderTransaction(Long transactionId, String provider, String providerTransactionId) {
+    public void attachProviderTransaction(Long transactionId, String provider,
+                                          String providerTransactionId, String paymentUrl) {
         Transaction tx = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new EntityNotFoundException("Transaction introuvable : " + transactionId));
         tx.setProvider(provider);
         tx.setProviderTransactionId(providerTransactionId);
+        /* Écrite telle quelle, nulle comprise : un prélèvement direct n'a pas
+           de page, et laisser traîner l'URL d'une tentative précédente ferait
+           rouvrir un paiement qui n'a plus cours. */
+        tx.setProviderPaymentUrl(paymentUrl);
         transactionRepository.save(tx);
     }
 
@@ -569,10 +734,14 @@ public class TransactionService {
                 .sumDepositedTodayBySender(currentUser.getId(), startOfDay);
 
         if (alreadyDepositedToday.add(amount).compareTo(limit) > 0) {
+            /* Message court et sans jargon interne. Il disait le palier
+               ("TIER_1"), le plafond et le cumul du jour : trois chiffres dont
+               aucun ne dit à l'utilisateur quoi faire, et un identifiant
+               technique qui ne veut rien dire hors du code. Ce qui compte tient
+               en deux informations — c'est atteint, et voilà comment le lever. */
             throw new KycLimitExceededException(
-                    "Plafond journalier de rechargement dépassé pour votre niveau de vérification ("
-                            + currentUser.getKycLevel() + " : " + limit + " XOF/jour). "
-                            + "Déjà rechargé aujourd'hui : " + alreadyDepositedToday + " XOF."
+                    "Plafond journalier de rechargement atteint. "
+                            + "Complétez votre vérification d'identité pour l'augmenter."
             );
         }
     }
@@ -590,9 +759,8 @@ public class TransactionService {
 
         if (alreadySpentToday.add(amount).compareTo(limit) > 0) {
             throw new KycLimitExceededException(
-                    "Limite journalière dépassée pour votre niveau de vérification ("
-                            + lockedUser.getKycLevel() + " : " + limit + " XOF/jour). "
-                            + "Soumettez une pièce d'identité pour augmenter votre limite."
+                    "Plafond journalier atteint. "
+                            + "Complétez votre vérification d'identité pour l'augmenter."
             );
         }
     }

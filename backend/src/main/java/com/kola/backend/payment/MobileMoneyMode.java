@@ -3,8 +3,8 @@ package com.kola.backend.payment;
 /**
  * Opérateurs Mobile Money encaissables sans redirection.
  *
- * Le code envoyé à FedaPay n'est PAS déduit du nom de l'opérateur : il fait
- * partie du chemin de l'appel ({@code POST /v1/transactions/{mode}}) et n'a de
+ * Le code envoyé à FedaPay n'est PAS déduit du nom de l'opérateur : il EST le
+ * chemin de l'appel ({@code POST /v1/{mode}}, à la racine de l'API) et n'a de
  * sens que tel quel. « MTN Bénin » s'appelle {@code mtn_open}, « Celtis »
  * s'appelle {@code sbin} — deviner mènerait à un 404 silencieux.
  *

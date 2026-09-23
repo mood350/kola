@@ -174,7 +174,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-card p-5 shadow-card sm:p-6",
+        "rounded-surface p-5 shadow-soft sm:p-6",
         CARD_VARIANT[variant],
         /* `ring-2` remplace `ring-1` : les deux ne coexistent pas, la variante
            choisit l'un OU l'autre plutôt que de les superposer. */
@@ -409,7 +409,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-card border border-dashed border-line-strong px-6 py-12 text-center">
+    <div className="flex flex-col items-center justify-center rounded-surface border border-dashed border-line-strong px-6 py-12 text-center">
       {icon ? (
         <span className="mb-3 flex size-12 items-center justify-center rounded-full bg-ink-100 text-xl text-ink-500">
           {icon}
@@ -433,7 +433,7 @@ export function SkeletonList({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-3" aria-busy="true" aria-label="Chargement">
       {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="flex items-center gap-3 rounded-card bg-surface p-4 ring-1 ring-line">
+        <div key={index} className="flex items-center gap-3 rounded-surface bg-surface p-4 ring-1 ring-line">
           <Skeleton className="size-10 shrink-0 rounded-full" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-3.5 w-2/5" />
@@ -557,7 +557,7 @@ export function Modal({
            avoir à mesurer des coordonnées. */
         if (event.target === ref.current) onClose();
       }}
-      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-panel bg-surface p-0 text-ink-900 shadow-raised backdrop:bg-ink-950/40 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-sheet bg-surface p-0 text-ink-900 shadow-lifted backdrop:bg-ink-950/40 backdrop:backdrop-blur-sm"
     >
       <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
         <h2 id={titleId} className="font-display text-lg font-semibold">

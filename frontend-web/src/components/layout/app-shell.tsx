@@ -45,7 +45,7 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { href: "/", label: "Accueil", icon: HomeIcon, primary: true },
+  { href: "/mon-compte", label: "Accueil", icon: HomeIcon, primary: true },
   { href: "/transactions", label: "Transactions", icon: ListIcon, primary: true },
   { href: "/coffres", label: "Coffres", icon: VaultIcon, primary: true },
   { href: "/credit", label: "Crédit", icon: CreditIcon, primary: true },
@@ -55,15 +55,13 @@ const NAV: NavItem[] = [
   { href: "/profil", label: "Profil", icon: UserIcon, primary: true },
 ];
 
-/**
- * Onglet actif.
- *
- * `startsWith` pour les sous-pages (`/coffres/12` doit allumer « Coffres »),
- * mais égalité stricte pour la racine — sinon « Accueil » resterait allumé sur
- * toutes les pages du site.
- */
+/** Onglet actif. */
 function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  /* `startsWith` pour les sous-pages (`/coffres/12` allume « Coffres »).
+     Depuis la fusion, le tableau de bord n'est plus à la racine — celle-ci
+     appartient au site public — donc aucune entrée n'a besoin du cas
+     particulier « égalité stricte » qui existait pour `/`. */
+  return pathname.startsWith(href);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -86,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh lg:flex">
       {/* ---- Colonne latérale (grand écran) ---- */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
-        <Link href="/" className="mb-8 flex items-center gap-2.5 px-2">
+        <Link href="/mon-compte" className="mb-8 flex items-center gap-2.5 px-2">
           <BrandMark />
           <span className="font-display text-xl font-semibold tracking-tight text-ink-950">
             Kola
@@ -138,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* ---- Barre supérieure ---- */}
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2 lg:hidden">
+          <Link href="/mon-compte" className="flex items-center gap-2 lg:hidden">
             <BrandMark />
             <span className="font-display text-lg font-semibold text-ink-950">Kola</span>
           </Link>

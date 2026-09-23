@@ -70,22 +70,6 @@ class CreditProvider extends ChangeNotifier {
 
   /// Recalcul forcé côté serveur : le score est mis en cache 30 jours,
   /// donc un simple loadScore() renverrait la même valeur figée.
-  Future<bool> refreshScore() async {
-    _isLoadingScore = true;
-    _scoreError = null;
-    notifyListeners();
-
-    final result = await _service.refreshScore();
-    if (result.success) {
-      _score = result.data;
-    } else {
-      _scoreError =
-          result.error?.message ?? 'Impossible de recalculer le score';
-    }
-    _isLoadingScore = false;
-    notifyListeners();
-    return result.success;
-  }
 
   Future<void> loadLoans() async {
     _isLoadingLoans = true;

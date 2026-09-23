@@ -19,7 +19,7 @@ import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../transactions/transaction_detail_screen.dart';
 import '../transactions/transaction_history_screen.dart';
-import '../transactions/widgets/amount_input_sheet.dart';
+import '../transactions/widgets/mobile_money_sheet.dart';
 import '../transfer/beneficiary_picker_screen.dart';
 import '../merchant/merchant_scan_screen.dart';
 
@@ -79,10 +79,36 @@ class _HomeTabContentState extends State<_HomeTabContent> {
     final wallet = context.read<WalletProvider>().primaryWallet;
     if (wallet == null) return;
 
-    await AmountInputSheet.show(
+    /* Deux chemins derrière un seul bouton : Mobile Money passe par le
+       prestataire, le mode test écrit directement au grand livre. La feuille
+       porte le choix, ici on se contente de câbler les deux actions. */
+    await MobileMoneySheet.show(
       context,
       title: isDeposit ? 'Déposer' : 'Retirer',
-      onSubmit: (amount, idempotencyKey) async {
+      isDeposit: isDeposit,
+      onRealSubmit: (amount, mode, phoneNumber, idempotencyKey) async {
+        final txProvider = context.read<TransactionProvider>();
+        final success = isDeposit
+            ? await txProvider.depositMobileMoney(
+                walletId: wallet.id,
+                amount: amount,
+                mode: mode,
+                phoneNumber: phoneNumber,
+                idempotencyKey: idempotencyKey,
+              )
+            : await txProvider.withdrawMobileMoney(
+                walletId: wallet.id,
+                amount: amount,
+                mode: mode,
+                phoneNumber: phoneNumber,
+                idempotencyKey: idempotencyKey,
+              );
+        if (success && mounted) {
+          await context.read<WalletProvider>().loadHomeData();
+        }
+        return success;
+      },
+      onTestSubmit: (amount, idempotencyKey) async {
         final txProvider = context.read<TransactionProvider>();
         final success = isDeposit
             ? await txProvider.deposit(

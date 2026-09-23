@@ -43,6 +43,56 @@ class TransactionService {
     );
   }
 
+  /// POST /transactions/deposit/mobile-money — 202, écriture EN ATTENTE.
+  ///
+  /// Le wallet n'est PAS crédité : la demande part sur le téléphone du client,
+  /// qui la valide par son code Mobile Money. C'est le webhook du prestataire
+  /// qui créditera.
+  Future<ApiResult<Transaction>> depositMobileMoney({
+    required int walletId,
+    required double amount,
+    required String mode,
+    required String phoneNumber,
+    String? idempotencyKey,
+  }) {
+    return _api.post<Transaction>(
+      '/transactions/deposit/mobile-money',
+      body: {
+        'walletId': walletId,
+        'amount': amount,
+        'mode': mode,
+        'phoneNumber': phoneNumber,
+        'idempotencyKey': ?idempotencyKey,
+      },
+      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  /// POST /transactions/withdraw/mobile-money — 202, écriture EN ATTENTE.
+  ///
+  /// Le wallet EST débité tout de suite — sinon la somme resterait dépensable
+  /// pendant le traitement — mais l'argent n'est pas encore arrivé. Un échec
+  /// recrédite le montant et les frais.
+  Future<ApiResult<Transaction>> withdrawMobileMoney({
+    required int walletId,
+    required double amount,
+    required String mode,
+    required String phoneNumber,
+    String? idempotencyKey,
+  }) {
+    return _api.post<Transaction>(
+      '/transactions/withdraw/mobile-money',
+      body: {
+        'walletId': walletId,
+        'amount': amount,
+        'mode': mode,
+        'phoneNumber': phoneNumber,
+        'idempotencyKey': ?idempotencyKey,
+      },
+      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
   Future<ApiResult<Transaction>> transfer({
     required int sourceWalletId,
     required int beneficiaryId,

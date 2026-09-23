@@ -25,7 +25,7 @@ public class CreditController {
     @GetMapping("/score")
     public ResponseEntity<ScoreBreakdown> getMyScore(
             @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(creditScoringService.getOrCompute(currentUser));
+        return ResponseEntity.ok(creditScoringService.getFresh(currentUser));
     }
 
     /**
@@ -38,7 +38,7 @@ public class CreditController {
     public ResponseEntity<ScoreBreakdown> refreshMyScore(
             @AuthenticationPrincipal User currentUser) {
         creditScoringService.computeAndSave(currentUser.getId());
-        return ResponseEntity.ok(creditScoringService.getOrCompute(currentUser));
+        return ResponseEntity.ok(creditScoringService.getFresh(currentUser));
     }
 
     /** Historique complet des scores. */
@@ -55,7 +55,7 @@ public class CreditController {
     public ResponseEntity<LoanCapacityResponse> getMyCapacity(
             @AuthenticationPrincipal User currentUser
     ) {
-        ScoreBreakdown breakdown = creditScoringService.getOrCompute(currentUser);
+        ScoreBreakdown breakdown = creditScoringService.getFresh(currentUser);
         LoanCapacity capacity = repaymentCapacityService.compute(currentUser, breakdown.tier());
         return ResponseEntity.ok(LoanCapacityResponse.from(capacity, breakdown.tier()));
     }
