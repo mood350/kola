@@ -1,9 +1,10 @@
 package com.kola.backend.config;
 
-import com.kola.backend.security.JwtAuthFilter;
-import com.kola.backend.security.RestAccessDeniedHandler;
-import com.kola.backend.security.RestAuthenticationEntryPoint;
+import com.kola.backend.modules.auth.security.JwtAuthenticationFilter;
+import com.kola.backend.modules.auth.security.RestAccessDeniedHandler;
+import com.kola.backend.modules.auth.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,6 +14,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -22,16 +24,23 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableConfigurationProperties({JwtProperties.class, AuthProperties.class,
+        CorsProperties.class, OtpProperties.class, KycProperties.class,
+        ScoringProperties.class, CreditProperties.class,
+        AuditProperties.class, AdminSeedProperties.class, DisputeProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
+    private final CorsProperties corsProperties;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // No cookies and no server-side session: every call carries its own bearer token,
+                // which is also why CSRF protection is not needed here.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -54,29 +63,36 @@ public class SecurityConfig {
                         )
                         .contentTypeOptions(contentTypeOptions -> {})
                         .referrerPolicy(referrer -> referrer.policy(
-                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER
                         ))
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/test/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        // Notifications des prestataires de paiement : ils ne
-                        // peuvent presenter aucun jeton Kola. Ce qui autorise
-                        // l'operation n'est pas une session mais la signature
-                        // HMAC verifiee dans le controleur — sans secret
-                        // configure, tout y est refuse.
-                        .requestMatchers("/api/webhooks/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/credit/**").authenticated()
                         .requestMatchers(
-                                "/v2/api-docs", "/v3/api-docs", "/v3/api-docs/**",
-                                "/swagger-resources/**", "/configuration/ui", "/configuration/security",
-                                "/swagger-ui/**", "/webjars/**", "/swagger-ui.html",
-                                "/actuator/**"
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/register/request-otp",
+                                "/api/v1/auth/register/verify-otp",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout",
+                                // Back-office sign-in: reachable before a token exists.
+                                "/api/v1/admin/auth/login",
+                                "/api/v1/admin/auth/password-reset-request"
                         ).permitAll()
+                        // Admin back-office (KOLA.md 4.5): disputes, chargebacks, forced vault
+                        // closure. hasRole matches the ROLE_ prefix that Role.authority() emits.
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/v3/api-docs", "/v3/api-docs/**",
+                                "/swagger-resources/**", "/configuration/ui", "/configuration/security",
+                                "/swagger-ui/**", "/webjars/**", "/swagger-ui.html"
+                        ).permitAll()
+                        // Probes only. "/actuator/**" would also hand /actuator/env,
+                        // /actuator/heapdump and /actuator/loggers to anonymous callers.
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
+                        .permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -84,20 +100,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Chaque origine est listee explicitement : un joker ("*") est
-        // incompatible avec setAllowCredentials(true), et un pattern large
-        // ouvrirait l'API a n'importe quel site charge dans le navigateur du
-        // client. Toute nouvelle interface web doit donc etre ajoutee ici.
-        //   3000 -> frontend-admin (console d'administration)
-        //   3002 -> frontend-web   (espace client)
-        //   10.0.2.2 -> alias de l'hote vu depuis l'emulateur Android
-        // (landing/ tourne sur 3001 mais n'appelle jamais cette API :
-        //  l'y ajouter serait une autorisation sans usage.)
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "http://localhost:3002",
-                "http://10.0.2.2:8081"
-        ));
+        // Each origin is listed explicitly: a wildcard is incompatible with setAllowCredentials(true)
+        // and would open the API to any site loaded in a client's browser. New front-ends go through
+        // app.security.cors.allowed-origins rather than an edit here.
+        //   3000     -> web front-end (dev server)
+        //   10.0.2.2 -> the host as seen from the Android emulator
+        configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         configuration.setAllowCredentials(true);

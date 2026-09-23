@@ -1,17 +1,28 @@
 package com.kola.backend.exception;
 
-/**
- * Lancée quand une opération dépasse la limite autorisée pour le niveau
- * KYC actuel de l'utilisateur (ex: TIER_0 ne peut pas envoyer plus de
- * 50 000 XOF/jour). L'utilisateur doit soumettre une pièce d'identité
- * pour monter de niveau et débloquer des limites plus élevées.
- */
-public class KycLimitExceededException extends RuntimeException {
-    public KycLimitExceededException(String message) {
-        super(message);
-    }
+import com.kola.backend.common.enums.KycTier;
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
-    public KycLimitExceededException() {
-        super("Cette opération dépasse la limite autorisée pour votre niveau de vérification.");
+import java.math.BigDecimal;
+
+/**
+ * A ceiling of the user's KYC tier would be crossed. The message names the tier and the limit so
+ * the app can invite the user to upgrade rather than just refusing.
+ */
+@Getter
+public class KycLimitExceededException extends ApiException {
+
+    private final KycTier tier;
+    private final String ceiling;
+    private final BigDecimal limit;
+
+    public KycLimitExceededException(KycTier tier, String ceiling, BigDecimal limit) {
+        super(HttpStatus.FORBIDDEN, "KYC_LIMIT_EXCEEDED",
+                "This operation exceeds your " + ceiling + " limit of " + limit.toPlainString()
+                        + " XOF for " + tier + ". Upgrade your verification level to raise it.");
+        this.tier = tier;
+        this.ceiling = ceiling;
+        this.limit = limit;
     }
 }
