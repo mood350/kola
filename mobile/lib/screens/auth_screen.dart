@@ -5,6 +5,7 @@ import '../core/theme/kola_icons.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/code_input.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 
@@ -570,22 +571,7 @@ class _AuthScreenState extends State<AuthScreen> {
             style: AppTypography.small,
           ),
           const _Label('CODE OTP À 6 CHIFFRES'),
-          TextField(
-            controller: _otp,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: AppTypography.screenTitle.copyWith(
-              fontSize: 26,
-              letterSpacing: 12,
-              color: AppColors.primary,
-            ),
-            decoration: const InputDecoration(
-              counterText: '',
-              hintText: '••••••',
-            ),
-          ),
+          CodeInput(controller: _otp, length: 6, autofocus: true),
           const SizedBox(height: 18),
           GestureDetector(
             onTap: () async {
@@ -783,44 +769,30 @@ class _PinField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: _fieldDecoration,
-      child: Row(
-        children: [
-          const Icon(KolaIcons.keypadOutline, size: 18, color: AppColors.muted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: secure,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: AppTypography.body.copyWith(fontSize: 13),
-              decoration: const InputDecoration(
-                hintText: '4 chiffres',
-                counterText: '',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
+    return Row(
+      children: [
+        Expanded(
+          child: CodeInput(controller: controller, length: 4, obscure: secure),
+        ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: onToggle,
+          child: Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.pale2,
+              shape: BoxShape.circle,
             ),
-          ),
-          GestureDetector(
-            onTap: onToggle,
             child: Icon(
               secure ? KolaIcons.eyeOutline : KolaIcons.eyeOffOutline,
               size: 20,
-              color: AppColors.muted,
+              color: AppColors.primary,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

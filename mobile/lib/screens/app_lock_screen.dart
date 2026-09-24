@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../core/theme/kola_icons.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
+import '../core/widgets/code_input.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 
@@ -88,6 +88,10 @@ class _AppLockScreenState extends State<AppLockScreen> {
   }
 
   Future<void> _unlockWithPin() async {
+    // La saisie de la dernière case et le bouton appellent tous deux cette
+    // méthode : sans ce garde-fou, un appui pendant la vérification enverrait
+    // une seconde tentative de connexion.
+    if (_loading) return;
     if (_pin.text.length != 4) {
       _alert('PIN incomplet', 'Saisissez votre code PIN à 4 chiffres.');
       return;
@@ -165,52 +169,15 @@ class _AppLockScreenState extends State<AppLockScreen> {
                           style: AppTypography.fieldLabel,
                         ),
                         const SizedBox(height: 7),
-                        Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(13),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                KolaIcons.keypadOutline,
-                                size: 20,
-                                color: AppColors.muted,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: _pin,
-                                  autofocus: true,
-                                  obscureText: true,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 4,
-                                  textAlign: TextAlign.center,
-                                  onSubmitted: (_) => _unlockWithPin(),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  style: AppTypography.screenTitle.copyWith(
-                                    fontSize: 24,
-                                    letterSpacing: 12,
-                                    color: AppColors.primary,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    hintText: '••••',
-                                    counterText: '',
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    filled: false,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        CodeInput(
+                          controller: _pin,
+                          length: 4,
+                          obscure: true,
+                          autofocus: true,
+                          // Le clavier numérique n'a pas de touche de
+                          // validation : la quatrième case saisie déclenche le
+                          // déverrouillage, comme le faisait « Entrée ».
+                          onCompleted: _unlockWithPin,
                         ),
                         const SizedBox(height: 17),
                         GestureDetector(
