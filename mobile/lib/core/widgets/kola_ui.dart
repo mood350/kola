@@ -92,12 +92,18 @@ class Pill extends StatelessWidget {
         ? AppColors.greenDark
         : AppColors.primary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label, style: AppTypography.badge.copyWith(color: foreground)),
+      child: Text(
+        label,
+        style: AppTypography.badge.copyWith(color: foreground),
+      ),
     );
   }
 }

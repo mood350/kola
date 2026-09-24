@@ -151,8 +151,8 @@ class BottomNav extends StatelessWidget {
     return switch (tab) {
       KolaRoute.credit =>
         route == KolaRoute.loan || route == KolaRoute.loanDetail,
-      KolaRoute.savings => route == KolaRoute.vaults ||
-          route == KolaRoute.vaultDetail,
+      KolaRoute.savings =>
+        route == KolaRoute.vaults || route == KolaRoute.vaultDetail,
       KolaRoute.scheduled =>
         route == KolaRoute.bills ||
             route == KolaRoute.subscriptions ||

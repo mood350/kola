@@ -164,10 +164,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'CODE PIN',
-                          style: AppTypography.fieldLabel,
-                        ),
+                        Text('CODE PIN', style: AppTypography.fieldLabel),
                         const SizedBox(height: 7),
                         CodeInput(
                           controller: _pin,

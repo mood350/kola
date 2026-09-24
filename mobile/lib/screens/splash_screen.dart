@@ -30,30 +30,26 @@ class _SplashScreenState extends State<SplashScreen>
     curve: const Interval(0, 0.55, curve: Curves.easeOut),
   );
 
-  late final Animation<double> _logoScale = Tween<double>(
-    begin: 0.55,
-    end: 1,
-  ).animate(
-    CurvedAnimation(
-      parent: _intro,
-      curve: const Interval(0, 0.55, curve: Curves.elasticOut),
-    ),
-  );
+  late final Animation<double> _logoScale = Tween<double>(begin: 0.55, end: 1)
+      .animate(
+        CurvedAnimation(
+          parent: _intro,
+          curve: const Interval(0, 0.55, curve: Curves.elasticOut),
+        ),
+      );
 
   late final Animation<double> _titleOpacity = CurvedAnimation(
     parent: _intro,
     curve: const Interval(0.5, 1, curve: Curves.easeOut),
   );
 
-  late final Animation<double> _titleOffset = Tween<double>(
-    begin: 18,
-    end: 0,
-  ).animate(
-    CurvedAnimation(
-      parent: _intro,
-      curve: const Interval(0.5, 1, curve: Curves.easeOutCubic),
-    ),
-  );
+  late final Animation<double> _titleOffset = Tween<double>(begin: 18, end: 0)
+      .animate(
+        CurvedAnimation(
+          parent: _intro,
+          curve: const Interval(0.5, 1, curve: Curves.easeOutCubic),
+        ),
+      );
 
   @override
   void dispose() {

@@ -152,9 +152,7 @@ class _CreditScreenState extends State<CreditScreen> {
         Opacity(
           opacity: eligible ? 1 : 0.72,
           child: GestureDetector(
-            onTap: eligible
-                ? () => widget.onNavigate(KolaRoute.loan)
-                : null,
+            onTap: eligible ? () => widget.onNavigate(KolaRoute.loan) : null,
             child: Container(
               padding: const EdgeInsets.all(17),
               decoration: BoxDecoration(
@@ -227,9 +225,7 @@ class _CreditScreenState extends State<CreditScreen> {
                         fontWeight: FontWeight.w900,
                       ),
                       children: [
-                        TextSpan(
-                          text: money(eligibility?.maxLoanAmount ?? 0),
-                        ),
+                        TextSpan(text: money(eligibility?.maxLoanAmount ?? 0)),
                         TextSpan(
                           text: ' FCFA',
                           style: AppTypography.amount.copyWith(fontSize: 13),
@@ -288,9 +284,7 @@ class _CreditScreenState extends State<CreditScreen> {
                   ),
                 ),
                 Icon(
-                  _historyOpen
-                      ? KolaIcons.chevronUp
-                      : KolaIcons.chevronDown,
+                  _historyOpen ? KolaIcons.chevronUp : KolaIcons.chevronDown,
                   size: 19,
                   color: AppColors.primary,
                 ),
@@ -313,8 +307,7 @@ class _CreditScreenState extends State<CreditScreen> {
                           loan: history[i],
                           shortId: _shortId(history[i]),
                           withDivider: i > 0,
-                          onTap: () =>
-                              widget.onNavigate(KolaRoute.loanDetail),
+                          onTap: () => widget.onNavigate(KolaRoute.loanDetail),
                         ),
                     ],
                   ),

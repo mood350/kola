@@ -193,7 +193,10 @@ class _KycScreenState extends State<KycScreen> {
       final file = result?.files.single;
       if (file == null || file.path == null) return;
       if (file.size > _maxFileBytes) {
-        _alert('Fichier trop volumineux', 'Le document doit faire moins de 10 Mo.');
+        _alert(
+          'Fichier trop volumineux',
+          'Le document doit faire moins de 10 Mo.',
+        );
         return;
       }
       setState(() {
@@ -251,8 +254,7 @@ class _KycScreenState extends State<KycScreen> {
 
     _alert(
       failure == null ? 'Dossier envoyé' : 'Envoi incomplet',
-      failure ??
-          'Vos documents sont maintenant en cours de vérification.',
+      failure ?? 'Vos documents sont maintenant en cours de vérification.',
     );
   }
 
@@ -625,9 +627,7 @@ class _DocumentCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(
-          color: ready ? AppColors.green : AppColors.hairline,
-        ),
+        border: Border.all(color: ready ? AppColors.green : AppColors.hairline),
         boxShadow: AppColors.softShadow,
       ),
       child: Column(

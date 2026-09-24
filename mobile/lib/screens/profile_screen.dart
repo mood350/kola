@@ -160,8 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return;
                 }
                 setState(
-                  () =>
-                      _expanded = _expanded == option.key ? null : option.key,
+                  () => _expanded = _expanded == option.key ? null : option.key,
                 );
               },
             ),
@@ -380,10 +379,7 @@ class _DetailLine extends StatelessWidget {
         Icon(icon, size: 16, color: AppColors.greenDark),
         const SizedBox(width: 7),
         Expanded(
-          child: Text(
-            text,
-            style: AppTypography.caption.copyWith(fontSize: 9),
-          ),
+          child: Text(text, style: AppTypography.caption.copyWith(fontSize: 9)),
         ),
       ],
     );

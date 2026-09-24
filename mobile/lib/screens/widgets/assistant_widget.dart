@@ -227,13 +227,11 @@ class _AssistantPanelState extends State<_AssistantPanel> {
         _input.text = question;
         _unavailable = status == 503;
         _error = switch (status) {
-          429 =>
-            'Vous avez atteint votre quota de messages pour aujourd’hui.',
+          429 => 'Vous avez atteint votre quota de messages pour aujourd’hui.',
           503 =>
             'L’assistant KOLA est temporairement indisponible. Votre question est conservée, vous pouvez réessayer.',
           _ =>
-            reply.error?.message ??
-                'L’assistant ne répond pas pour le moment.',
+            reply.error?.message ?? 'L’assistant ne répond pas pour le moment.',
         };
       });
       return;
@@ -270,9 +268,7 @@ class _AssistantPanelState extends State<_AssistantPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 17),
               decoration: const BoxDecoration(
                 color: AppColors.white,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.border),
-                ),
+                border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(
                 children: [
@@ -361,15 +357,10 @@ class _AssistantPanelState extends State<_AssistantPanel> {
                             const SizedBox(
                               width: 15,
                               height: 15,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              'KOLA réfléchit…',
-                              style: AppTypography.small,
-                            ),
+                            Text('KOLA réfléchit…', style: AppTypography.small),
                           ],
                         ),
                       ),

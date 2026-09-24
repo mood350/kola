@@ -49,14 +49,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
-    for (final controller in [
-      _name,
-      _email,
-      _phone,
-      _otp,
-      _pin,
-      _confirmPin,
-    ]) {
+    for (final controller in [_name, _email, _phone, _otp, _pin, _confirmPin]) {
       controller.dispose();
     }
     super.dispose();
@@ -140,7 +133,8 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       return;
     }
-    if (_step == 3 && (_pin.text.length != 4 || _pin.text != _confirmPin.text)) {
+    if (_step == 3 &&
+        (_pin.text.length != 4 || _pin.text != _confirmPin.text)) {
       _alert(
         'PIN invalide',
         'Le code PIN doit contenir 4 chiffres et les deux codes doivent correspondre.',
@@ -581,7 +575,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 result.success ? 'Code renvoyé' : 'Erreur',
                 result.success
                     ? 'Un nouveau code OTP vous a été envoyé.'
-                    : result.error?.message ?? 'Impossible de renvoyer le code.',
+                    : result.error?.message ??
+                          'Impossible de renvoyer le code.',
               );
             },
             child: Text(
@@ -629,8 +624,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (picked != null) setState(() => _dateOfBirth = picked);
   }
 
-  TextStyle get _titleStyle =>
-      AppTypography.screenTitle.copyWith(fontSize: 27);
+  TextStyle get _titleStyle => AppTypography.screenTitle.copyWith(fontSize: 27);
 }
 
 BoxDecoration get _fieldDecoration => BoxDecoration(
@@ -647,10 +641,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 14, bottom: 6),
-      child: Text(
-        text,
-        style: AppTypography.fieldLabel.copyWith(fontSize: 8),
-      ),
+      child: Text(text, style: AppTypography.fieldLabel.copyWith(fontSize: 8)),
     );
   }
 }
