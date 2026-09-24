@@ -201,3 +201,26 @@ app.admin.seed.owner.name=Administrateur
 app.admin.seed.owner.password=
 # A desactiver en production, puis creer les comptes du personnel deliberement :
 # app.admin.seed.enabled=false
+
+# --- Utilisateur client de test (dev uniquement) -----------------------------
+# Cree un compte client pret a l'emploi (TIER_0, telephone verifie) si ce numero
+# n'existe pas encore, pour eviter de repasser par le flux OTP en local.
+# Le PIN est ecrit directement, sans passer par PinPolicy : "1234" serait refuse
+# a un vrai utilisateur, mais ce compte n'en est pas un. A DESACTIVER EN PRODUCTION.
+app.dev.seed.enabled=true
+app.dev.seed.phone=90000000
+app.dev.seed.pin=1234
+app.dev.seed.first-name=Kola
+app.dev.seed.last-name=Testeur
+app.dev.seed.date-of-birth=1995-01-01
+app.dev.seed.address=Quartier Be
+app.dev.seed.city=Lome
+app.dev.seed.country=TG
+# A chaque demarrage, remet ce compte en etat d'emprunter : piece d'identite
+# approuvee (TIER_2), epargne completee jusqu'a savings-balance (la garantie,
+# donc le montant maximal du pret) et score remis a credit-score si le calcul
+# de la nuit l'a fait baisser.
+app.dev.seed.credit-ready=true
+app.dev.seed.savings-balance=50000
+app.dev.seed.credit-score=75
+# app.dev.seed.enabled=false

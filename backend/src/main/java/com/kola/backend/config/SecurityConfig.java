@@ -27,7 +27,8 @@ import java.util.List;
 @EnableConfigurationProperties({JwtProperties.class, AuthProperties.class,
         CorsProperties.class, OtpProperties.class, KycProperties.class,
         ScoringProperties.class, CreditProperties.class,
-        AuditProperties.class, AdminSeedProperties.class, DisputeProperties.class})
+        AuditProperties.class, AdminSeedProperties.class, DisputeProperties.class,
+        DevUserSeedProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
