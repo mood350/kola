@@ -1,44 +1,46 @@
-/// Échelle d'espacement (base 4px), rayons de bordure et dimensions Kola.
-/// Source : design system Stitch (kola_fintech/DESIGN.md)
+/// Échelle d'espacement KOLA (base 4px).
 class AppSpacing {
   AppSpacing._();
 
-  static const double base = 4;
   static const double xxs = 4;
   static const double xs = 8;
   static const double sm = 12;
   static const double md = 16;
   static const double lg = 24;
   static const double xl = 32;
-  static const double sectionV = 64;
-  static const double gutter = 16;
-  static const double marginMobile = 20;
+
+  /// Marge latérale du contenu de tous les écrans.
+  static const double gutter = 20;
 }
 
-/// Rayons de bordure (border-radius).
+/// Rayons de bordure.
 class AppRadius {
   AppRadius._();
 
-  static const double sm = 4; // 0.25rem — badges (KYC tiers)
-  static const double defaultR = 8; // 0.5rem
-  static const double md = 12; // 0.75rem — inputs
-  static const double lg =
-      20; // ~1.25rem (utilisé comme "rounded-lg" pour les cards/features)
-  static const double xl = 24; // 1.5rem
-  static const double full = 9999; // pilule (boutons, chips)
+  static const double sm = 6;
+  static const double md = 11;
+  static const double card = 16;
+  static const double lg = 19;
+  static const double sheet = 27;
+  static const double full = 9999;
 }
 
-/// Dimensions fixes communes (hauteurs de composants).
+/// Dimensions fixes communes.
 class AppDimens {
   AppDimens._();
 
-  static const double inputHeight = 56;
-  static const double buttonMinHeight = 48;
-  static const double bottomNavHeight = 64;
-  static const double cardPadding =
-      32; // padding interne "xl" des cards (esprit magazine)
-  static const double iconActionSize =
-      48; // boutons d'action circulaires (Déposer, Envoyer...)
-  static const double iconBadgeSize =
-      40; // icônes dans les listes de transactions
+  static const double headerHeight = 64;
+  static const double buttonHeight = 48;
+  static const double inputHeight = 46;
+
+  /// Barre de navigation flottante : hauteur, et marge latérale par rapport
+  /// aux bords de l'écran.
+  static const double navHeight = 68;
+  static const double navInset = 14;
+
+  /// Espace réservé en bas de chaque écran pour que la barre flottante ne
+  /// recouvre jamais le dernier élément de la liste.
+  static const double navClearance = 112;
+
+  static const double iconCircle = 43;
 }

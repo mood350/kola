@@ -1,30 +1,36 @@
-/// Modèle représentant un wallet Kola, tel que renvoyé par
-/// GET /api/wallets et GET /api/wallets/{id} (cf. WalletResponse backend).
-class Wallet {
-  final int id;
-  final String currency;
-  final double balance;
-  final double lockedBalance;
-  final double availableBalance;
-  final bool active;
+import 'json.dart';
 
+/// Portefeuille : compte courant (`CURRENT`) ou épargne Bankivi (`SAVINGS`).
+class Wallet {
   const Wallet({
     required this.id,
     required this.currency,
-    required this.balance,
-    required this.lockedBalance,
+    required this.type,
     required this.availableBalance,
-    required this.active,
+    required this.lockedBalance,
+    required this.totalBalance,
+    required this.status,
   });
+
+  final String id;
+  final String currency;
+  final String type;
+  final double availableBalance;
+  final double lockedBalance;
+  final double totalBalance;
+  final String status;
+
+  bool get isSavings => type == 'SAVINGS';
 
   factory Wallet.fromJson(Map<String, dynamic> json) {
     return Wallet(
-      id: json['id'] as int,
-      currency: json['currency'] as String? ?? 'XOF',
-      balance: (json['balance'] as num?)?.toDouble() ?? 0,
-      lockedBalance: (json['lockedBalance'] as num?)?.toDouble() ?? 0,
-      availableBalance: (json['availableBalance'] as num?)?.toDouble() ?? 0,
-      active: json['active'] as bool? ?? true,
+      id: asString(json['id']),
+      currency: asString(json['currency'], 'XOF'),
+      type: asString(json['type'], 'CURRENT'),
+      availableBalance: asDouble(json['availableBalance']),
+      lockedBalance: asDouble(json['lockedBalance']),
+      totalBalance: asDouble(json['totalBalance']),
+      status: asString(json['status']),
     );
   }
 }

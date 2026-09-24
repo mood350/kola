@@ -22,13 +22,13 @@ class SkeletonBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: AppColors.surfaceContainerLow,
-      highlightColor: AppColors.surfaceContainerHighest,
+      baseColor: AppColors.pale,
+      highlightColor: AppColors.pale2,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
+          color: AppColors.pale,
           borderRadius: borderRadius,
         ),
       ),

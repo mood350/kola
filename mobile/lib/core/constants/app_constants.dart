@@ -22,9 +22,11 @@ class AppConstants {
   /// autorisé que par le manifeste de la variante debug
   /// (android/app/src/debug/AndroidManifest.xml) : une release qui pointerait
   /// sur du http échouerait à émettre, par construction.
+  /// Racine du serveur, sans suffixe : les chemins portent eux-mêmes leur
+  /// `/api/v1/...`, calqués sur ceux qu'expose le backend.
   static const String baseUrl = String.fromEnvironment(
     'KOLA_API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8081/api',
+    defaultValue: 'http://10.0.2.2:8081',
   );
 
   static const Duration apiTimeout = Duration(seconds: 15);
@@ -32,6 +34,13 @@ class AppConstants {
   // --- Stockage sécurisé (clés) ---
   static const String tokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';
+  static const String userKey = 'auth_user';
+
+  // --- Préférences non sensibles ---
+  static const String onboardingSeenKey = 'kola.onboarding.seen';
+
+  /// Au-delà de cette durée en arrière-plan, l'app redemande le déverrouillage.
+  static const Duration lockAfterBackground = Duration(seconds: 30);
 
   // --- Devise ---
   static const String currencyCode = 'XOF';

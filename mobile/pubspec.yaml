@@ -10,6 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # --- Localisation française des composants Material (dates, pickers) ---
+  flutter_localizations:
+    sdk: flutter
+
   # The following adds the Cupertino Icons font to your application.
   cupertino_icons: ^1.0.8
 
@@ -23,7 +27,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
 
   # --- Formatage devises (XOF) et dates ---
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # --- Typographie custom (optionnel, cohérence avec la landing page) ---
   google_fonts: ^6.2.1
@@ -31,8 +35,28 @@ dependencies:
   # --- Icônes SVG (optionnel) ---
   flutter_svg: ^2.0.10+1
 
+
   # --- Scan QR code (paiement marchand) ---
   mobile_scanner: ^6.0.2
+
+  # --- Génération du QR de réception P2P ---
+  qr_flutter: ^4.1.0
+
+  # --- Verrouillage de l'app (empreinte / visage) ---
+  local_auth: ^2.3.0
+
+  # --- Préférences non sensibles (onboarding vu) ---
+  shared_preferences: ^2.3.2
+
+  # --- Envoi de pièces justificatives KYC ---
+  file_picker: ^8.1.4
+
+  # --- Choix d'un bénéficiaire dans le répertoire du téléphone ---
+  flutter_contacts: ^1.1.9+2
+
+  # --- Reçu de transfert au format PDF, partageable ---
+  pdf: ^3.11.1
+  printing: ^5.13.4
 
   # --- Skeleton loaders (états de chargement) ---
   shimmer: ^3.0.0
@@ -48,3 +72,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/kola-logo-transparent.png
+    - assets/onboarding/

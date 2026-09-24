@@ -2,96 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// Système typographique de Kola.
+/// Échelle typographique KOLA.
 ///
-/// Remplacement des polices propriétaires par des équivalents Google Fonts :
-/// - Aeonik Pro (headings, display) → Sora : même esprit architectural,
-///   géométrique, avec un bon contraste de graisses.
-/// - Inter (body, UI) → Inter (disponible nativement sur Google Fonts).
+/// Elle est volontairement dense et graissée : la maquette empile beaucoup
+/// d'informations chiffrées par écran, et hiérarchise par le poids plutôt que
+/// par la taille. Inter couvre l'ensemble, chiffres compris.
 class AppTypography {
   AppTypography._();
 
-  // --- Display & Headings (Sora, remplace Aeonik Pro) ---
+  static TextStyle _base(
+    double size,
+    FontWeight weight, {
+    Color color = AppColors.ink,
+    double? height,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.inter(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+  }
 
-  static TextStyle displayLg = GoogleFonts.sora(
-    fontSize: 48,
-    fontWeight: FontWeight.w500,
-    height: 1.1,
-    letterSpacing: -0.48,
-    color: AppColors.onSurface,
-  );
+  /// Solde du portefeuille, montant d'un reçu.
+  static TextStyle get balance =>
+      _base(31, FontWeight.w900, color: AppColors.yellow);
 
-  static TextStyle displayLgMobile = GoogleFonts.sora(
-    fontSize: 32,
-    fontWeight: FontWeight.w500,
-    height: 1.2,
-    letterSpacing: -0.32,
-    color: AppColors.onSurface,
-  );
+  /// Titre d'une feuille modale ou d'un écran plein.
+  static TextStyle get screenTitle =>
+      _base(22, FontWeight.w900, color: AppColors.ink);
 
-  static TextStyle headingMd = GoogleFonts.sora(
-    fontSize: 24,
-    fontWeight: FontWeight.w500,
-    height: 1.33,
-    letterSpacing: 0,
-    color: AppColors.onSurface,
-  );
+  /// Intitulé d'une section ("Actions Express", "Mes Coffres-Forts").
+  static TextStyle get section =>
+      _base(20, FontWeight.w800, color: AppColors.ink, letterSpacing: -0.3);
 
-  static TextStyle headingSm = GoogleFonts.sora(
-    fontSize: 20,
-    fontWeight: FontWeight.w500,
-    height: 1.4,
-    letterSpacing: 0,
-    color: AppColors.onSurface,
-  );
+  /// Montant mis en avant dans une carte.
+  static TextStyle get amount =>
+      _base(19, FontWeight.w800, color: AppColors.primary);
 
-  // --- Body & UI (Inter) ---
+  static TextStyle get cardTitle =>
+      _base(15, FontWeight.w800, color: AppColors.ink);
 
-  static TextStyle bodyLg = GoogleFonts.inter(
-    fontSize: 18,
-    fontWeight: FontWeight.w400,
-    height: 1.56,
-    letterSpacing: -0.09,
-    color: AppColors.onSurface,
-  );
+  static TextStyle get body => _base(14, FontWeight.w400, color: AppColors.ink);
 
-  static TextStyle bodyMd = GoogleFonts.inter(
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-    letterSpacing: 0.24,
-    color: AppColors.onSurfaceVariant,
-  );
+  static TextStyle get bodyBold =>
+      _base(14, FontWeight.w700, color: AppColors.ink);
 
-  static TextStyle bodyMdBold = GoogleFonts.inter(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    height: 1.5,
-    letterSpacing: 0.16,
-    color: AppColors.onSurface,
-  );
+  static TextStyle get button =>
+      _base(14, FontWeight.w800, color: AppColors.primary);
 
-  static TextStyle bodySm = GoogleFonts.inter(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-    height: 1.43,
-    letterSpacing: 0,
-    color: AppColors.onSurfaceVariant,
-  );
+  static TextStyle get small =>
+      _base(11, FontWeight.w400, color: AppColors.muted);
 
-  static TextStyle buttonMd = GoogleFonts.inter(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    height: 1.5,
-    letterSpacing: 0.24,
-    color: AppColors.onPrimary,
-  );
+  static TextStyle get smallBold =>
+      _base(11, FontWeight.w700, color: AppColors.primary);
 
-  static TextStyle labelXs = GoogleFonts.inter(
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-    height: 1.2,
-    letterSpacing: 0.5,
-    color: AppColors.onSurfaceVariant,
-  );
+  /// Légende, horodatage, mention sous un montant.
+  static TextStyle get caption =>
+      _base(10, FontWeight.w400, color: AppColors.muted, height: 1.4);
+
+  /// Intitulé de champ de formulaire, en capitales.
+  static TextStyle get fieldLabel =>
+      _base(9, FontWeight.w800, color: AppColors.muted);
+
+  /// Texte d'un badge ou d'une pastille.
+  static TextStyle get badge =>
+      _base(9, FontWeight.w700, color: AppColors.primary);
 }

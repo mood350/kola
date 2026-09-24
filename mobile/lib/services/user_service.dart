@@ -1,56 +1,65 @@
+import '../models/kyc.dart';
 import '../models/user.dart';
 import 'api_client.dart';
 
-/// Service gérant les appels API liés au profil utilisateur.
 class UserService {
-  UserService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  UserService({ApiClient? client}) : _client = client ?? ApiClient();
 
-  final ApiClient _api;
+  final ApiClient _client;
 
-  /// GET /api/users/me
-  Future<ApiResult<User>> getMe() {
-    return _api.get<User>(
-      '/users/me',
-      decode: (json) => User.fromJson(json as Map<String, dynamic>),
+  Future<ApiResult<KolaUser>> me() {
+    return _client.get(
+      '/api/v1/users/me',
+      decode: (json) => KolaUser.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
-  /// PUT /api/users/me
-  Future<ApiResult<User>> updateProfile({
-    required String firstName,
-    required String lastName,
-    required String phoneNumber,
-    String? avatar,
+  /// Résout un numéro en destinataire affichable avant un envoi. Échoue si le
+  /// numéro n'a pas de compte KOLA — c'est ce qui sert de garde-fou à l'écran
+  /// d'envoi.
+  Future<ApiResult<RecipientLookup>> lookupRecipient(String phone) {
+    return _client.get(
+      '/api/v1/users/recipients/${Uri.encodeComponent(phone)}',
+      decode: (json) =>
+          RecipientLookup.fromJson((json as Map).cast<String, dynamic>()),
+    );
+  }
+
+  /// Met à jour le profil (prénom, nom, e-mail).
+  Future<ApiResult<KolaUser>> updateProfile(Map<String, dynamic> changes) {
+    return _client.patch(
+      '/api/v1/users/me',
+      body: changes,
+      decode: (json) => KolaUser.fromJson((json as Map).cast<String, dynamic>()),
+    );
+  }
+}
+
+/// État de la vérification d'identité et dépôt de pièces justificatives.
+class KycService {
+  KycService({ApiClient? client}) : _client = client ?? ApiClient();
+
+  final ApiClient _client;
+
+  Future<ApiResult<KycStatus>> status() {
+    return _client.get(
+      '/api/v1/kyc/status',
+      decode: (json) =>
+          KycStatus.fromJson((json as Map).cast<String, dynamic>()),
+    );
+  }
+
+  Future<ApiResult<KycDocument>> uploadDocument({
+    required String type,
+    required String filePath,
   }) {
-    return _api.put<User>(
-      '/users/me',
-      body: {
-        'firstName': firstName,
-        'lastName': lastName,
-        'phoneNumber': phoneNumber,
-        'avatar': ?avatar,
-      },
-      decode: (json) => User.fromJson(json as Map<String, dynamic>),
-    );
-  }
-
-  /// PUT /api/users/me/avatar
-  Future<ApiResult<User>> updateAvatar(String avatar) {
-    return _api.put<User>(
-      '/users/me/avatar',
-      body: {'avatar': avatar},
-      decode: (json) => User.fromJson(json as Map<String, dynamic>),
-    );
-  }
-
-  /// POST /api/users/me/password
-  Future<ApiResult<void>> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  }) {
-    return _api.postEmpty(
-      '/users/me/password',
-      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    return _client.upload(
+      '/api/v1/kyc/documents',
+      field: 'file',
+      filePath: filePath,
+      fields: {'type': type},
+      decode: (json) =>
+          KycDocument.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 }

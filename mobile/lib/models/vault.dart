@@ -1,62 +1,46 @@
-/// Statut d'un coffre-fort (cf. backend VaultStatus).
-/// ACTIVE → fonds bloqués ; UNLOCKED → disponible ; CLOSED → fermé avant échéance.
-enum VaultStatus {
-  active,
-  unlocked,
-  closed;
+import 'json.dart';
 
-  static VaultStatus fromBackend(String value) {
-    switch (value) {
-      case 'ACTIVE':
-        return VaultStatus.active;
-      case 'UNLOCKED':
-        return VaultStatus.unlocked;
-      case 'CLOSED':
-        return VaultStatus.closed;
-      default:
-        return VaultStatus.active;
-    }
-  }
-}
-
-/// Modèle représentant un coffre-fort d'épargne (cf. VaultResponse backend).
-/// Un coffre n'est jamais supprimé, seulement transitionné vers un autre statut.
+/// Coffre-fort d'épargne fléchée vers un objectif.
 class Vault {
-  final int id;
-  final String name;
-  final String? purpose;
-  final double? targetAmount;
-  final double currentAmount;
-  final String currency;
-  final DateTime? unlockDate;
-  final VaultStatus status;
-  final int walletId;
-
   const Vault({
     required this.id,
     required this.name,
-    this.purpose,
-    this.targetAmount,
-    required this.currentAmount,
     required this.currency,
-    this.unlockDate,
+    required this.balance,
+    required this.targetAmount,
+    required this.progressPercent,
+    required this.goalReached,
     required this.status,
-    required this.walletId,
+    this.targetDate,
+    this.description,
+    this.createdAt,
   });
+
+  final String id;
+  final String name;
+  final String currency;
+  final double balance;
+  final double targetAmount;
+  final double progressPercent;
+  final bool goalReached;
+  final String status;
+  final DateTime? targetDate;
+  final String? description;
+  final DateTime? createdAt;
 
   factory Vault.fromJson(Map<String, dynamic> json) {
     return Vault(
-      id: json['id'] as int,
-      name: json['name'] as String? ?? '',
-      purpose: json['purpose'] as String?,
-      targetAmount: (json['targetAmount'] as num?)?.toDouble(),
-      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0,
-      currency: json['currency'] as String? ?? 'XOF',
-      unlockDate: json['unlockDate'] != null
-          ? DateTime.tryParse(json['unlockDate'] as String)
-          : null,
-      status: VaultStatus.fromBackend(json['status'] as String? ?? 'ACTIVE'),
-      walletId: json['walletId'] as int,
+      id: asString(json['id']),
+      name: asString(json['name']),
+      currency: asString(json['currency'], 'XOF'),
+      balance: asDouble(json['balance']),
+      targetAmount: asDouble(json['targetAmount']),
+      progressPercent: asDouble(json['progressPercent']),
+      goalReached: asBool(json['goalReached']),
+      status: asString(json['status']),
+      targetDate: asDate(json['targetDate']),
+      description: asStringOrNull(json['description']),
+      createdAt: asDate(json['createdAt']),
     );
   }
 }
