@@ -7,6 +7,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/vault.dart';
@@ -185,27 +186,31 @@ class VaultDetailScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 13),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: _InfoTile(
-                icon: KolaIcons.calendarOutline,
-                label: 'DATE CIBLE',
-                value: vault.targetDate == null
-                    ? 'Non définie'
-                    : shortDate(vault.targetDate!),
+        // stretch sans hauteur bornée (on est dans une ListView) donne une
+        // hauteur infinie : IntrinsicHeight aligne les tuiles sur la plus haute.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _InfoTile(
+                  icon: KolaIcons.calendarOutline,
+                  label: 'DATE CIBLE',
+                  value: vault.targetDate == null
+                      ? 'Non définie'
+                      : shortDate(vault.targetDate!),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _InfoTile(
-                icon: KolaIcons.shieldCheckmarkOutline,
-                label: 'STATUT',
-                value: vault.status,
+              const SizedBox(width: 10),
+              Expanded(
+                child: _InfoTile(
+                  icon: KolaIcons.shieldCheckmarkOutline,
+                  label: 'STATUT',
+                  value: vault.status,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 13),
         KolaCard(
@@ -311,6 +316,14 @@ class _DepositSheetState extends State<_DepositSheet> {
       _alert('Montant invalide', 'Saisissez un montant supérieur à zéro.');
       return;
     }
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer le versement',
+      amount: '${money(value)} FCFA',
+      details: [('Depuis', 'Compte courant'), ('Vers', widget.vault.name)],
+      confirmLabel: 'Verser',
+    );
+    if (!confirmed || !mounted) return;
     setState(() => _saving = true);
     final result = await _vaults.deposit(widget.vault.id, value);
     if (!mounted) return;

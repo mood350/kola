@@ -10,6 +10,7 @@ import '../core/theme/app_typography.dart';
 import '../core/utils/date_format_utils.dart';
 import '../core/utils/formatters.dart';
 import '../core/utils/transaction_display.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/transaction.dart';
@@ -19,8 +20,13 @@ import '../routes/kola_route.dart';
 import '../services/wallet_service.dart';
 
 class _QuickAction {
-  const _QuickAction(this.icon, this.title, this.subtitle, this.route,
-      {this.background});
+  const _QuickAction(
+    this.icon,
+    this.title,
+    this.subtitle,
+    this.route, {
+    this.background,
+  });
   final IconData icon;
   final String title;
   final String subtitle;
@@ -169,9 +175,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _RechargeSheet(
-        data: context.read<KolaDataProvider>(),
-      ),
+      builder: (sheetContext) =>
+          _RechargeSheet(data: context.read<KolaDataProvider>()),
     );
   }
 }
@@ -196,9 +201,12 @@ class _WelcomeRow extends StatelessWidget {
               const SizedBox(height: 3),
               Row(
                 children: [
-                  Text('● ', style: AppTypography.caption.copyWith(
-                    color: AppColors.green,
-                  )),
+                  Text(
+                    '● ',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.green,
+                    ),
+                  ),
                   Text(
                     'Compte Particulier Actif',
                     style: AppTypography.caption,
@@ -709,9 +717,7 @@ class _QrDialog extends StatelessWidget {
     return Dialog(
       insetPadding: const EdgeInsets.all(22),
       backgroundColor: AppColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(25),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -853,6 +859,18 @@ class _RechargeSheetState extends State<_RechargeSheet> {
       );
       return;
     }
+
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer la recharge',
+      amount: '${money(value)} FCFA',
+      details: [
+        ('Numéro Mobile Money', _phone.text),
+        ('Vers', 'Compte courant'),
+      ],
+      confirmLabel: 'Recharger',
+    );
+    if (!confirmed || !mounted) return;
 
     setState(() => _sending = true);
     final result = await _wallets.deposit(value);

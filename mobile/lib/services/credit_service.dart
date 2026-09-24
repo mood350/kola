@@ -30,7 +30,7 @@ class CreditService {
     return _client.post(
       '/api/v1/credit/loans',
       idempotencyKey: idempotencyKey,
-      body: {'currency': 'XOF', 'principal': amount},
+      body: {'currency': 'XOF', 'amount': amount},
       decode: (json) => Loan.fromJson((json as Map).cast<String, dynamic>()),
     );
   }

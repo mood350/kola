@@ -7,6 +7,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/scheduled_transfer.dart';
@@ -167,6 +168,29 @@ class _ServicePaymentsScreenState extends State<ServicePaymentsScreen> {
     }
 
     final monthly = _isSubscription && _automatic;
+    final vault = context
+        .read<KolaDataProvider>()
+        .vaults
+        .where((item) => item.id == _fundingVaultId)
+        .firstOrNull;
+    final confirmed = await confirmOperation(
+      context,
+      title: _isSubscription
+          ? 'Confirmer l’abonnement'
+          : 'Confirmer la facture',
+      amount: '${money(value)} FCFA',
+      details: [
+        ('Service', selected.displayName),
+        (selected.identifierLabel, clean),
+        ('Payé depuis', vault?.name ?? 'Coffre'),
+        (monthly ? 'Premier paiement' : 'Date de paiement', shortDate(_date)),
+        if (monthly) ('Fréquence', 'Chaque mois'),
+      ],
+      note:
+          'Vérifiez la référence : un paiement envoyé sur une mauvaise référence crédite un autre client.',
+      confirmLabel: 'Enregistrer',
+    );
+    if (!confirmed || !mounted) return;
     setState(() => _saving = true);
     final result = await _scheduling.create(
       type: 'BILL_PAYMENT',
@@ -402,8 +426,7 @@ class _ServicePaymentsScreenState extends State<ServicePaymentsScreen> {
                         name: vault.name,
                         balance: vault.balance,
                         selected: _fundingVaultId == vault.id,
-                        onTap: () =>
-                            setState(() => _fundingVaultId = vault.id),
+                        onTap: () => setState(() => _fundingVaultId = vault.id),
                       ),
                     ),
                 if (!_isSubscription) ...[
@@ -738,7 +761,11 @@ class _SavedRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   '${task.beneficiaryReference} · '
-                  '${task.frequency == 'MONTHLY' ? 'chaque mois' : task.nextRunAt == null ? '—' : shortDate(task.nextRunAt!)}',
+                  '${task.frequency == 'MONTHLY'
+                      ? 'chaque mois'
+                      : task.nextRunAt == null
+                      ? '—'
+                      : shortDate(task.nextRunAt!)}',
                   style: AppTypography.caption.copyWith(fontSize: 8),
                 ),
               ],

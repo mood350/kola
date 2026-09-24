@@ -7,6 +7,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/vault.dart';
@@ -154,10 +155,7 @@ class VaultsScreen extends StatelessWidget {
         for (final vault in vaults)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: _VaultCard(
-              vault: vault,
-              onTap: () => onOpenVault(vault.id),
-            ),
+            child: _VaultCard(vault: vault, onTap: () => onOpenVault(vault.id)),
           ),
         Container(
           margin: const EdgeInsets.only(top: 10),
@@ -297,7 +295,10 @@ class _VaultCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('0 FCFA', style: AppTypography.caption.copyWith(fontSize: 9)),
+              Text(
+                '0 FCFA',
+                style: AppTypography.caption.copyWith(fontSize: 9),
+              ),
               Text(
                 'Objectif ${money(vault.targetAmount)} FCFA',
                 style: AppTypography.caption.copyWith(fontSize: 9),
@@ -406,6 +407,21 @@ class _CreateVaultSheetState extends State<_CreateVaultSheet> {
       _alert('Objectif invalide', 'Saisissez un montant supérieur à zéro.');
       return;
     }
+
+    final date = _date;
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer la création',
+      amount: _name.text.trim(),
+      details: [
+        ('Objectif', target == null ? 'Non défini' : '${money(target)} FCFA'),
+        ('Date cible', date == null ? 'Non définie' : shortDate(date)),
+      ],
+      note:
+          'Le coffre est créé vide : vous l’alimenterez ensuite depuis votre compte courant.',
+      confirmLabel: 'Créer le coffre',
+    );
+    if (!confirmed || !mounted) return;
 
     setState(() => _saving = true);
     final result = await _vaults.create(

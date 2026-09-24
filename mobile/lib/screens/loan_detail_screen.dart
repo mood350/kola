@@ -8,6 +8,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
 import '../core/utils/idempotency_key.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/loan.dart';
@@ -191,7 +192,11 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                 label: 'Échéance',
                 value: loan.dueAt == null
                     ? '—'
-                    : '${shortDate(loan.dueAt!)}${days == null ? '' : days >= 0 ? ' (J-$days)' : ' (${-days} j de retard)'}',
+                    : '${shortDate(loan.dueAt!)}${days == null
+                          ? ''
+                          : days >= 0
+                          ? ' (J-$days)'
+                          : ' (${-days} j de retard)'}',
               ),
               DetailRow(
                 label: 'Total à rembourser',
@@ -290,6 +295,22 @@ class _RepaySheetState extends State<_RepaySheet> {
       return;
     }
 
+    final remaining = widget.loan.outstanding - value;
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer le remboursement',
+      amount: '${money(value)} FCFA',
+      details: [
+        ('Débité de', 'Compte courant'),
+        ('Reste à payer ensuite', '${money(remaining)} FCFA'),
+      ],
+      note: remaining <= 0
+          ? 'Le prêt sera soldé et votre épargne Bankivi débloquée.'
+          : null,
+      confirmLabel: 'Rembourser',
+    );
+    if (!confirmed || !mounted) return;
+
     setState(() => _saving = true);
     final result = await _credit.repay(
       loanId: widget.loan.id,
@@ -351,8 +372,7 @@ class _RepaySheetState extends State<_RepaySheet> {
           children: [
             SheetHeader(
               title: 'Rembourser mon prêt',
-              subtitle:
-                  'Restant dû : ${money(widget.loan.outstanding)} FCFA',
+              subtitle: 'Restant dû : ${money(widget.loan.outstanding)} FCFA',
             ),
             const FieldLabel('Montant du remboursement'),
             Container(

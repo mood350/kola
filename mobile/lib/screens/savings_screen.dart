@@ -9,6 +9,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../providers/kola_data_provider.dart';
@@ -337,10 +338,7 @@ class _Step extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  text,
-                  style: AppTypography.caption.copyWith(fontSize: 9),
-                ),
+                Text(text, style: AppTypography.caption.copyWith(fontSize: 9)),
               ],
             ),
           ),
@@ -397,6 +395,20 @@ class _SavingsSheetState extends State<_SavingsSheet> {
       Navigator.of(context).pop();
       return;
     }
+
+    final confirmed = await confirmOperation(
+      context,
+      title: widget.deposit ? 'Confirmer le versement' : 'Confirmer le retrait',
+      amount: '${money(value)} FCFA',
+      details: widget.deposit
+          ? [('Depuis', 'Compte courant'), ('Vers', 'Épargne Bankivi')]
+          : [('Depuis', 'Épargne Bankivi'), ('Vers', 'Compte courant')],
+      note: widget.deposit
+          ? null
+          : 'Retirer de l’épargne réduit la garantie, donc le montant que vous pouvez emprunter.',
+      confirmLabel: widget.deposit ? 'Verser' : 'Retirer',
+    );
+    if (!confirmed || !mounted) return;
 
     setState(() => _saving = true);
     final result = widget.deposit

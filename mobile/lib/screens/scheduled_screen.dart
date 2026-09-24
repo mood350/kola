@@ -10,6 +10,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/scheduled_transfer.dart';
@@ -152,10 +153,7 @@ class _ScheduledScreenState extends State<ScheduledScreen> {
             ],
           ),
         ),
-        PrimaryButton(
-          label: 'Programmer une opération',
-          onPressed: _openForm,
-        ),
+        PrimaryButton(label: 'Programmer une opération', onPressed: _openForm),
         Container(
           height: 39,
           margin: const EdgeInsets.symmetric(vertical: 18),
@@ -166,12 +164,11 @@ class _ScheduledScreenState extends State<ScheduledScreen> {
           ),
           child: Row(
             children: [
-              for (final entry
-                  in {
-                    'À venir (${active.length})': 0,
-                    'Historique': 1,
-                    'En pause (${paused.length})': 2,
-                  }.entries)
+              for (final entry in {
+                'À venir (${active.length})': 0,
+                'Historique': 1,
+                'En pause (${paused.length})': 2,
+              }.entries)
                 Expanded(
                   child: GestureDetector(
                     onTap: () => setState(() => _tab = entry.value),
@@ -361,8 +358,7 @@ class _ScheduleCard extends StatelessWidget {
 
     final title = switch (destination) {
       _Destination.bankivi => 'Cotisation Bankivi',
-      _Destination.vault =>
-        vaults[task.beneficiaryReference] ?? 'Coffre KOLA',
+      _Destination.vault => vaults[task.beneficiaryReference] ?? 'Coffre KOLA',
       _Destination.person => task.beneficiaryReference,
     };
 
@@ -467,9 +463,7 @@ class _ScheduleCard extends StatelessWidget {
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
-                    task.nextRunAt == null
-                        ? '—'
-                        : receiptDate(task.nextRunAt!),
+                    task.nextRunAt == null ? '—' : receiptDate(task.nextRunAt!),
                     style: AppTypography.caption.copyWith(
                       fontSize: 9,
                       color: AppColors.ink,
@@ -571,8 +565,7 @@ class _ScheduleFormState extends State<_ScheduleForm> {
         _lookupMessage = 'Compte KOLA vérifié';
       } else {
         _recipient = '';
-        _lookupMessage =
-            result.error?.message ?? 'Numéro non inscrit sur KOLA';
+        _lookupMessage = result.error?.message ?? 'Numéro non inscrit sur KOLA';
       }
     });
   }
@@ -658,6 +651,38 @@ class _ScheduleFormState extends State<_ScheduleForm> {
       _Destination.person => normalisedPhone,
     };
 
+    String vaultName(String id) =>
+        widget.data.vaults
+            .where((vault) => vault.id == id)
+            .map((vault) => vault.name)
+            .firstOrNull ??
+        'Coffre';
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer la programmation',
+      amount: '${money(value)} FCFA',
+      details: [
+        (
+          'Vers',
+          switch (_destination) {
+            _Destination.bankivi => 'Épargne Bankivi',
+            _Destination.vault => vaultName(_vaultId),
+            _Destination.person =>
+              _recipient.isEmpty ? normalisedPhone : _recipient,
+          },
+        ),
+        if (_destination == _Destination.person)
+          ('Financé par', vaultName(_vaultId)),
+        ('Fréquence', _frequencySentence(_frequency)),
+        ('Premier prélèvement', receiptDate(_when)),
+      ],
+      note: _frequency == 'ONCE'
+          ? null
+          : 'Le prélèvement se répétera ${_frequencySentence(_frequency)} jusqu’à ce que vous le suspendiez ou l’annuliez.',
+      confirmLabel: 'Programmer',
+    );
+    if (!confirmed || !mounted) return;
+
     setState(() => _saving = true);
     final result = await _scheduling.create(
       type: type,
@@ -742,9 +767,8 @@ class _ScheduleFormState extends State<_ScheduleForm> {
                       icon: KolaIcons.personOutline,
                       label: 'Personne',
                       active: _destination == _Destination.person,
-                      onTap: () => setState(
-                        () => _destination = _Destination.person,
-                      ),
+                      onTap: () =>
+                          setState(() => _destination = _Destination.person),
                     ),
                     _Choice(
                       icon: KolaIcons.lockClosedOutline,
@@ -757,9 +781,8 @@ class _ScheduleFormState extends State<_ScheduleForm> {
                       icon: KolaIcons.businessOutline,
                       label: 'Bankivi',
                       active: _destination == _Destination.bankivi,
-                      onTap: () => setState(
-                        () => _destination = _Destination.bankivi,
-                      ),
+                      onTap: () =>
+                          setState(() => _destination = _Destination.bankivi),
                     ),
                   ],
                 ),
@@ -1227,8 +1250,8 @@ class _ContactPickerState extends State<_ContactPicker> {
     final results = widget.contacts.where((contact) {
       if (contact.phones.isEmpty) return false;
       if (_query.isEmpty) return true;
-      final haystack =
-          '${contact.displayName} ${contact.phones.first.number}'.toLowerCase();
+      final haystack = '${contact.displayName} ${contact.phones.first.number}'
+          .toLowerCase();
       return haystack.contains(_query.toLowerCase());
     }).toList();
 

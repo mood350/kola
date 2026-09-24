@@ -14,6 +14,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
 import '../core/utils/idempotency_key.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/transaction.dart';
@@ -35,7 +36,10 @@ String? togolesePhone(String payload) {
     final decoded = jsonDecode(value);
     if (decoded is Map) {
       value =
-          (decoded['recipientPhone'] ?? decoded['phone'] ?? decoded['account'] ?? '')
+          (decoded['recipientPhone'] ??
+                  decoded['phone'] ??
+                  decoded['account'] ??
+                  '')
               .toString();
     }
   } catch (_) {
@@ -181,9 +185,26 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _send() async {
     final quote = _quote;
-    if (quote == null) return;
+    final recipient = _recipient;
+    if (quote == null || recipient == null) return;
 
     final data = context.read<KolaDataProvider>();
+    // Un transfert P2P ne se rattrape que par un litige : on fait relire le
+    // nom du destinataire une dernière fois.
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer le transfert',
+      amount: '${money(quote.amount)} FCFA',
+      details: [
+        ('Destinataire', recipient.displayName),
+        ('Numéro', recipient.maskedPhone),
+        ('Frais KOLA', '${money(quote.fee)} FCFA'),
+        ('Total débité', '${money(quote.total)} FCFA'),
+      ],
+      note: 'Un transfert envoyé ne peut pas être annulé.',
+      confirmLabel: 'Envoyer',
+    );
+    if (!confirmed || !mounted) return;
     setState(() => _sending = true);
 
     final result = await _transactions.transfer(
@@ -337,10 +358,7 @@ class _ScanScreenState extends State<ScanScreen> {
           Positioned(
             bottom: 24,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 7,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(15),
@@ -584,14 +602,8 @@ class _ScanScreenState extends State<ScanScreen> {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Column(
             children: [
-              DetailRow(
-                label: 'Montant',
-                value: '${money(quote.amount)} FCFA',
-              ),
-              DetailRow(
-                label: 'Frais KOLA',
-                value: '${money(quote.fee)} FCFA',
-              ),
+              DetailRow(label: 'Montant', value: '${money(quote.amount)} FCFA'),
+              DetailRow(label: 'Frais KOLA', value: '${money(quote.fee)} FCFA'),
               Container(
                 height: 48,
                 alignment: Alignment.center,
@@ -948,10 +960,7 @@ class _ReceiptViewState extends State<_ReceiptView> {
                 value: receiptDate(widget.transaction.displayedAt),
               ),
               DetailRow(label: 'Frais KOLA', value: '${money(_fee)} FCFA'),
-              DetailRow(
-                label: 'Total débité',
-                value: '${money(_total)} FCFA',
-              ),
+              DetailRow(label: 'Total débité', value: '${money(_total)} FCFA'),
               if (widget.description.isNotEmpty)
                 DetailRow(label: 'Motif', value: widget.description),
               Container(

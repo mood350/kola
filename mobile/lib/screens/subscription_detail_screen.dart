@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/scheduled_transfer.dart';
@@ -114,7 +115,10 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       return;
     }
     if (_vaultId.isEmpty) {
-      _alert('Coffre requis', 'Choisissez le coffre qui paiera cet abonnement.');
+      _alert(
+        'Coffre requis',
+        'Choisissez le coffre qui paiera cet abonnement.',
+      );
       return;
     }
     final date = _date;
@@ -122,6 +126,22 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
       _alert('Date requise', 'Choisissez la prochaine date de paiement.');
       return;
     }
+
+    final vault = data.vaults.where((item) => item.id == _vaultId).firstOrNull;
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer la modification',
+      amount: '${money(value)} FCFA / mois',
+      details: [
+        ('Service', selected.displayName),
+        (selected.identifierLabel, clean),
+        ('Payé depuis', vault?.name ?? 'Coffre'),
+        ('Prochain paiement', shortDate(date)),
+      ],
+      note: 'L’abonnement actuel sera remplacé par celui-ci.',
+      confirmLabel: 'Enregistrer',
+    );
+    if (!confirmed || !mounted) return;
 
     setState(() => _saving = true);
 

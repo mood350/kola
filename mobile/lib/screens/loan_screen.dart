@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/kola_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../core/utils/formatters.dart';
 import '../core/utils/idempotency_key.dart';
+import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../providers/kola_data_provider.dart';
@@ -35,8 +37,23 @@ class _LoanScreenState extends State<LoanScreen> {
   final _credit = CreditService();
   final _idempotency = IdempotencyKeyHolder();
 
+  final _amountInput = TextEditingController();
   double? _amount;
   bool _requesting = false;
+
+  @override
+  void dispose() {
+    _amountInput.dispose();
+    super.dispose();
+  }
+
+  /// Curseur et raccourcis écrivent aussi dans le champ, pour qu'il n'affiche
+  /// jamais un autre montant que celui qui sera demandé.
+  void _pick(double value) {
+    final rounded = value.roundToDouble();
+    setState(() => _amount = rounded);
+    _amountInput.text = rounded.round().toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +63,15 @@ class _LoanScreenState extends State<LoanScreen> {
     final compact = MediaQuery.of(context).size.width < 370;
 
     // Tant que le plafond n'est pas connu, le curseur reste sur le minimum
-    // plutôt que d'afficher un montant que le backend rejetterait.
-    final amount = (_amount ?? (ceiling > 0 ? ceiling / 2 : _minLoan)).clamp(
-      0.0,
-      ceiling,
-    );
+    // plutôt que d'afficher un montant que le backend rejetterait. Un montant
+    // saisi n'est jamais ramené au plafond en silence : il est signalé.
+    final amount =
+        _amount ?? (ceiling > 0 ? ceiling / 2 : _minLoan).clamp(0.0, ceiling);
+    final amountError = amount < _minLoan
+        ? 'Minimum ${money(_minLoan)} FCFA'
+        : amount > ceiling
+        ? 'Votre plafond est de ${money(ceiling)} FCFA'
+        : null;
     final ratePercent = eligibility?.monthlyRatePercent ?? 0;
     final interest = amount * ratePercent / 100;
     final total = amount + interest;
@@ -208,30 +229,74 @@ class _LoanScreenState extends State<LoanScreen> {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    FittedBox(
-                      child: RichText(
-                        text: TextSpan(
-                          style: AppTypography.amount.copyWith(
-                            fontSize: compact ? 23 : 27,
-                            fontWeight: FontWeight.w900,
-                          ),
-                          children: [
-                            TextSpan(text: money(amount)),
-                            TextSpan(
-                              text: ' FCFA',
-                              style: AppTypography.badge.copyWith(
-                                fontSize: 12,
-                                color: AppColors.yellowDark,
-                              ),
-                            ),
-                          ],
+                    // Un vrai champ, cadre et crayon compris : un montant
+                    // affiché comme un simple texte ne se devine pas éditable.
+                    Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: amountError == null
+                              ? AppColors.border
+                              : AppColors.red,
                         ),
                       ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            KolaIcons.createOutline,
+                            size: 18,
+                            color: AppColors.muted,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _amountInput,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              textAlign: TextAlign.center,
+                              onChanged: (text) => setState(
+                                () => _amount = double.tryParse(text),
+                              ),
+                              style: AppTypography.amount.copyWith(
+                                fontSize: compact ? 22 : 25,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: money(amount),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                filled: false,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'FCFA',
+                            style: AppTypography.badge.copyWith(
+                              fontSize: 12,
+                              color: AppColors.yellowDark,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 5),
                     Text(
-                      'Plafond disponible : ${money(ceiling)} FCFA',
-                      style: AppTypography.caption.copyWith(fontSize: 8),
+                      amountError ??
+                          'Saisissez un montant ou utilisez le curseur · plafond ${money(ceiling)} FCFA',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.caption.copyWith(
+                        fontSize: 8,
+                        color: amountError == null ? null : AppColors.red,
+                      ),
                     ),
                   ],
                 ),
@@ -244,8 +309,7 @@ class _LoanScreenState extends State<LoanScreen> {
                       child: Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: GestureDetector(
-                          onTap: () =>
-                              setState(() => _amount = presets[i].roundToDouble()),
+                          onTap: () => _pick(presets[i]),
                           child: Container(
                             height: 38,
                             alignment: Alignment.center,
@@ -290,8 +354,7 @@ class _LoanScreenState extends State<LoanScreen> {
                     value: amount.clamp(_minLoan, ceiling),
                     min: _minLoan,
                     max: ceiling,
-                    onChanged: (value) =>
-                        setState(() => _amount = value.roundToDouble()),
+                    onChanged: _pick,
                   ),
                 ),
               Row(
@@ -401,7 +464,7 @@ class _LoanScreenState extends State<LoanScreen> {
                 label: 'Demander ${money(amount)} FCFA',
                 icon: KolaIcons.flashOutline,
                 loading: _requesting,
-                onPressed: eligibility?.eligible == true && amount >= _minLoan
+                onPressed: eligibility?.eligible == true && amountError == null
                     ? () => _request(amount)
                     : null,
               ),
@@ -420,6 +483,23 @@ class _LoanScreenState extends State<LoanScreen> {
 
   Future<void> _request(double amount) async {
     final data = context.read<KolaDataProvider>();
+    final eligibility = data.eligibility;
+    final rate = eligibility?.monthlyRatePercent ?? 0;
+    final interest = amount * rate / 100;
+    final confirmed = await confirmOperation(
+      context,
+      title: 'Confirmer le prêt',
+      amount: '${money(amount)} FCFA',
+      details: [
+        ('Intérêts ($rate %)', '${money(interest)} FCFA'),
+        ('Total à rembourser', '${money(amount + interest)} FCFA'),
+        ('Échéance', '${eligibility?.termDays ?? 30} jours'),
+      ],
+      note:
+          'Votre épargne Bankivi sera bloquée en garantie jusqu’au remboursement complet.',
+      confirmLabel: 'Emprunter ${money(amount)} FCFA',
+    );
+    if (!confirmed || !mounted) return;
     setState(() => _requesting = true);
 
     final result = await _credit.requestLoan(
