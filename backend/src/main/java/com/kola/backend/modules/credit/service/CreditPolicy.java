@@ -1,5 +1,6 @@
 package com.kola.backend.modules.credit.service;
 
+import com.kola.backend.common.enums.Currency;
 import com.kola.backend.config.CreditProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -49,10 +50,14 @@ public class CreditPolicy {
         return ceiling == null ? secured : secured.min(ceiling);
     }
 
-    public BigDecimal interestOn(BigDecimal principal, BigDecimal monthlyRatePercent) {
+    /**
+     * Rounded to what the currency can represent, like {@code FeeCalculator}. A fixed two
+     * decimals left XOF loans owing a few centimes nobody can pay: the loan stayed active forever.
+     */
+    public BigDecimal interestOn(BigDecimal principal, BigDecimal monthlyRatePercent, Currency currency) {
         return principal
                 .multiply(monthlyRatePercent)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(100), currency.getDecimalPlaces(), RoundingMode.HALF_UP);
     }
 
     /**
@@ -60,19 +65,20 @@ public class CreditPolicy {
      * A delayed salary is not a default, and an uncapped penalty turns a bad month into a debt
      * spiral — which is exactly the practice this product is meant to replace.
      */
-    public BigDecimal penaltyFor(BigDecimal principal, long daysLate) {
+    public BigDecimal penaltyFor(BigDecimal principal, long daysLate, Currency currency) {
         long chargeableDays = daysLate - properties.getGracePeriodDays();
         if (chargeableDays <= 0) {
             return BigDecimal.ZERO;
         }
+        int scale = currency.getDecimalPlaces();
         BigDecimal penalty = principal
                 .multiply(properties.getPenaltyPercentPerDay())
                 .multiply(BigDecimal.valueOf(chargeableDays))
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(100), scale, RoundingMode.HALF_UP);
 
         BigDecimal cap = principal
                 .multiply(properties.getPenaltyCapPercent())
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(100), scale, RoundingMode.HALF_UP);
 
         return penalty.min(cap);
     }

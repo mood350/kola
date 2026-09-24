@@ -3,6 +3,7 @@ package com.kola.backend.config;
 import com.kola.backend.modules.auth.security.JwtAuthenticationFilter;
 import com.kola.backend.modules.auth.security.RestAccessDeniedHandler;
 import com.kola.backend.modules.auth.security.RestAuthenticationEntryPoint;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -68,6 +69,9 @@ public class SecurityConfig {
                         ))
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // The SSE feed completes on an ASYNC dispatch, which the JWT filter skips;
+                        // the original REQUEST dispatch was already authorised.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/register/request-otp",

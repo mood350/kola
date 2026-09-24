@@ -88,7 +88,9 @@ public class CreditService {
         BigDecimal maxAmount = eligible
                 ? policy.maxLoanAmount(collateral, rung.orElseThrow())
                 : BigDecimal.ZERO;
-        BigDecimal repayable = eligible ? maxAmount.add(policy.interestOn(maxAmount, rate)) : BigDecimal.ZERO;
+        BigDecimal repayable = eligible
+                ? maxAmount.add(policy.interestOn(maxAmount, rate, currency))
+                : BigDecimal.ZERO;
 
         return new CreditEligibilityResponse(
                 eligible,
@@ -158,7 +160,8 @@ public class CreditService {
         Wallet savings = walletService.getSavingsWallet(userId, request.currency());
         Wallet current = walletService.getWallet(userId, request.currency());
 
-        BigDecimal interest = policy.interestOn(request.amount(), eligibility.monthlyRatePercent());
+        BigDecimal interest = policy.interestOn(
+                request.amount(), eligibility.monthlyRatePercent(), request.currency());
         Instant now = Instant.now();
 
         Loan loan = loanRepository.save(Loan.builder()
@@ -251,7 +254,7 @@ public class CreditService {
             return;
         }
         loan.setStatus(LoanStatus.OVERDUE);
-        loan.setPenaltyAmount(policy.penaltyFor(loan.getPrincipal(), daysLate));
+        loan.setPenaltyAmount(policy.penaltyFor(loan.getPrincipal(), daysLate, loan.getCurrency()));
     }
 
     // --- recovery ---------------------------------------------------------

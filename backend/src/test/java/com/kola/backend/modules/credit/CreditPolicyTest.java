@@ -1,5 +1,6 @@
 package com.kola.backend.modules.credit;
 
+import com.kola.backend.common.enums.Currency;
 import com.kola.backend.config.CreditProperties;
 import com.kola.backend.modules.credit.service.CreditPolicy;
 import org.junit.jupiter.api.Test;
@@ -68,31 +69,44 @@ class CreditPolicyTest {
         BigDecimal amount = policy.maxLoanAmount(xof("500000"), uncapped(rung));
 
         assertThat(amount).isEqualByComparingTo("800000");
-        assertThat(amount.add(policy.interestOn(amount, rung.getMonthlyRatePercent())))
+        assertThat(amount.add(policy.interestOn(amount, rung.getMonthlyRatePercent(), Currency.XOF)))
                 .isEqualByComparingTo("848000");
     }
 
     @Test
     void interestFollowsTheSpecExample() {
         // KOLA.md 5.3.B: 100 000 borrowed at 8% a month is repaid as 108 000.
-        assertThat(policy.interestOn(xof("100000"), xof("8.0"))).isEqualByComparingTo("8000");
+        assertThat(policy.interestOn(xof("100000"), xof("8.0"), Currency.XOF)).isEqualByComparingTo("8000");
+    }
+
+    /**
+     * 60 029 at 7% is 4 202.03: stored as is, a borrower paying the displayed whole-franc total
+     * kept owing 0.03 XOF, which nobody can pay, and the loan never settled.
+     */
+    @Test
+    void interestIsRoundedToWhatTheCurrencyCanRepresent() {
+        BigDecimal xofInterest = policy.interestOn(xof("60029"), xof("7.0"), Currency.XOF);
+        assertThat(xofInterest).isEqualByComparingTo("4202");
+        assertThat(xofInterest.scale()).isZero();
+        assertThat(policy.interestOn(xof("60029"), xof("7.0"), Currency.USD))
+                .isEqualByComparingTo("4202.03");
     }
 
     @Test
     void thereIsNoPenaltyDuringTheGracePeriod() {
-        assertThat(policy.penaltyFor(xof("500000"), 1)).isEqualByComparingTo("0");
-        assertThat(policy.penaltyFor(xof("500000"), 3)).isEqualByComparingTo("0");
+        assertThat(policy.penaltyFor(xof("500000"), 1, Currency.XOF)).isEqualByComparingTo("0");
+        assertThat(policy.penaltyFor(xof("500000"), 3, Currency.XOF)).isEqualByComparingTo("0");
     }
 
     @Test
     void thePenaltyStartsAfterTheGracePeriod() {
         // Day 5 is two chargeable days at 0.5% of 500 000.
-        assertThat(policy.penaltyFor(xof("500000"), 5)).isEqualByComparingTo("5000");
+        assertThat(policy.penaltyFor(xof("500000"), 5, Currency.XOF)).isEqualByComparingTo("5000");
     }
 
     @Test
     void thePenaltyIsCappedSoALateMonthDoesNotBecomeADebtSpiral() {
-        assertThat(policy.penaltyFor(xof("500000"), 365)).isEqualByComparingTo("75000");
+        assertThat(policy.penaltyFor(xof("500000"), 365, Currency.XOF)).isEqualByComparingTo("75000");
     }
 
     /**
