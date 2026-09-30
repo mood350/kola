@@ -94,7 +94,7 @@ class TransactionTile extends StatelessWidget {
                     ? AppColors.muted
                     : incoming
                     ? AppColors.greenDark
-                    : AppColors.ink,
+                    : AppColors.red,
                 decoration: failed ? TextDecoration.lineThrough : null,
               ),
             ),

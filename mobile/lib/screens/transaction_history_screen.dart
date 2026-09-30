@@ -173,7 +173,7 @@ class _MonthSummary extends StatelessWidget {
                 child: _Figure(
                   label: 'Sorties',
                   value: '−${money(outgoing)} F',
-                  color: AppColors.ink,
+                  color: AppColors.red,
                 ),
               ),
             ],
@@ -340,7 +340,7 @@ class _DetailSheet extends StatelessWidget {
                     ? AppColors.muted
                     : incoming
                     ? AppColors.greenDark
-                    : AppColors.ink,
+                    : AppColors.red,
                 decoration: failed ? TextDecoration.lineThrough : null,
               ),
             ),
