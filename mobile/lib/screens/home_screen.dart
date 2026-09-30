@@ -7,13 +7,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
-import '../core/utils/date_format_utils.dart';
 import '../core/utils/formatters.dart';
-import '../core/utils/transaction_display.dart';
 import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
-import '../models/transaction.dart';
+import '../core/widgets/transaction_tile.dart';
 import '../providers/kola_data_provider.dart';
 import '../routes/kola_route.dart';
 import '../services/wallet_service.dart';
@@ -93,9 +91,12 @@ class _HomeScreenState extends State<HomeScreen> {
               : Column(
                   children: [
                     for (var i = 0; i < recent.length && i < 5; i++)
-                      TransactionRow(
+                      TransactionTile(
                         transaction: recent[i],
                         withDivider: i > 0,
+                        showDay: true,
+                        onTap: () =>
+                            widget.onNavigate(KolaRoute.transactionHistory),
                       ),
                   ],
                 ),
@@ -329,96 +330,6 @@ class _ActionRow extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Ligne du relevé : pastille colorée, intitulé + horodatage, montant signé.
-class TransactionRow extends StatelessWidget {
-  const TransactionRow({
-    super.key,
-    required this.transaction,
-    this.withDivider = false,
-    this.onTap,
-  });
-
-  final KolaTransaction transaction;
-  final bool withDivider;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final meta = metaFor(transaction.type);
-    final incoming = meta.incoming;
-    final failed = transaction.isFailed;
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 76),
-        decoration: withDivider
-            ? const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFF0F2F6))),
-              )
-            : null,
-        child: Row(
-          children: [
-            IconCircle(
-              meta.icon,
-              background: incoming
-                  ? const Color(0xFF83F5C8)
-                  : failed
-                  ? AppColors.redPale
-                  : AppColors.pale2,
-              color: failed
-                  ? AppColors.red
-                  : incoming
-                  ? AppColors.greenDark
-                  : AppColors.primary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction.counterparty ??
-                        transactionNote(transaction) ??
-                        meta.label,
-                    style: AppTypography.bodyBold,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      formatRelativeDate(transaction.displayedAt),
-                      statusLabel(transaction),
-                    ].join(' · '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.caption,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 92),
-              child: Text(
-                '${incoming ? '+' : '−'}${money(transaction.amount)} F',
-                textAlign: TextAlign.right,
-                style: AppTypography.bodyBold.copyWith(
-                  color: failed
-                      ? AppColors.muted
-                      : incoming
-                      ? AppColors.green
-                      : AppColors.ink,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
