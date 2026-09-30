@@ -14,77 +14,33 @@ import '../core/widgets/confirm_operation.dart';
 import '../core/widgets/kola_shell.dart';
 import '../core/widgets/kola_ui.dart';
 import '../models/transaction.dart';
-import '../models/vault.dart';
 import '../providers/kola_data_provider.dart';
 import '../routes/kola_route.dart';
 import '../services/wallet_service.dart';
 
 class _QuickAction {
-  const _QuickAction(
-    this.icon,
-    this.title,
-    this.subtitle,
-    this.route, {
-    this.background,
-  });
+  const _QuickAction(this.icon, this.title, this.route);
   final IconData icon;
   final String title;
-  final String subtitle;
-  final KolaRoute? route;
-  final Color? background;
+  final KolaRoute route;
 }
 
+/// Raccourcis de l'accueil. Bankivi, Prêts et Planifié ont déjà leur onglet
+/// dans la barre du bas : on ne les répète pas ici.
 const _actions = <_QuickAction>[
   _QuickAction(
-    KolaIcons.cashOutline,
-    'Virement P2P',
-    'Instantané',
-    KolaRoute.scan,
-  ),
-  _QuickAction(
     KolaIcons.storefrontOutline,
-    'Marchand QR',
-    '0 FCFA frais',
+    'Payer un marchand',
     KolaRoute.scan,
-    background: Color(0xFFFFE6A3),
   ),
-  _QuickAction(
-    KolaIcons.lockClosedOutline,
-    'Coffres &\nTontines',
-    'Intérêt 5%',
-    KolaRoute.vaults,
-  ),
-  _QuickAction(
-    KolaIcons.flashOutline,
-    'Microcrédit',
-    'En 2 min',
-    KolaRoute.loan,
-    background: Color(0xFFFFD8D6),
-  ),
-  _QuickAction(
-    KolaIcons.receiptOutline,
-    'Factures',
-    'CEET, Cash\nPower, TdE',
-    KolaRoute.bills,
-  ),
-  _QuickAction(
-    KolaIcons.tvOutline,
-    'Abonnements',
-    'CANAL+, fibre\n& TV',
-    KolaRoute.subscriptions,
-    background: AppColors.mint,
-  ),
+  _QuickAction(KolaIcons.receiptOutline, 'Factures', KolaRoute.bills),
+  _QuickAction(KolaIcons.tvOutline, 'Abonnements', KolaRoute.subscriptions),
 ];
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({
-    super.key,
-    required this.onNavigate,
-    required this.onOpenVault,
-  });
+  const HomeScreen({super.key, required this.onNavigate});
 
   final void Function(KolaRoute) onNavigate;
-  final void Function(String vaultId) onOpenVault;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -112,21 +68,11 @@ class _HomeScreenState extends State<HomeScreen> {
           onRecharge: _showRechargeSheet,
           onSend: () => widget.onNavigate(KolaRoute.scan),
         ),
-        SectionTitle('Actions Express', action: 'Tout voir (12)'),
-        _ActionGrid(onNavigate: widget.onNavigate),
+        const SizedBox(height: AppSpacing.md),
+        _ActionRow(onNavigate: widget.onNavigate),
         SectionTitle(
-          'Mes Coffres-Forts  ${data.vaults.length}',
-          action: 'Gérer  ›',
-          onAction: () => widget.onNavigate(KolaRoute.vaults),
-        ),
-        _VaultStrip(
-          vaults: data.vaults,
-          onOpenVault: widget.onOpenVault,
-          onCreate: () => widget.onNavigate(KolaRoute.vaults),
-        ),
-        SectionTitle(
-          'Activités Récentes',
-          action: 'Relevé complet',
+          'Activité récente',
+          action: 'Tout voir',
           onAction: () => widget.onNavigate(KolaRoute.transactionHistory),
         ),
         KolaCard(
@@ -140,13 +86,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? KolaIcons.hourglassOutline
                       : KolaIcons.receiptOutline,
                   title: data.loading
-                      ? 'Chargement des activités…'
+                      ? 'Chargement…'
                       : 'Aucune activité récente',
                   message: 'Vos prochaines transactions apparaîtront ici.',
                 )
               : Column(
                   children: [
-                    for (var i = 0; i < recent.length; i++)
+                    for (var i = 0; i < recent.length && i < 5; i++)
                       TransactionRow(
                         transaction: recent[i],
                         withDivider: i > 0,
@@ -188,43 +134,9 @@ class _WelcomeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Bonjour, $firstName ✌️',
-                style: AppTypography.body.copyWith(fontSize: 19),
-              ),
-              const SizedBox(height: 3),
-              Row(
-                children: [
-                  Text(
-                    '● ',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.green,
-                    ),
-                  ),
-                  Text(
-                    'Compte Particulier Actif',
-                    style: AppTypography.caption,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.pale2, width: 2),
-          ),
-          child: Text('XOF⌄', style: AppTypography.smallBold),
-        ),
-      ],
+    return Text(
+      'Bonjour, $firstName',
+      style: AppTypography.body.copyWith(fontSize: 19),
     );
   }
 }
@@ -249,99 +161,34 @@ class _WalletCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 250,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary2, AppColors.primary],
-        ),
+        color: AppColors.primary,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.yellow,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+              Expanded(
                 child: Text(
-                  'K',
-                  style: AppTypography.screenTitle.copyWith(
-                    fontSize: 22,
-                    color: AppColors.primary,
+                  'Solde du compte courant',
+                  style: AppTypography.body.copyWith(
+                    fontSize: 13,
+                    color: const Color(0xFFE3E7F5),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'COMPTE COURANT',
-                    style: AppTypography.badge.copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'KOLA • XOF',
-                    style: AppTypography.badge.copyWith(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF29E0C0),
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
               GestureDetector(
                 onTap: onShowQr,
-                child: Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 13),
-                  decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.09),
-                    borderRadius: BorderRadius.circular(18),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(
+                    KolaIcons.qrCode,
+                    size: 21,
+                    color: AppColors.white,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        KolaIcons.qrCode,
-                        size: 15,
-                        color: AppColors.yellow,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Mon QR',
-                        style: AppTypography.small.copyWith(
-                          color: AppColors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 25),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Solde disponible garanti',
-                style: AppTypography.body.copyWith(
-                  fontSize: 13,
-                  color: const Color(0xFFE3E7F5),
                 ),
               ),
               GestureDetector(
@@ -354,7 +201,7 @@ class _WalletCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 8),
           RichText(
             text: TextSpan(
               style: AppTypography.balance,
@@ -367,12 +214,12 @@ class _WalletCard extends StatelessWidget {
               ],
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 22),
           Row(
             children: [
               Expanded(
                 child: _WalletButton(
-                  label: 'Recharger 0%',
+                  label: 'Recharger',
                   icon: KolaIcons.addCircleOutline,
                   background: AppColors.yellow,
                   foreground: AppColors.primary,
@@ -382,7 +229,7 @@ class _WalletCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _WalletButton(
-                  label: 'Envoyer P2P',
+                  label: 'Envoyer',
                   icon: KolaIcons.sendOutline,
                   background: AppColors.white.withValues(alpha: 0.13),
                   foreground: AppColors.white,
@@ -442,174 +289,46 @@ class _WalletButton extends StatelessWidget {
   }
 }
 
-class _ActionGrid extends StatelessWidget {
-  const _ActionGrid({required this.onNavigate});
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({required this.onNavigate});
 
   final void Function(KolaRoute) onNavigate;
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _actions.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        mainAxisExtent: 140,
-      ),
-      itemBuilder: (context, i) {
-        final action = _actions[i];
-        return GestureDetector(
-          onTap: action.route == null ? null : () => onNavigate(action.route!),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: AppColors.hairline),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconCircle(
-                  action.icon,
-                  background: action.background ?? AppColors.pale2,
+    return Row(
+      children: [
+        for (var i = 0; i < _actions.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onNavigate(_actions[i].route),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: AppColors.hairline),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  action.title,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodyBold,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  action.subtitle,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.caption.copyWith(color: AppColors.ink),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _VaultStrip extends StatelessWidget {
-  const _VaultStrip({
-    required this.vaults,
-    required this.onOpenVault,
-    required this.onCreate,
-  });
-
-  final List<Vault> vaults;
-  final void Function(String) onOpenVault;
-  final VoidCallback onCreate;
-
-  @override
-  Widget build(BuildContext context) {
-    if (vaults.isEmpty) {
-      return KolaCard(
-        onTap: onCreate,
-        padding: const EdgeInsets.symmetric(vertical: 22),
-        child: Column(
-          children: [
-            const Icon(
-              KolaIcons.addCircleOutline,
-              size: 28,
-              color: AppColors.primary,
-            ),
-            const SizedBox(height: 7),
-            Text('Créer mon premier coffre', style: AppTypography.cardTitle),
-            const SizedBox(height: 3),
-            Text(
-              'Organisez une épargne pour chacun de vos projets.',
-              style: AppTypography.caption.copyWith(fontSize: 9),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 150,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: vaults.length > 4 ? 4 : vaults.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final vault = vaults[i];
-          return KolaCard(
-            width: 300,
-            onTap: () => onOpenVault(vault.id),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+                child: Column(
                   children: [
-                    const IconCircle(KolaIcons.lockClosedOutline),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        vault.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.cardTitle,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: AppColors.mint,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        '${vault.progressPercent.round()}%',
-                        style: AppTypography.badge.copyWith(fontSize: 10),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.only(left: 52),
-                  child: Text(
-                    vault.targetDate != null
-                        ? 'Objectif au ${shortDate(vault.targetDate!)}'
-                        : 'Coffre disponible',
-                    style: AppTypography.caption,
-                  ),
-                ),
-                const Spacer(),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(money(vault.balance), style: AppTypography.amount),
+                    IconCircle(_actions[i].icon),
+                    const SizedBox(height: 8),
                     Text(
-                      ' FCFA',
-                      style: AppTypography.small.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '/ ${money(vault.targetAmount)}',
+                      _actions[i].title,
+                      textAlign: TextAlign.center,
                       style: AppTypography.caption.copyWith(
                         color: AppColors.ink,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                KolaProgress(vault.progressPercent, color: AppColors.primary),
-              ],
+              ),
             ),
-          );
-        },
-      ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -664,9 +383,9 @@ class TransactionRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    transaction.description?.isNotEmpty == true
-                        ? transaction.description!
-                        : meta.label,
+                    transaction.counterparty ??
+                        transactionNote(transaction) ??
+                        meta.label,
                     style: AppTypography.bodyBold,
                   ),
                   const SizedBox(height: 2),
@@ -674,8 +393,6 @@ class TransactionRow extends StatelessWidget {
                     [
                       formatRelativeDate(transaction.displayedAt),
                       statusLabel(transaction),
-                      if (transaction.counterparty != null)
-                        transaction.counterparty!,
                     ].join(' · '),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

@@ -301,6 +301,8 @@ class _HistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final meta = metaFor(transaction.type);
+    final note = transactionNote(transaction);
+    final title = transaction.counterparty ?? note ?? meta.label;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -324,9 +326,7 @@ class _HistoryRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    transaction.counterparty ??
-                        transaction.description ??
-                        meta.label,
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.badge.copyWith(
@@ -337,7 +337,11 @@ class _HistoryRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    transaction.description ?? meta.label,
+                    // Sous un titre qui est déjà le type, on donne le statut
+                    // plutôt que de répéter le même mot.
+                    title == meta.label
+                        ? statusLabel(transaction)
+                        : (note ?? meta.label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.caption.copyWith(fontSize: 8),
@@ -416,7 +420,9 @@ class _DetailSheet extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            transaction.counterparty ?? transaction.description ?? meta.label,
+            transaction.counterparty ??
+                transactionNote(transaction) ??
+                meta.label,
             textAlign: TextAlign.center,
             style: AppTypography.cardTitle.copyWith(
               fontWeight: FontWeight.w800,
@@ -445,11 +451,8 @@ class _DetailSheet extends StatelessWidget {
                   label: 'Date',
                   value: receiptDate(transaction.displayedAt),
                 ),
-                if (transaction.description != null)
-                  DetailRow(
-                    label: 'Description',
-                    value: transaction.description!,
-                  ),
+                if (transactionNote(transaction) case final note?)
+                  DetailRow(label: 'Motif', value: note),
                 DetailRow(label: 'Statut', value: statusLabel(transaction)),
                 DetailRow(
                   label: 'Référence',

@@ -291,10 +291,7 @@ class _AppShell extends StatelessWidget {
 
   Widget _screenFor(KolaRoute route) {
     return switch (route) {
-      KolaRoute.home => HomeScreen(
-        onNavigate: onNavigate,
-        onOpenVault: onOpenVault,
-      ),
+      KolaRoute.home => HomeScreen(onNavigate: onNavigate),
       KolaRoute.savings => SavingsScreen(onNavigate: onNavigate),
       KolaRoute.vaults => VaultsScreen(
         onNavigate: onNavigate,
