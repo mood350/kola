@@ -26,13 +26,12 @@ class AuthResult {
     );
   }
 
-  factory AuthResult.ok({
-    required String accessToken,
-    String? refreshToken,
-  }) => AuthResult(accessToken: accessToken, refreshToken: refreshToken);
+  factory AuthResult.ok({required String accessToken, String? refreshToken}) =>
+      AuthResult(accessToken: accessToken, refreshToken: refreshToken);
 
-  factory AuthResult.fail(String message) =>
-      AuthResult(error: ApiException(code: 'AUTH_FAILED', message: message));
+  factory AuthResult.fail(String message) => AuthResult(
+    error: ApiException(code: 'AUTH_FAILED', message: message),
+  );
 
   factory AuthResult.networkFailure() => const AuthResult(
     error: ApiException(
@@ -87,8 +86,7 @@ class AuthService {
     return _client.post(
       '/api/v1/auth/register/verify-otp',
       body: {'phone': phone, 'code': code},
-      decode: (json) =>
-          (json as Map?)?['verificationToken']?.toString() ?? '',
+      decode: (json) => (json as Map?)?['verificationToken']?.toString() ?? '',
     );
   }
 

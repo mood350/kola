@@ -10,7 +10,8 @@ class UserService {
   Future<ApiResult<KolaUser>> me() {
     return _client.get(
       '/api/v1/users/me',
-      decode: (json) => KolaUser.fromJson((json as Map).cast<String, dynamic>()),
+      decode: (json) =>
+          KolaUser.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
@@ -30,7 +31,8 @@ class UserService {
     return _client.patch(
       '/api/v1/users/me',
       body: changes,
-      decode: (json) => KolaUser.fromJson((json as Map).cast<String, dynamic>()),
+      decode: (json) =>
+          KolaUser.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 }

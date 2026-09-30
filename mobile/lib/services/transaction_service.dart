@@ -37,7 +37,8 @@ class TransactionService {
     return _client.post(
       '/api/v1/transactions/quote',
       body: {'type': type, 'currency': 'XOF', 'amount': amount},
-      decode: (json) => FeeQuote.fromJson((json as Map).cast<String, dynamic>()),
+      decode: (json) =>
+          FeeQuote.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
@@ -94,11 +95,7 @@ class TransactionService {
     return _client.post(
       '/api/v1/transactions/cash-out',
       idempotencyKey: idempotencyKey,
-      body: {
-        'amount': amount,
-        'currency': 'XOF',
-        'destination': destination,
-      },
+      body: {'amount': amount, 'currency': 'XOF', 'destination': destination},
       decode: (json) =>
           KolaTransaction.fromJson((json as Map).cast<String, dynamic>()),
     );

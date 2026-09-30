@@ -22,7 +22,10 @@ class AssistantService {
     );
   }
 
-  Future<ApiResult<AssistantReply>> ask(String message, [String? conversationId]) {
+  Future<ApiResult<AssistantReply>> ask(
+    String message, [
+    String? conversationId,
+  ]) {
     return _client.post(
       '/api/v1/assistant/messages',
       body: {'conversationId': conversationId, 'message': message},

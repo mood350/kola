@@ -43,10 +43,6 @@ class AppColors {
 
   /// Ombre douce teintée marine, appliquée aux cartes et aux boutons.
   static List<BoxShadow> get softShadow => const [
-    BoxShadow(
-      color: Color(0x1A0F3875),
-      blurRadius: 10,
-      offset: Offset(0, 3),
-    ),
+    BoxShadow(color: Color(0x1A0F3875), blurRadius: 10, offset: Offset(0, 3)),
   ];
 }

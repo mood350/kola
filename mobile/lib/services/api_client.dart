@@ -142,10 +142,7 @@ class ApiClient {
     return _send(
       (headers) => _http.post(
         _uri(path),
-        headers: {
-          ...headers,
-          'Idempotency-Key': ?idempotencyKey,
-        },
+        headers: {...headers, 'Idempotency-Key': ?idempotencyKey},
         body: encoded,
       ),
       decode: decode,

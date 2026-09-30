@@ -268,13 +268,15 @@ class KolaDataProvider extends ChangeNotifier {
     if (token == null || token.isEmpty || _disposed) return;
 
     try {
-      final request = http.Request(
-        'GET',
-        Uri.parse('${AppConstants.baseUrl}/api/v1/transactions/stream'),
-      )..headers.addAll({
-        'Authorization': 'Bearer $token',
-        'Accept': 'text/event-stream',
-      });
+      final request =
+          http.Request(
+              'GET',
+              Uri.parse('${AppConstants.baseUrl}/api/v1/transactions/stream'),
+            )
+            ..headers.addAll({
+              'Authorization': 'Bearer $token',
+              'Accept': 'text/event-stream',
+            });
 
       final response = await _streamClient.send(request);
       if (response.statusCode != 200 || _disposed) return;
