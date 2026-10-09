@@ -1,6 +1,6 @@
 import {
-  ArrowLeftRight, Calendar, Check, ChevronLeft, ChevronRight, Download, Ellipsis, HandCoins, House, ListFilter, LogOut, PiggyBank,
-  Search, Settings, ShieldCheck, TriangleAlert, Users, X,
+  ArrowLeftRight, Calendar, Check, ChevronLeft, ChevronRight, Download, Ellipsis, HandCoins, House, LogOut, PiggyBank,
+  Search, Settings, ShieldCheck, Users, X,
 } from 'lucide-react';
 
 // Les icônes de la console, en un seul endroit : taille et trait identiques partout, décoratives
@@ -19,12 +19,10 @@ export const IconCoins = make(HandCoins);
 export const IconSavings = make(PiggyBank);
 export const IconSettings = make(Settings);
 export const IconSearch = make(Search);
-export const IconFilter = make(ListFilter);
 export const IconClose = make(X);
 export const IconDownload = make(Download);
 export const IconLogout = make(LogOut);
 export const IconMore = make(Ellipsis);
-export const IconAlert = make(TriangleAlert);
 export const IconCheck = make(Check);
 export const IconChevron = make(ChevronRight);
 export const IconCalendar = make(Calendar);

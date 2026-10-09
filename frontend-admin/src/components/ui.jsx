@@ -4,7 +4,7 @@ import { initials, label, tone } from '../lib/format';
 import { activePreset, PRESETS } from '../lib/period';
 import { usePresentation } from '../lib/usePresentation';
 import DatePicker from './DatePicker';
-import { IconClose, IconFilter, IconSearch } from './icons';
+import { IconClose, IconSearch } from './icons';
 
 export function PageHead({ title, subtitle, back, actions }) {
   return (
@@ -193,17 +193,6 @@ export function DateRange({ from, to, onChange, label: text = 'Période' }) {
   );
 }
 
-/** Bouton « Filtres », avec le nombre de filtres actifs cachés derrière. */
-export function FiltersToggle({ open, count: active, onToggle }) {
-  return (
-    <button type="button" className={`btn secondary${active ? ' has-filters' : ''}`} aria-expanded={open} onClick={onToggle}>
-      <IconFilter size={16} />
-      Filtres
-      {active > 0 && <span className="filter-count">{active}</span>}
-    </button>
-  );
-}
-
 /** Panneau des filtres secondaires, sous la barre d'outils. */
 export function FiltersPanel({ children, onReset, canReset }) {
   return (
@@ -214,18 +203,8 @@ export function FiltersPanel({ children, onReset, canReset }) {
   );
 }
 
-/** Champ nommé du panneau des filtres. */
-export function FilterField({ label: text, children }) {
-  return (
-    <label className="filter-field">
-      <span className="filter-label">{text}</span>
-      {children}
-    </label>
-  );
-}
-
 /**
- * Champ de recherche à validation différée : la requête part 300 ms après la
+ * Champ de recherche à validation différée : la requête part 200 ms après la
  * dernière frappe, pas à chaque caractère.
  */
 export function SearchInput({ value, onChange, placeholder, label: text }) {

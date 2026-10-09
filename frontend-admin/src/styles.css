@@ -543,12 +543,6 @@ h3 {
   padding: 16px;
 }
 
-.grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .fields {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -568,18 +562,6 @@ h3 {
 }
 
 /* --- Filtres secondaires ---------------------------------------------------- */
-
-.btn .filter-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--radius);
-  background: var(--primary);
-  color: #fff;
-  font-size: 0.6875rem;
-  display: inline-grid;
-  place-items: center;
-}
 
 .btn.secondary[aria-expanded='true'] {
   background: var(--subtle);
@@ -674,10 +656,6 @@ td a:hover {
   text-decoration: underline;
 }
 
-td a.plain {
-  color: inherit;
-}
-
 /* --- Filtres --------------------------------------------------------------- */
 
 .toolbar {
@@ -737,21 +715,6 @@ textarea:focus {
   color: var(--muted);
   font-weight: 600;
   font-size: 0.8125rem;
-}
-
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  user-select: none;
-}
-
-.check input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--primary);
 }
 
 .reset {
@@ -924,11 +887,6 @@ textarea {
 .badge.bad {
   background: var(--down-bg);
   color: var(--down);
-}
-
-.badge.info {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .notice {
@@ -1113,12 +1071,6 @@ textarea {
 
 .narrow {
   max-width: 380px;
-}
-
-@media (max-width: 860px) {
-  .grid-2 {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2030,13 +1982,6 @@ a.tile:hover {
   color: var(--muted);
   font-size: 0.8125rem;
   font-weight: 600;
-}
-
-.queue-reason {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .dossier-decision {

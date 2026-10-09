@@ -221,7 +221,7 @@ npm run lint     # what CI runs
 
 ### Two rules, and what breaks them
 
-1. **Nothing the mobile app does not offer.** Sections: overview, users (detail = wallets, vaults, loans, scheduled payments, recent transactions, KYC documents; one action: unblock), KYC review, transactions, loans, and the admin's own account. Disputes, support tickets, finance, fees/merchants, credit ladder, audit log and admin roles were **removed on purpose** — their backend routes still exist, the console does not call them. Adding a section means checking `mobile/lib/services` first.
+1. **Nothing the mobile app does not offer, bar what the owner asked for.** Seven sections: Accueil, Utilisateurs (detail = wallets, vaults, loans, scheduled payments, recent transactions, KYC documents; actions: unblock, accept/refuse a KYC document — hidden for the Support role), KYC (pending / accepted / refused), Transactions, Crédits, Épargne (savers list + totals) and Paramètres (own account; fee grid and credit ladder editable by the Super-admin only). Disputes, support tickets, finance, merchants, audit log and admin roles were **removed on purpose** — their backend routes still exist, the console does not call them. Adding a section means checking `mobile/lib/services` first.
 2. **The API serves raw values; the console formats them**, in `src/lib/format.js` only (amounts, dates, enum labels, badge tones). Do not reintroduce server-side display strings.
 
 - **No mock mode.** Without `VITE_API_BASE_URL` (`.env.development` is versioned) the app shows an error instead of inventing data — the old mock login accepted any password.
