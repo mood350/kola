@@ -14,7 +14,7 @@ import { api, getToken, setToken, UNAUTHORIZED_EVENT } from './api';
  * serveur applique la même matrice et répond 403 au reste.
  */
 const ROLE_MODULES = {
-  'Super-admin': ['dashboard', 'users', 'credit'],
+  'Super-admin': ['dashboard', 'users', 'credit', 'config'],
   'Agent conformité': ['dashboard', 'users'],
   'Analyste crédit': ['dashboard', 'credit'],
   Support: ['dashboard', 'users'],
@@ -62,7 +62,11 @@ export function SessionProvider({ children }) {
 
   const value = useMemo(() => {
     const modules = ROLE_MODULES[state.user?.role] || [];
-    return { ...state, login, logout, can: (module) => modules.includes(module) };
+    // Le rôle Support consulte sans décider : le serveur laisse pourtant passer ces actions (elles ne
+    // demandent que le module « utilisateurs »). La console les masque donc pour lui — une intention,
+    // pas une protection : le contrôle réel est celui du serveur.
+    const canAct = state.user?.role !== 'Support';
+    return { ...state, login, logout, can: (module) => modules.includes(module), canAct };
   }, [state, login, logout]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

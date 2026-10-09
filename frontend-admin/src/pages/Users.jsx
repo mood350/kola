@@ -1,39 +1,43 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { date, label, options } from '../lib/format';
+import { count, date, options, userState } from '../lib/format';
+import { describePeriod } from '../lib/period';
 import { useFilters } from '../lib/useFilters';
 import { useResource } from '../lib/useResource';
-import {
-  Card, DateRange, ErrorNotice, FilterField, FiltersPanel, FiltersToggle, PageHead, Pager, Person, SearchInput, Status, Table,
-} from '../components/ui';
+import { Card, ErrorNotice, PageHead, Pager, Person, SearchInput, Skeleton, Status, Table } from '../components/ui';
+import { IconClose } from '../components/icons';
 
-const DEFAULTS = { q: '', kyc: '', attente: '', du: '', au: '', page: 0, size: 15 };
+const DEFAULTS = { q: '', kyc: '', du: '', au: '', page: 0, size: 15 };
 
 /**
- * Clients. La barre ne garde que la recherche et « Pièce à vérifier » — le
- * filtre dont on se sert tous les jours ; niveau KYC et période d'inscription
- * sont derrière « Filtres ». Le niveau KYC et les pièces en attente restent
- * visibles dans la liste même.
+ * Utilisateurs : quel client dois-je retrouver ?
+ *
+ * Une recherche (nom ou téléphone) et un seul filtre, le niveau KYC. La période d'inscription
+ * n'a pas de contrôle propre : elle arrive par un lien (« Nouveaux utilisateurs » de l'accueil)
+ * et s'affiche alors en puce que l'on retire d'un clic. Quatre colonnes suffisent à reconnaître
+ * quelqu'un ; tout le reste est dans sa fiche. Le serveur ne trie pas : les plus récents d'abord.
  */
 export default function Users() {
   const navigate = useNavigate();
-  const [f, update, reset, dirty] = useFilters(DEFAULTS);
-  const [open, setOpen] = useState(false);
+  const [f, update] = useFilters(DEFAULTS);
 
-  const { data, error, loading, reload } = useResource(
+  const { data, error, reload } = useResource(
     (signal) => api.get('/console/users', {
-      params: { q: f.q, kycTier: f.kyc, kycPending: f.attente ? 'true' : '', from: f.du, to: f.au, page: f.page, size: f.size },
+      params: { q: f.q, kycTier: f.kyc, from: f.du, to: f.au, page: f.page, size: f.size },
       signal,
     }),
     JSON.stringify(f),
   );
 
-  const hidden = [f.kyc, f.du || f.au].filter(Boolean).length;
+  const period = f.du || f.au;
+  const filtered = Boolean(f.q || f.kyc || period);
 
   return (
     <>
-      <PageHead title="Utilisateurs" subtitle={data ? `${data.total} compte${data.total > 1 ? 's' : ''}` : null} />
+      <PageHead
+        title="Utilisateurs"
+        subtitle={data ? `${count(data.total)} utilisateur${data.total > 1 ? 's' : ''}` : 'Retrouvez un client pour consulter son compte.'}
+      />
       <ErrorNotice message={error} onRetry={reload} />
       <Card
         flush
@@ -41,60 +45,42 @@ export default function Users() {
           <>
             <SearchInput value={f.q} onChange={(q) => update({ q })}
               placeholder="Nom ou téléphone" label="Rechercher un utilisateur" />
-            <label className="check">
-              <input type="checkbox" checked={Boolean(f.attente)} onChange={(e) => update({ attente: e.target.checked ? '1' : '' })} />
-              Pièce à vérifier
-            </label>
-            <FiltersToggle open={open} count={hidden} onToggle={() => setOpen((v) => !v)} />
+            <select className="select" aria-label="Niveau KYC" value={f.kyc} onChange={(e) => update({ kyc: e.target.value })}>
+              <option value="">Tous les niveaux</option>
+              {options('kycTier').map(([code, text]) => <option key={code} value={code}>{text}</option>)}
+            </select>
+            {period && (
+              <button type="button" className="chip" onClick={() => update({ du: '', au: '' })}
+                aria-label={`Retirer le filtre : inscrits ${describePeriod(f.du, f.au)}`}>
+                Inscrits {describePeriod(f.du, f.au)} <IconClose size={14} />
+              </button>
+            )}
           </>
         )}
       >
-        {open && (
-          <FiltersPanel canReset={dirty} onReset={() => { reset(); setOpen(false); }}>
-            <FilterField label="Niveau KYC">
-              <select className="select" value={f.kyc} onChange={(e) => update({ kyc: e.target.value })}>
-                <option value="">Tous</option>
-                {options('kycTier').map(([code, text]) => <option key={code} value={code}>{text}</option>)}
-              </select>
-            </FilterField>
-            <DateRange from={f.du} to={f.au} onChange={({ from, to }) => update({ du: from, au: to })} label="Inscrits entre" />
-          </FiltersPanel>
+        {!data && !error ? (
+          <div className="card-body"><Skeleton rows={6} /></div>
+        ) : (
+          <Table
+            rows={data?.items}
+            rowKey={(u) => u.id}
+            onRowClick={(u) => navigate(`/utilisateurs/${u.id}`)}
+            empty={filtered ? 'Aucun utilisateur ne correspond à cette recherche.' : 'Aucun utilisateur pour l\'instant.'}
+            columns={[
+              {
+                key: 'name',
+                header: 'Utilisateur',
+                render: (u) => (
+                  <Person name={u.fullName}
+                    sub={u.pendingDocuments > 0 ? `${u.pendingDocuments} pièce${u.pendingDocuments > 1 ? 's' : ''} KYC à vérifier` : null} />
+                ),
+              },
+              { key: 'phone', header: 'Téléphone', render: (u) => <span className="num">{u.phone}</span> },
+              { key: 'status', header: 'Statut', render: (u) => <Status kind="userStatus" code={userState(u)} /> },
+              { key: 'created', header: 'Inscription', render: (u) => <span className="num">{date(u.createdAt)}</span> },
+            ]}
+          />
         )}
-        <Table
-          rows={data?.items}
-          rowKey={(u) => u.id}
-          onRowClick={(u) => navigate(`/utilisateurs/${u.id}`)}
-          empty={loading ? 'Chargement…' : 'Aucun utilisateur ne correspond.'}
-          columns={[
-            { key: 'name', header: 'Client', render: (u) => <Person name={u.fullName} sub={u.phone} /> },
-            {
-              key: 'kyc',
-              header: 'KYC',
-              render: (u) => (
-                <>
-                  <span className="badge info">{label('kycTier', u.kycTier)}</span>
-                  {u.pendingDocuments > 0 && (
-                    <>
-                      {' '}
-                      <span className="badge warn">
-                        {u.pendingDocuments} pièce{u.pendingDocuments > 1 ? 's' : ''} à vérifier
-                      </span>
-                    </>
-                  )}
-                </>
-              ),
-            },
-            {
-              key: 'status',
-              header: 'État',
-              render: (u) => (u.locked && u.status === 'ACTIVE'
-                ? <span className="badge warn">Verrouillé</span>
-                : <Status kind="userStatus" code={u.status} />),
-            },
-            { key: 'created', header: 'Inscrit le', render: (u) => date(u.createdAt) },
-            { key: 'last', header: 'Dernière connexion', render: (u) => date(u.lastLoginAt) },
-          ]}
-        />
         <Pager page={data} onPage={(page) => update({ page })} onSize={(size) => update({ size })} />
       </Card>
     </>

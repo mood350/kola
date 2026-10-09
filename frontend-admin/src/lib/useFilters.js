@@ -17,17 +17,24 @@ export function useFilters(defaults) {
     values[key] = raw === null ? fallback : typeof fallback === 'number' ? Number(raw) : raw;
   }
 
+  // Les paramètres qui ne sont pas des filtres (le panneau ouvert, l'onglet…) traversent chaque changement.
+  const others = () => {
+    const kept = {};
+    for (const [key, value] of params.entries()) if (!(key in defaults)) kept[key] = value;
+    return kept;
+  };
+
   const update = (next) => {
     const merged = { ...values, ...next };
     if (!('page' in next) && 'page' in defaults) merged.page = defaults.page;
-    const out = {};
+    const out = others();
     for (const [key, value] of Object.entries(merged)) {
       if (value !== '' && value !== null && value !== undefined && value !== defaults[key]) out[key] = String(value);
     }
     setParams(out);
   };
 
-  const reset = () => setParams({});
+  const reset = () => setParams(others());
   const dirty = Object.keys(defaults).some((k) => k !== 'page' && k !== 'size' && values[k] !== defaults[k]);
 
   return [values, update, reset, dirty];

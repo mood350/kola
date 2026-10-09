@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { initials, label, tone } from '../lib/format';
 import { activePreset, PRESETS } from '../lib/period';
-import { IconFilter, IconSearch } from './icons';
+import DatePicker from './DatePicker';
+import { IconClose, IconFilter, IconSearch } from './icons';
 
 export function PageHead({ title, subtitle, back, actions }) {
   return (
@@ -42,47 +43,28 @@ export function Person({ name, sub }) {
   );
 }
 
-/** Badge d'état : libellé français, couleur uniquement si l'état le justifie. */
+/** État d'une ligne : un point de couleur et un mot. La couleur n'est jamais seule à parler. */
 export function Status({ kind, code }) {
-  return <span className={`badge ${tone(kind, code)}`}>{label(kind, code)}</span>;
+  return <span className={`status ${tone(kind, code)}`}>{label(kind, code)}</span>;
 }
 
-/**
- * Écart avec une valeur de référence (la veille, en général).
- * Sans référence (hier à zéro), un pourcentage n'a pas de sens : on dit « nouveau ».
- */
-export function Delta({ current, previous, suffix = 'vs hier' }) {
-  const now = Number(current) || 0;
-  const before = Number(previous) || 0;
-  let text;
-  let dir;
-  if (before === 0) {
-    text = now === 0 ? '=' : 'nouveau';
-    dir = now === 0 ? '' : 'up';
-  } else {
-    const pct = ((now - before) / before) * 100;
-    dir = pct > 0 ? 'up' : pct < 0 ? 'down' : '';
-    text = `${pct > 0 ? '+' : ''}${pct.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} %`;
-  }
-  return (
-    <>
-      <span className={`delta ${dir}`}>{text}</span>
-      <span>{suffix}</span>
-    </>
-  );
-}
-
-export function ErrorNotice({ message, onRetry }) {
+/** `title` dit ce qui a échoué : par défaut un chargement, mais une action (décision, téléchargement) le précise. */
+export function ErrorNotice({ message, onRetry, title = 'Nous n\'avons pas pu charger ces informations.' }) {
   if (!message) return null;
   return (
     <div className="notice error" role="alert">
-      {message}
-      {onRetry && (
-        <>
-          {' '}
-          <button type="button" className="linklike" onClick={onRetry}>Réessayer</button>
-        </>
-      )}
+      <strong>{title}</strong>
+      <span className="notice-detail">{message}</span>
+      {onRetry && <button type="button" className="linklike" onClick={onRetry}>Réessayer</button>}
+    </div>
+  );
+}
+
+/** Lignes grises en attendant les données : la page garde sa forme, rien ne saute à l'arrivée. */
+export function Skeleton({ rows = 3 }) {
+  return (
+    <div className="skeleton" aria-busy="true" aria-label="Chargement en cours">
+      {Array.from({ length: rows }, (_, i) => <span key={i} />)}
     </div>
   );
 }
@@ -92,7 +74,8 @@ export function Empty({ children }) {
 }
 
 /**
- * Tableau générique. `columns` : { key, header, render, align, wrap }.
+ * Tableau générique. `columns` : { key, header, render, align, wrap, lead }. `lead` (la première colonne par défaut)
+ * dit quelle cellule titre le bloc sur mobile, sans libellé ; les autres gardent le leur.
  * `onRowClick` rend les lignes cliquables — et atteignables au clavier (Entrée).
  */
 export function Table({ columns, rows, rowKey, onRowClick, empty = 'Aucun élément.' }) {
@@ -116,8 +99,8 @@ export function Table({ columns, rows, rowKey, onRowClick, empty = 'Aucun élém
               onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined}
               tabIndex={onRowClick ? 0 : undefined}
             >
-              {columns.map((c) => (
-                <td key={c.key} className={[c.align === 'right' ? 'right' : '', c.wrap ? 'wrap' : ''].join(' ').trim() || undefined}>
+              {columns.map((c, index) => (
+                <td key={c.key} data-label={c.header || undefined} data-lead={(c.lead ?? index === 0) ? '' : undefined} className={[c.align === 'right' ? 'right' : '', c.wrap ? 'wrap' : ''].join(' ').trim() || undefined}>
                   {c.render(row)}
                 </td>
               ))}
@@ -193,19 +176,17 @@ export function PeriodSelect({ from, to, onChange, onCustom, label: text = 'Pér
   );
 }
 
-/** Les deux dates d'une période libre, pour le panneau des filtres. */
+/** Les deux dates d'une période libre, pour le panneau des filtres : « du » ne dépasse jamais « au ». */
 export function DateRange({ from, to, onChange, label: text = 'Période' }) {
   return (
     <div className="filter-field">
       <span className="filter-label">{text}</span>
       <span className="range">
-        <label className="sr-only" htmlFor="from">Du</label>
-        <input id="from" className="input" type="date" value={from || ''} max={to || undefined}
-          onChange={(e) => onChange({ from: e.target.value, to })} />
+        <DatePicker label="Du" value={from || ''} max={to || undefined}
+          onChange={(next) => onChange({ from: next, to })} />
         <span aria-hidden="true">→</span>
-        <label className="sr-only" htmlFor="to">Au</label>
-        <input id="to" className="input" type="date" value={to || ''} min={from || undefined}
-          onChange={(e) => onChange({ from, to: e.target.value })} />
+        <DatePicker label="Au" value={to || ''} min={from || undefined}
+          onChange={(next) => onChange({ from, to: next })} />
       </span>
     </div>
   );
@@ -255,6 +236,9 @@ export function SearchInput({ value, onChange, placeholder, label: text }) {
       first.current = false;
       return undefined;
     }
+    // Rien à signaler tant que la saisie n'a pas changé la valeur : sinon la recherche réécrirait l'adresse
+    // à son premier rendu (et effacerait au passage ce qu'elle ne connaît pas).
+    if (draft.trim() === value) return undefined;
     const timer = setTimeout(() => onChange(draft.trim()), 300);
     return () => clearTimeout(timer);
     // `onChange` change d'identité à chaque rendu du parent ; seule la saisie compte.
@@ -281,29 +265,59 @@ export function SearchInput({ value, onChange, placeholder, label: text }) {
  * Boîte de confirmation. Avec `reasonLabel`, elle exige un texte non vide —
  * c'est le cas du rejet KYC, dont le motif est envoyé au client.
  */
-export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, danger, pending, error, onConfirm, onCancel }) {
-  const [reason, setReason] = useState('');
+/**
+ * Le focus d'une fenêtre ouverte : il entre dans la fenêtre (le champ de saisie s'il y en a un, sinon
+ * le premier bouton), y reste tant qu'elle est ouverte (Tab et Maj+Tab bouclent), Échap la ferme, et il
+ * retourne à l'élément qui l'avait ouverte. Partagé par la confirmation et le panneau latéral.
+ */
+function useDialogFocus(ref, onClose) {
+  const [opener] = useState(() => document.activeElement);
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
+    ref.current?.querySelector('textarea, button')?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
+  }, [ref, opener]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !ref.current) return;
+      const focusable = [...ref.current.querySelectorAll('button:not(:disabled), textarea, a[href]')];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, [ref, onClose]);
+}
+
+export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, danger, pending, error, onConfirm, onCancel, children }) {
+  const [reason, setReason] = useState('');
+  const dialog = useRef(null);
+  useDialogFocus(dialog, onCancel);
 
   const blocked = pending || (reasonLabel && !reason.trim());
 
   return (
     <div className="overlay" onClick={onCancel}>
-      <div className="dialog" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <h2>{title}</h2>
-        {message && <p>{message}</p>}
+      <div className="dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="dialog-title"
+        aria-describedby={message ? 'dialog-message' : undefined} onClick={(e) => e.stopPropagation()}>
+        <h2 id="dialog-title">{title}</h2>
+        {message && <p id="dialog-message">{message}</p>}
+        {children}
         {reasonLabel && (
           <div className="field">
             <label htmlFor="reason">{reasonLabel}</label>
-            <textarea id="reason" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
+            <textarea id="reason" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
         )}
-        <ErrorNotice message={error} />
+        <ErrorNotice message={error} title="L'opération n'a pas abouti." />
         <div className="btn-row">
           <button type="button" className="btn secondary" onClick={onCancel}>Annuler</button>
           <button
@@ -312,10 +326,69 @@ export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, dange
             disabled={blocked}
             onClick={() => onConfirm(reason.trim())}
           >
-            {pending ? '…' : confirmLabel}
+            {pending ? 'Un instant…' : confirmLabel}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Panneau latéral : le détail d'une ligne sans quitter sa liste. À droite sur grand écran, plein écran
+ * sur mobile ; cliquer à côté, Échap ou « Fermer » le referme.
+ */
+export function SidePanel({ title, onClose, children }) {
+  const panel = useRef(null);
+  useDialogFocus(panel, onClose);
+
+  return (
+    <div className="panel-overlay" onClick={onClose}>
+      <aside className="side-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="panel-title"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="side-panel-head">
+          <h2 id="panel-title">{title}</h2>
+          <button type="button" className="icon-btn" aria-label="Fermer" onClick={onClose}><IconClose /></button>
+        </div>
+        <div className="side-panel-body">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+/**
+ * Onglets d'une même fiche : des groupes d'informations réellement distincts, pas un décor.
+ * Flèches gauche et droite, Début et Fin déplacent la sélection ; le panneau est atteignable au clavier.
+ */
+export function Tabs({ tabs, value, onChange, label: text, children }) {
+  const onKeyDown = (event) => {
+    const index = tabs.findIndex((tab) => tab.key === value);
+    const next = {
+      ArrowRight: (index + 1) % tabs.length,
+      ArrowLeft: (index - 1 + tabs.length) % tabs.length,
+      Home: 0,
+      End: tabs.length - 1,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    onChange(tabs[next].key);
+    document.getElementById(`tab-${tabs[next].key}`)?.focus();
+  };
+
+  return (
+    <>
+      <div className="tabs" role="tablist" aria-label={text} onKeyDown={onKeyDown}>
+        {tabs.map((tab) => (
+          <button key={tab.key} id={`tab-${tab.key}`} type="button" role="tab" aria-selected={tab.key === value}
+            aria-controls={`panel-${tab.key}`} tabIndex={tab.key === value ? 0 : -1} onClick={() => onChange(tab.key)}>
+            {tab.label}
+            {tab.badge ? <span className="tab-badge num">{tab.badge}</span> : null}
+          </button>
+        ))}
+      </div>
+      <div className="tabpanel" role="tabpanel" id={`panel-${value}`} aria-labelledby={`tab-${value}`} tabIndex={0}>
+        {children}
+      </div>
+    </>
   );
 }

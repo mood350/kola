@@ -33,13 +33,13 @@ export function activePreset(from, to) {
   return match ? match.key : null;
 }
 
-const longDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const frDay = (value) => value.split('-').reverse().join('/');
 
-/** « du 1 septembre au 24 septembre 2026 », pour dire ce que couvre un total ou un export. */
+/** « du 01/09/2026 au 24/09/2026 », pour dire ce que couvre un total ou un export. */
 export function describePeriod(from, to) {
   if (!from && !to) return 'toutes dates';
-  if (from && to && from === to) return `le ${longDate.format(new Date(from))}`;
-  if (from && to) return `du ${longDate.format(new Date(from))} au ${longDate.format(new Date(to))}`;
-  if (from) return `depuis le ${longDate.format(new Date(from))}`;
-  return `jusqu'au ${longDate.format(new Date(to))}`;
+  if (from && to && from === to) return `le ${frDay(from)}`;
+  if (from && to) return `du ${frDay(from)} au ${frDay(to)}`;
+  if (from) return `depuis le ${frDay(from)}`;
+  return `jusqu'au ${frDay(to)}`;
 }
