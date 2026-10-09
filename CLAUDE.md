@@ -9,9 +9,9 @@ Kola is a fintech app (mobile money / savings / micro-credit, currency XOF) with
 - `backend/` — Spring Boot 3.5 (Java 17) REST API
 - `mobile/` — Flutter app (the client)
 - `frontend-web/` — Next.js 16, **the public site and the client space in one application**: marketing pages at `/`, `/a-propos`, `/etudes-de-cas`… and the authenticated space at `/mon-compte`, `/coffres`, `/credit`… One build, one port, one domain.
-- `frontend-admin/` — Next.js 16 internal admin console (authenticated, ADMIN-only, talks to `/api/admin/**`)
+- `frontend-admin/` — minimal React 19 + Vite admin console, its own admin login, talks to `/api/v1/admin/console/**`
 
-**`landing/` no longer runs on its own.** Its pages, components and content modules were merged into `frontend-web/`; the folder is kept only until the merge is validated, and nothing should be added to it. Both remaining Next apps are covered by `.github/workflows/frontend-admin-ci.yml` and `frontend-web-ci.yml` (Node 20, `npm ci` → `npm run lint` → `npm run build`).
+**`landing/` no longer runs on its own.** Its pages, components and content modules were merged into `frontend-web/`; the folder is kept only until the merge is validated, and nothing should be added to it. Both web apps are covered by `.github/workflows/frontend-admin-ci.yml` (Node 22 — Vite 8 needs ≥ 20.19) and `frontend-web-ci.yml` (Node 20), each `npm ci` → `npm run lint` → `npm run build`.
 
 ### Dev ports — they are not interchangeable
 
@@ -19,7 +19,7 @@ Kola is a fintech app (mobile money / savings / micro-credit, currency XOF) with
 
 | App | Port | Why |
 |---|---|---|
-| `frontend-admin/` | **3000** | a browser origin the API accepts; pinned in its `dev`/`start` scripts |
+| `frontend-admin/` | **3000** | a browser origin the API accepts; pinned with `strictPort` in `vite.config.js` (dev and preview) |
 | `frontend-web/` | **3002** | public site **and** client space, one server; the other accepted origin |
 | `backend/` | 8081 | `server.port` in `application.properties` |
 
@@ -127,13 +127,13 @@ Four rules the merge introduced, each easy to break:
 1. **The root layout carries only what both publics share** — language, fonts, entity JSON-LD, skip link. Header/footer/Lenis/consent live in `(marketing)/layout.tsx`; the session provider lives in `(private)/layout.tsx`. Hoisting the provider back to the root would make the public homepage call `/users/me` for every visitor still holding a token.
 2. **`(private)/layout.tsx` is a server component** so it can export `metadata: { robots: { index: false } }`. Private routes would otherwise inherit the marketing metadata — and its indexing. `robots.ts` disallows them as well: `noindex` stops indexing, `Disallow` stops crawling, and one without the other leaves a gap.
 3. **Google Analytics is mounted in `(marketing)/layout.tsx` and nowhere else.** Session tokens live in the `localStorage` of an origin now shared by both publics. Confining the tag keeps third-party scripts off authenticated pages — the residual risk (same origin) is documented there and only `HttpOnly` cookies would close it.
-4. **Two radius families on purpose**: `rounded-card`/`rounded-panel` (1.75/2.25rem) belong to the marketing sections; `rounded-surface`/`rounded-sheet`/`rounded-field` (20/24/12px) belong to the product UI and mirror Flutter's `AppRadius`. A dashboard built at editorial radii reads as a brochure.
+4. **Two radius families on purpose**: `rounded-card`/`rounded-panel` (1.25/1.75rem) belong to the marketing sections; `rounded-surface`/`rounded-sheet`/`rounded-field` (20/24/12px) belong to the product UI and mirror Flutter's `AppRadius`. A dashboard built at editorial radii reads as a brochure.
 
 The client space remains the **web version of the mobile app** — same users, same JWT, same endpoints as `mobile/`, minus the admin surface. When a behaviour differs between this app and `mobile/`, one of the two is wrong.
 
 ### Commands
 
-Run from `frontend-web/`. Same stack as `landing/`/`frontend-admin/` (Next 16 App Router, React 19, Tailwind v4 with tokens in `@theme`), no component library, no charting library, **no third-party script at all**.
+Run from `frontend-web/`. Same stack as `landing/` (Next 16 App Router, React 19, Tailwind v4 with tokens in `@theme`), no component library, no charting library, **no third-party script at all**.
 
 ```
 npm run dev      # :3002 — must be this port, see CORS table above
@@ -207,34 +207,30 @@ Next 16 App Router (Turbopack), React 19, Tailwind **v4** (no `tailwind.config.t
 
 ## Admin console (`frontend-admin/`)
 
+A deliberately small React 19 + Vite + react-router console, rewritten from scratch (2026-09) after the Dogaa `FrontendWeb` import. Contract: `backend/BACKEND.md` §17 (`/api/v1/admin/console/**`) plus `/auth/*` (§4.1) and the KYC file download.
+
 ### Commands
 
-Run from `frontend-admin/`. Same stack as `landing/` (Next 16 App Router, React 19, Tailwind v4 with tokens in `@theme`), minus GSAP/Lenis — no animation library.
+Run from `frontend-admin/`.
 
 ```
-npm run dev      # :3000 — must be this port, see CORS table above
-npm run build    # production build + TypeScript check
+npm run dev      # :3000 (strictPort) — must be this port, see CORS table above
+npm run build
 npm run lint     # what CI runs
 ```
 
-`landing/AGENTS.md`'s rule applies here too: consult `node_modules/next/dist/docs/` rather than older App Router memory. `params` is a `Promise` — in client components unwrap it with `use()`.
+### Two rules, and what breaks them
 
-### The one thing to understand before touching auth
+1. **Nothing the mobile app does not offer.** Sections: overview, users (detail = wallets, vaults, loans, scheduled payments, recent transactions, KYC documents; one action: unblock), KYC review, transactions, loans, and the admin's own account. Disputes, support tickets, finance, fees/merchants, credit ladder, audit log and admin roles were **removed on purpose** — their backend routes still exist, the console does not call them. Adding a section means checking `mobile/lib/services` first.
+2. **The API serves raw values; the console formats them**, in `src/lib/format.js` only (amounts, dates, enum labels, badge tones). Do not reintroduce server-side display strings.
 
-**The JWT carries no roles.** `AuthenticationService.authenticate()` calls `jwtService.generateToken(user)` — the overload with no extra claims — so the token holds only `sub`, `type`, `iat`, `exp`. `UserResponse` (`GET /api/users/me`) also excludes authorities, deliberately.
-
-The console therefore cannot *derive* admin status; it **asks**. `lib/session.tsx` calls `GET /api/admin/loans/overview` and reads the answer: 200 = ADMIN, 403 (`ACCESS_DENIED`) = not. Don't replace this with a JWT claim read without also changing the backend — and note the probe has a real advantage: a role revoked in the database takes effect on the next page load, where a claim baked into a token would stay valid until expiry.
-
-Tokens live in `localStorage` (what `AuthController.logout` documents). Consequence: XSS reads them. The console loads zero third-party scripts as mitigation; `HttpOnly` cookies would need backend work.
-
-### Layout
-
-- `src/app/(console)/` — authenticated screens (`/`, `/utilisateurs`, `/prets`, `/conformite`, plus `[id]` details). `/connexion` sits outside the group.
-- `src/lib/` — `api.ts` (fetch + single-flight token refresh + `ApiError`), `session.tsx`, `use-resource.ts`, `types.ts` (**mirrors the Java DTOs — each block names its source file**), `format.ts`.
-- `src/components/ui/primitives.tsx` — all base UI in one module; `status.tsx` maps domain enums to badge tones (one status = one color everywhere).
-- `src/components/charts/` — hand-rolled SVG/CSS charts, no charting library.
-
-`useResource` derives `loading` from "which request produced the shown result" rather than storing a boolean — that is what keeps previous data on screen during a reload and avoids the `setState`-in-effect the React compiler lint rejects.
+- **No mock mode.** Without `VITE_API_BASE_URL` (`.env.development` is versioned) the app shows an error instead of inventing data — the old mock login accepted any password.
+- **Auth**: e-mail + password on `/auth/login`, one 8 h JWT in `localStorage['kola_admin_token']`, no refresh. A 401 dispatches `kola:unauthorized` and signs out; a **403** (module not granted to the role) shows "Accès refusé" and keeps the session. `ROLE_MODULES` in `src/lib/session.jsx` mirrors `AdminRole` only to hide links.
+- **KYC files are downloaded, never opened in a tab** (`download()` in `src/lib/api.js`): a `blob:` URL inherits the console's origin.
+- **All styling lives in `src/styles.css`** as tokens (only computed chart heights are inline). Manrope is bundled via `@fontsource-variable/manrope` — no request to a third party.
+- **Form rules, kept on purpose** (the user rejected the usual "vibe-coded" tells): mobile-app colours only (navy `#002353`, blue `#0047BA`), flat — no gradient, no purple; 4 px corners; separation by hairlines — no drop shadow, no blur/glass, no dot grid, no blurred orb; no hover animation (a hover changes a colour, nothing moves); no emoji, no star, no check-mark bullets.
+- **Light visual load.** The dashboard is a small bento: the day's volume vs yesterday with the 14-day chart (the big tile), four day-vs-yesterday KPIs (new customers, loans granted, fees earned, repayments received), and an "À traiter" strip — the user wants few boxes, not no bento. Add a KPI only on request. List toolbars keep only the essentials (search, a single period `<select>`, export); every secondary filter (type, status, KYC tier, exact dates) sits behind a "Filtres" button that shows how many are active. Totals go on one line under the page title; the per-type breakdown lives in the Excel export, not on screen.
+- **Lists are paginated server-side** (15 rows by default, numbered pages, size 10/15/25) and filters live in the URL (`useFilters`), so a filtered view is a shareable link. Periods use `PeriodFilter` (presets + two dates, UTC days, both bounds inclusive).
 
 ## Admin API surface (`/api/admin/**`, ADMIN authority enforced in `SecurityConfig`)
 
