@@ -101,6 +101,18 @@ export const api = {
 };
 
 /**
+ * Lit un fichier protégé (pièce KYC) en mémoire, pour l'aperçu dans la page.
+ *
+ * Le résultat ne va JAMAIS dans un onglet ni dans un cadre : seulement dans une balise `<img>`, et
+ * seulement après avoir reconnu une image raster à ses premiers octets (`useDocumentImage`).
+ */
+export async function fetchFile(path, signal) {
+  const response = await send('GET', path, { signal });
+  if (!response.ok) throw await toError(response);
+  return response.arrayBuffer();
+}
+
+/**
  * Télécharge un fichier protégé (pièce KYC) et l'enregistre sur le disque.
  *
  * JAMAIS AFFICHÉ DANS UN ONGLET : l'API l'envoie en `attachment` exprès, et une

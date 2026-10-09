@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { initials, label, tone } from '../lib/format';
 import { activePreset, PRESETS } from '../lib/period';
+import { useDialogFocus } from '../lib/useDialogFocus';
 import { usePresentation } from '../lib/usePresentation';
 import DatePicker from './DatePicker';
 import { IconClose, IconSearch } from './icons';
@@ -245,38 +246,6 @@ export function SearchInput({ value, onChange, placeholder, label: text }) {
  * Boîte de confirmation. Avec `reasonLabel`, elle exige un texte non vide —
  * c'est le cas du rejet KYC, dont le motif est envoyé au client.
  */
-/**
- * Le focus d'une fenêtre ouverte : il entre dans la fenêtre (le champ de saisie s'il y en a un, sinon
- * le premier bouton), y reste tant qu'elle est ouverte (Tab et Maj+Tab bouclent), Échap la ferme, et il
- * retourne à l'élément qui l'avait ouverte. Partagé par la confirmation et le panneau latéral.
- */
-function useDialogFocus(ref, onClose) {
-  const [opener] = useState(() => document.activeElement);
-
-  useEffect(() => {
-    ref.current?.querySelector('textarea, button')?.focus();
-    return () => { if (opener?.isConnected) opener.focus(); };
-  }, [ref, opener]);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key !== 'Tab' || !ref.current) return;
-      const focusable = [...ref.current.querySelectorAll('button:not(:disabled), textarea, a[href]')];
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [ref, onClose]);
-}
-
 export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, danger, pending, error, onConfirm, onCancel, children }) {
   const [reason, setReason] = useState('');
   // Annuler, Échap et le clic à côté jouent la sortie avant de rendre la main ; confirmer, lui, laisse

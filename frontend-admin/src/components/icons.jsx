@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, Calendar, Check, ChevronLeft, ChevronRight, Download, Ellipsis, HandCoins, House, LogOut, PiggyBank,
+  ArrowLeftRight, Calendar, Check, ChevronLeft, ChevronRight, Download, Ellipsis, Eye, HandCoins, House, LogOut, PiggyBank,
   Search, Settings, ShieldCheck, Users, X,
 } from 'lucide-react';
 
@@ -21,6 +21,7 @@ export const IconSettings = make(Settings);
 export const IconSearch = make(Search);
 export const IconClose = make(X);
 export const IconDownload = make(Download);
+export const IconEye = make(Eye);
 export const IconLogout = make(LogOut);
 export const IconMore = make(Ellipsis);
 export const IconCheck = make(Check);

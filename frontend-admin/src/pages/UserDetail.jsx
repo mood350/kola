@@ -8,7 +8,8 @@ import {
   Card, ConfirmDialog, ErrorNotice, PageHead, Pager, Skeleton, Status, Table, Tabs,
 } from '../components/ui';
 import { transactionColumns } from './Transactions';
-import { IconDownload } from '../components/icons';
+import { DocumentModal } from '../components/DocumentPreview';
+import { IconDownload, IconEye } from '../components/icons';
 
 const TAB_KEYS = ['apercu', 'transactions', 'credits', 'epargne', 'kyc'];
 
@@ -115,7 +116,7 @@ export default function UserDetail() {
         {tab === 'transactions' && <History userId={p.id} phone={p.phone} />}
         {tab === 'credits' && <Loans loans={data.loans} />}
         {tab === 'epargne' && <Savings wallets={data.wallets} vaults={data.vaults} />}
-        {tab === 'kyc' && <Documents documents={data.documents} canAct={canAct} onDecide={(doc, kind) => setDialog({ kind, doc })} />}
+        {tab === 'kyc' && <Documents documents={data.documents} owner={p.fullName} canAct={canAct} onDecide={(doc, kind) => setDialog({ kind, doc })} />}
       </Tabs>
 
       {dialog && (
@@ -274,8 +275,9 @@ function Savings({ wallets, vaults }) {
 }
 
 /** Les pièces du client ; celles en attente se tranchent ici, sauf pour un rôle en consultation. */
-function Documents({ documents, canAct, onDecide }) {
+function Documents({ documents, owner, canAct, onDecide }) {
   const [fileError, setFileError] = useState('');
+  const [viewing, setViewing] = useState(null);
   const fetchFile = async (d) => {
     setFileError('');
     try {
@@ -310,6 +312,7 @@ function Documents({ documents, canAct, onDecide }) {
             align: 'right',
             render: (d) => (
               <div className="btn-row end">
+                <button type="button" className="btn secondary sm" onClick={() => setViewing(d)}><IconEye size={14} /> Aperçu</button>
                 <button type="button" className="btn secondary sm" onClick={() => fetchFile(d)}><IconDownload size={14} /> Télécharger</button>
                 {d.status === 'PENDING' && canAct && (
                   <>
@@ -322,6 +325,7 @@ function Documents({ documents, canAct, onDecide }) {
           },
         ]}
       />
+      {viewing && <DocumentModal doc={viewing} owner={owner} onClose={() => setViewing(null)} />}
     </Card>
   );
 }

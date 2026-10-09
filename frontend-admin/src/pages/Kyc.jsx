@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import {
   Card, ConfirmDialog, ErrorNotice, PageHead, Pager, Person, Skeleton, Status, Table, Tabs,
 } from '../components/ui';
+import { DocumentPreview } from '../components/DocumentPreview';
 import { IconCheck, IconChevron, IconDownload } from '../components/icons';
 
 const VIEWS = {
@@ -281,6 +282,9 @@ function Dossier({ doc, canAct, back, onDownload, onDecide }) {
         <div><dt>Fichier</dt><dd className="wrap-any">{doc.fileName || '—'}</dd></div>
       </dl>
 
+      {/* `key` : changer de dossier remonte l'aperçu, qui ne montre jamais la pièce du dossier précédent. */}
+      <DocumentPreview key={doc.id} doc={doc} owner={doc.userName} />
+
       <div className="dossier-actions">
         {canAct && (
           <>
@@ -292,7 +296,7 @@ function Dossier({ doc, canAct, back, onDownload, onDecide }) {
       </div>
       <p className="muted dossier-hint">
         {canAct
-          ? 'La pièce se télécharge sans s\'ouvrir dans le navigateur : c\'est une règle de sécurité.'
+          ? 'L\'aperçu affiche l\'image dans la page, sans l\'ouvrir dans un onglet ; le téléchargement reste disponible.'
           : 'Votre rôle consulte les dossiers sans les trancher.'}
       </p>
 
