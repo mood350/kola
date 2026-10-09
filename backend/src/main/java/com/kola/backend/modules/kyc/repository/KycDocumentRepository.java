@@ -31,6 +31,9 @@ public interface KycDocumentRepository extends JpaRepository<KycDocument, UUID> 
 
     List<KycDocument> findByStatusOrderByCreatedAtAsc(KycDocumentStatus status);
 
+    /** One status, any sort the caller chooses: the back-office history of accepted or rejected documents. */
+    Page<KycDocument> findByStatus(KycDocumentStatus status, Pageable pageable);
+
     long countByStatus(KycDocumentStatus status);
 
     /** Pending documents per user, for one page of the back-office user list. */

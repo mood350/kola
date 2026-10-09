@@ -21,5 +21,6 @@ public record ConsoleKycDocument(UUID id,
                                  String fileName,
                                  String contentType,
                                  Instant submittedAt,
-                                 String rejectionReason) {
+                                 String rejectionReason,
+                                 Instant reviewedAt) {
 }

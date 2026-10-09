@@ -10,6 +10,8 @@ import com.kola.backend.modules.admin.dto.console.ConsoleLoan;
 import com.kola.backend.modules.admin.dto.console.ConsoleLoanSummary;
 import com.kola.backend.modules.admin.dto.console.ConsoleOverview;
 import com.kola.backend.modules.admin.dto.console.ConsolePage;
+import com.kola.backend.modules.admin.dto.console.ConsoleSavingsRow;
+import com.kola.backend.modules.admin.dto.console.ConsoleSavingsSummary;
 import com.kola.backend.modules.admin.dto.console.ConsoleTransaction;
 import com.kola.backend.modules.admin.dto.console.ConsoleTransactionSummary;
 import com.kola.backend.modules.admin.dto.console.ConsoleUserDetail;
@@ -17,6 +19,7 @@ import com.kola.backend.modules.admin.dto.console.ConsoleUserRow;
 import com.kola.backend.modules.admin.security.CurrentAdmin;
 import com.kola.backend.modules.admin.service.AdminConsoleService.TransactionFilter;
 import com.kola.backend.modules.admin.service.AdminConsoleService;
+import com.kola.backend.modules.kyc.entity.KycDocumentStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -90,6 +93,32 @@ public class AdminConsoleController {
     @Operation(summary = "Lever une suspension ou un verrouillage PIN")
     public ConsoleUserDetail unblock(@AuthenticationPrincipal CurrentAdmin admin, @PathVariable UUID id) {
         return consoleService.unblock(admin, id);
+    }
+
+    @GetMapping("/savings")
+    @PreAuthorize("hasAuthority('MODULE_USERS')")
+    @Operation(summary = "Épargnants (compte épargne ou coffre), du plus gros au plus petit ; recherche par nom ou téléphone")
+    public ConsolePage<ConsoleSavingsRow> savings(@RequestParam(required = false) String q,
+                                                  @RequestParam(defaultValue = "0") int page,
+                                                  @RequestParam(defaultValue = "15") int size) {
+        return consoleService.savings(q, page, size);
+    }
+
+    @GetMapping("/savings/summary")
+    @PreAuthorize("hasAuthority('MODULE_USERS')")
+    @Operation(summary = "Totaux de l'épargne : épargnants, comptes épargne, garanties, coffres")
+    public ConsoleSavingsSummary savingsSummary() {
+        return consoleService.savingsSummary();
+    }
+
+    @GetMapping("/kyc/history")
+    @PreAuthorize("hasAuthority('MODULE_USERS')")
+    @Operation(summary = "Pièces d'identité d'un statut (acceptées, refusées, en attente), paginées et triées par date de décision")
+    public ConsolePage<ConsoleKycDocument> kycDocuments(@RequestParam KycDocumentStatus status,
+                                                        @RequestParam(defaultValue = "desc") String order,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        @RequestParam(defaultValue = "15") int size) {
+        return consoleService.kycDocuments(status, order, page, size);
     }
 
     @GetMapping("/kyc")

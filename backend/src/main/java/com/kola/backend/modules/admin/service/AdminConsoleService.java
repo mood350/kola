@@ -8,6 +8,8 @@ import com.kola.backend.common.enums.UserStatus;
 import com.kola.backend.common.util.PhoneNumbers;
 import com.kola.backend.config.AuthProperties;
 import com.kola.backend.exception.BadRequestException;
+import com.kola.backend.modules.vault.entity.VaultStatus;
+import com.kola.backend.common.enums.WalletType;
 import com.kola.backend.modules.admin.dto.console.ConsoleDailyVolume;
 import com.kola.backend.modules.admin.dto.console.ConsoleDayStats;
 import com.kola.backend.modules.admin.dto.console.ConsoleKycDocument;
@@ -15,6 +17,8 @@ import com.kola.backend.modules.admin.dto.console.ConsoleLoan;
 import com.kola.backend.modules.admin.dto.console.ConsoleLoanSummary;
 import com.kola.backend.modules.admin.dto.console.ConsoleOverview;
 import com.kola.backend.modules.admin.dto.console.ConsolePage;
+import com.kola.backend.modules.admin.dto.console.ConsoleSavingsRow;
+import com.kola.backend.modules.admin.dto.console.ConsoleSavingsSummary;
 import com.kola.backend.modules.admin.dto.console.ConsoleScheduledTask;
 import com.kola.backend.modules.admin.dto.console.ConsoleTransaction;
 import com.kola.backend.modules.admin.dto.console.ConsoleTransactionSummary;
@@ -61,6 +65,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -267,6 +273,108 @@ public class AdminConsoleService {
         return user(userId);
     }
 
+    // --- savings ------------------------------------------------------------
+
+    /** What one customer holds: the savings account (and the part of it that is locked) and the active vaults. */
+    private record Holdings(BigDecimal savings, BigDecimal collateral, long vaults, BigDecimal vaultsBalance) {
+        BigDecimal total() {
+            return savings.add(vaultsBalance);
+        }
+    }
+
+    /**
+     * Every customer who holds something in savings, with what they hold. Two grouped queries over the
+     * savings accounts and the active vaults, merged here; owners without a customer record are left out.
+     *
+     * <p>Shortcut: the merge and the paging happen in memory. That is fine while savers number in the
+     * tens of thousands; past that, move the join and the ordering into one SQL query.
+     */
+    private Map<UUID, Holdings> holdings() {
+        Map<UUID, BigDecimal[]> accounts = new HashMap<>();
+        for (Object[] row : entityManager.createQuery("""
+                select w.ownerId, sum(w.availableBalance + w.lockedBalance), sum(w.lockedBalance)
+                from Wallet w where w.type = :type group by w.ownerId
+                """, Object[].class).setParameter("type", WalletType.SAVINGS).getResultList()) {
+            accounts.put((UUID) row[0], new BigDecimal[]{(BigDecimal) row[1], (BigDecimal) row[2]});
+        }
+        Map<UUID, Object[]> vaults = new HashMap<>();
+        for (Object[] row : entityManager.createQuery("""
+                select v.ownerId, count(v), sum(v.balance)
+                from Vault v where v.status = :status group by v.ownerId
+                """, Object[].class).setParameter("status", VaultStatus.ACTIVE).getResultList()) {
+            vaults.put((UUID) row[0], row);
+        }
+
+        Set<UUID> owners = new java.util.HashSet<>(accounts.keySet());
+        owners.addAll(vaults.keySet());
+        Set<UUID> customers = usersById(owners).keySet();
+
+        Map<UUID, Holdings> result = new HashMap<>();
+        for (UUID owner : owners) {
+            if (!customers.contains(owner)) {
+                continue;
+            }
+            BigDecimal[] account = accounts.getOrDefault(owner, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            Object[] vault = vaults.get(owner);
+            Holdings holdings = new Holdings(account[0], account[1],
+                    vault == null ? 0 : (Long) vault[1],
+                    vault == null ? BigDecimal.ZERO : (BigDecimal) vault[2]);
+            // An empty account and no vault is not a saver: opening an account at sign-up is not saving.
+            if (holdings.total().signum() > 0 || holdings.vaults() > 0) {
+                result.put(owner, holdings);
+            }
+        }
+        return result;
+    }
+
+    /** The savers, biggest holding first, searchable by name or phone number. */
+    @Transactional(readOnly = true)
+    public ConsolePage<ConsoleSavingsRow> savings(String query, int page, int size) {
+        String needle = query == null ? "" : query.strip().toLowerCase();
+        Map<UUID, Holdings> holdings = holdings();
+        Map<UUID, User> customers = usersById(holdings.keySet());
+
+        List<ConsoleSavingsRow> rows = holdings.entrySet().stream()
+                .filter(e -> {
+                    User u = customers.get(e.getKey());
+                    return needle.isEmpty()
+                            || u.getFullName().toLowerCase().contains(needle)
+                            || (u.getPhone() != null && u.getPhone().contains(needle));
+                })
+                .map(e -> {
+                    User u = customers.get(e.getKey());
+                    Holdings h = e.getValue();
+                    return new ConsoleSavingsRow(u.getId(), u.getFullName(), u.getPhone(),
+                            h.savings(), h.collateral(), h.vaults(), h.vaultsBalance(), h.total());
+                })
+                .sorted(Comparator.comparing(ConsoleSavingsRow::total).reversed()
+                        .thenComparing(ConsoleSavingsRow::fullName))
+                .toList();
+
+        Pageable pageable = pageable(page, size, Sort.unsorted());
+        int from = (int) Math.min(pageable.getOffset(), rows.size());
+        int to = Math.min(from + pageable.getPageSize(), rows.size());
+        List<ConsoleSavingsRow> slice = rows.subList(from, to);
+        return ConsolePage.of(new org.springframework.data.domain.PageImpl<>(slice, pageable, rows.size()), slice);
+    }
+
+    /** Totals over every saver, whatever the search. */
+    @Transactional(readOnly = true)
+    public ConsoleSavingsSummary savingsSummary() {
+        Map<UUID, Holdings> holdings = holdings();
+        BigDecimal savings = BigDecimal.ZERO;
+        BigDecimal collateral = BigDecimal.ZERO;
+        BigDecimal vaultsBalance = BigDecimal.ZERO;
+        long vaults = 0;
+        for (Holdings h : holdings.values()) {
+            savings = savings.add(h.savings());
+            collateral = collateral.add(h.collateral());
+            vaultsBalance = vaultsBalance.add(h.vaultsBalance());
+            vaults += h.vaults();
+        }
+        return new ConsoleSavingsSummary(holdings.size(), savings.add(vaultsBalance), savings, collateral, vaults, vaultsBalance);
+    }
+
     // --- KYC --------------------------------------------------------------
 
     /** Documents waiting for a decision, oldest first — the order they should be handled in. */
@@ -277,6 +385,34 @@ public class AdminConsoleService {
         return pending.stream()
                 .map(d -> toDocument(d, owners.get(d.getUserId())))
                 .toList();
+    }
+
+    /**
+     * Documents of one status, a page at a time — the history of what was accepted or rejected.
+     *
+     * <p>A decided document is read by the day it was decided; one still waiting has only its
+     * submission date. The submission date breaks ties, so two decisions taken in the same
+     * instant never swap places between two requests.
+     */
+    @Transactional(readOnly = true)
+    public ConsolePage<ConsoleKycDocument> kycDocuments(KycDocumentStatus status, String order, int page, int size) {
+        Sort.Direction direction;
+        if ("asc".equalsIgnoreCase(order)) {
+            direction = Sort.Direction.ASC;
+        } else if ("desc".equalsIgnoreCase(order)) {
+            direction = Sort.Direction.DESC;
+        } else {
+            throw new BadRequestException("Ordre inconnu : choisissez asc ou desc.");
+        }
+        Sort sort = status == KycDocumentStatus.PENDING
+                ? Sort.by(direction, "createdAt")
+                : Sort.by(direction, "reviewedAt").and(Sort.by(direction, "createdAt"));
+
+        Page<KycDocument> result = kycDocumentRepository.findByStatus(status, pageable(page, size, sort));
+        Map<UUID, User> owners = usersById(result.getContent().stream().map(KycDocument::getUserId).collect(Collectors.toSet()));
+        return ConsolePage.of(result, result.getContent().stream()
+                .map(d -> toDocument(d, owners.get(d.getUserId())))
+                .toList());
     }
 
     public void approveDocument(CurrentAdmin admin, UUID documentId) {
@@ -550,6 +686,6 @@ public class AdminConsoleService {
                 document.getType(), document.getStatus(),
                 owner == null ? null : owner.getKycTier(),
                 document.getOriginalFilename(), document.getContentType(),
-                document.getCreatedAt(), document.getRejectionReason());
+                document.getCreatedAt(), document.getRejectionReason(), document.getReviewedAt());
     }
 }

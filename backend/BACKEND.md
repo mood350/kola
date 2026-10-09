@@ -178,6 +178,8 @@ KycSubmission { id: string, name: string, fromTier: string, toTier: string, rece
 | GET | `/credit/stats` | — | `CreditStats` |
 | GET | `/credit/tier-config` | — | `TierConfig[]` |
 | PUT | `/credit/tier-config` | `{ tiers: TierConfig[] }` | `TierConfig[]` |
+
+> **Plafond (`maxAmount`)** : un palier sans plafond est stocké à `null` et s'échange sous la forme `"Aucun plafond"` (en lecture comme en écriture). Un plafond de `0` est refusé (400) : `CreditPolicy.maxLoanAmount` bornerait alors tous les prêts à 0. Avant ce contrat, un palier sans plafond s'affichait « 0 XOF », et le renvoyer tel quel aurait mis tous les prêts à zéro.
 | GET | `/credit/defaults` | — | `LoanDefault[]` |
 | POST | `/credit/defaults/:loanId/remind` | `{}` | `void` |
 
@@ -434,6 +436,9 @@ chaînes d'affichage (« 709 k XOF », « 1 prêts en cours ») sur ces routes.
 | GET | `/console/users/{id}` | users | `ConsoleUserDetail` — profil, comptes, coffres, prêts, paiements programmés, pièces KYC (l'historique est paginé à part) |
 | POST | `/console/users/{id}/unblock` | users | `ConsoleUserDetail` — lève une suspension **ou un verrouillage PIN** |
 | GET | `/console/kyc` | users | `ConsoleKycDocument[]` — pièces en attente, plus anciennes d'abord |
+| GET | `/console/kyc/history?status=&order=&page=&size=` | users | `ConsolePage<ConsoleKycDocument>` — les pièces d'un statut (`APPROVED`, `REJECTED` ou `PENDING`), paginées ; `order` = `desc` (défaut) ou `asc`, sur la **date de décision** (`reviewedAt`), ou la date d'envoi pour `PENDING`. Statut ou ordre inconnu → 400. Ajoutée à la demande du propriétaire pour les vues « Acceptés » et « Refusés » de la console. |
+| GET | `/console/savings?q=&page=&size=` | users | `ConsolePage<ConsoleSavingsRow>` — les épargnants (un compte épargne ou un coffre actif non vide), du plus gros total au plus petit ; recherche par nom ou téléphone. Une ligne : `savings` (compte épargne), `collateral` (sa part bloquée en garantie), `vaults`, `vaultsBalance`, `total`. Fusion et pagination en mémoire (voir `AdminConsoleService.holdings`). |
+| GET | `/console/savings/summary` | users | `ConsoleSavingsSummary` — épargnants, total, comptes épargne, garanties, coffres et leur solde. |
 | POST | `/console/kyc/{id}/approve` · `/reject` | users | 204 — rejet : `{ reason }` obligatoire (≤ 300), envoyé au client |
 | GET | `/console/loans?status=&from=&to=&page=&size=` | credit | `ConsolePage<ConsoleLoan>` — `from`/`to` = jour de versement |
 | GET | `/console/loans/summary?status=&from=&to=` | credit | `ConsoleLoanSummary` — nombre, montant prêté, reste dû, en retard |
@@ -465,4 +470,4 @@ qui appelle le support restait sans issue). L'audit note « Verrouillé (PIN) �
 financier et réconciliation, frais et marchands, barème de crédit, journal d'audit, rôles admin,
 relances de défaut. Leurs routes existent toujours côté serveur.
 
-Tests : `AdminConsoleIntegrationTest`.
+Tests : `AdminConsoleIntegrationTest` (dont l'historique KYC et l'épargne).

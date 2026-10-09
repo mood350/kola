@@ -46,6 +46,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminCreditService {
 
+    /** What the ladder shows, and accepts back, for a rung whose ceiling is not set (stored as null). */
+    static final String NO_CEILING = "Aucun plafond";
+
     private static final String MODULE = "credit";
     private static final List<LoanStatus> OUTSTANDING =
             List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
@@ -88,7 +91,9 @@ public class AdminCreditService {
             tiers.add(new TierConfigResponse(
                     "TIER " + tier,
                     rung.getMinScore(),
-                    BackOfficeFormat.amount(rung.getMaxAmount(), Currency.XOF.name()),
+                    rung.getMaxAmount() == null
+                            ? NO_CEILING
+                            : BackOfficeFormat.amount(rung.getMaxAmount(), Currency.XOF.name()),
                     BackOfficeFormat.monthlyRate(rung.getMonthlyRatePercent())));
         }
         return tiers;
@@ -207,13 +212,24 @@ public class AdminCreditService {
 
     // --- parsing the edited strings ---------------------------------------
 
-    /** "150 000 XOF", "150000" → 150000. Spaces of any width are grouping, not decimals. */
+    /**
+     * "150 000 XOF", "150000" → 150000; "Aucun plafond" → null. Spaces of any width are grouping, not
+     * decimals. A ceiling of 0 is refused: {@code CreditPolicy.maxLoanAmount} would cap every loan at 0,
+     * and the screen used to show a missing ceiling as "0 XOF" — saving it back would have done exactly that.
+     */
     private static BigDecimal parseAmount(String value) {
+        if (value.strip().equalsIgnoreCase(NO_CEILING)) {
+            return null;
+        }
         String digits = value.replaceAll("[^0-9]", "");
         if (digits.isEmpty()) {
             throw new BadRequestException("Montant maximum illisible : « " + value + " »");
         }
-        return new BigDecimal(digits);
+        BigDecimal amount = new BigDecimal(digits);
+        if (amount.signum() == 0) {
+            throw new BadRequestException("Le montant maximum doit être supérieur à 0 (ou « " + NO_CEILING + " »)");
+        }
+        return amount;
     }
 
     /** "7 %/mois", "7,5 %" → 7 / 7.5. */
