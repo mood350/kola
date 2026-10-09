@@ -1,10 +1,19 @@
 /* Console d'administration Kola — toute la mise en forme, en jetons.
 
-   Direction : sobre, à la manière d'Apple. Beaucoup d'espace, une hiérarchie typographique
-   nette, des filets fins plutôt que des ombres, une seule couleur d'accent (le bleu Kola de
-   l'application mobile). Le vert, l'ambre et le rouge ne disent qu'un statut, et un mot ou une
-   icône les accompagne toujours. Ni dégradé, ni verre, ni animation sans fonction ; tout
-   mouvement s'arrête sous prefers-reduced-motion. Aucune police ni script tiers. */
+   Direction : Apple, tel que le décrivent ses conférences de design, sans en singer les effets.
+   - Réponse : tout ce qu'on touche réagit à l'appui, pas au relâchement (:active, 70 ms).
+   - Mouvement : les surfaces qui se présentent (panneau, dialogue, feuille) sont des ressorts
+     (lib/spring.js) : interruptibles, symétriques à l'entrée et à la sortie. Un survol ne bouge
+     jamais rien, il change une couleur.
+   - Matière : la barre du bas et la feuille « Plus » sont translucides, et le voile floute ce qui
+     reste derrière. Partout ailleurs, des surfaces pleines séparées par des filets : ni ombre, ni
+     dégradé, ni mode sombre.
+   - Typographie : interlettrage et interligne dépendent de la taille ; les corps de texte sont en rem,
+     ils suivent le réglage du navigateur.
+   - Une seule couleur d'accent, le bleu Kola de l'application mobile. Le vert, l'ambre et le rouge ne
+     disent qu'un statut, et un mot ou une icône les accompagne toujours.
+   Respecte prefers-reduced-motion (fondu court, plus de déplacement), prefers-reduced-transparency
+   et prefers-contrast. Aucune police ni script tiers. */
 
 @import '@fontsource-variable/manrope';
 
@@ -35,8 +44,11 @@
   --warn: #8a5a00;
   --warn-bg: #fff4d6;
 
-  --radius: 8px;
+  --radius: 10px;
+  --radius-lg: 14px;
   --ease: 150ms ease;
+  /* Retombée d'un appui : amortie, sans rebond (un ressort critique). */
+  --settle: 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
 
   /* Typographie système d'abord ; Manrope, déjà embarquée, en secours (jamais de requête tierce). */
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Manrope Variable', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -59,7 +71,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 500 14px/1.5 var(--font);
+  font: 500 0.875rem/1.5 var(--font);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -77,7 +90,7 @@ textarea {
 
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 h1,
@@ -93,7 +106,7 @@ h3 {
 
 .mono {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .muted {
@@ -168,13 +181,13 @@ h3 {
 
 .brand-name {
   font-weight: 800;
-  font-size: 15px;
+  font-size: 0.9375rem;
   letter-spacing: 0.04em;
   line-height: 1.1;
 }
 
 .brand-sub {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   font-weight: 600;
 }
@@ -240,7 +253,7 @@ h3 {
   border-radius: 11px;
   background: var(--accent);
   color: var(--on-primary);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   display: grid;
   place-items: center;
@@ -265,14 +278,14 @@ h3 {
 
 .me-name {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .me-role {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -346,7 +359,7 @@ h3 {
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
@@ -381,7 +394,7 @@ h3 {
     border-radius: 9px;
     background: var(--accent);
     color: var(--on-primary);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 800;
     display: grid;
     place-items: center;
@@ -438,7 +451,7 @@ h3 {
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   display: grid;
   place-items: center;
@@ -448,7 +461,7 @@ h3 {
 .avatar.lg {
   width: 48px;
   height: 48px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .person {
@@ -468,7 +481,7 @@ h3 {
 }
 
 .page-head h1 {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -476,7 +489,7 @@ h3 {
 .page-head p {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .back {
@@ -484,7 +497,7 @@ h3 {
   margin-bottom: 10px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -503,7 +516,7 @@ h3 {
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
 }
 
 .stack {
@@ -522,7 +535,7 @@ h3 {
 }
 
 .card-head h2 {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
 }
 
@@ -545,7 +558,7 @@ h3 {
 
 .fields dt {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -563,7 +576,7 @@ h3 {
   border-radius: var(--radius);
   background: var(--primary);
   color: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   display: inline-grid;
   place-items: center;
 }
@@ -589,7 +602,7 @@ h3 {
 }
 
 .filter-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--muted);
 }
@@ -613,7 +626,7 @@ td {
 }
 
 th {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--muted);
   border-bottom: 1px solid var(--line);
@@ -648,7 +661,7 @@ tbody tr.clickable:hover td {
 .cell-sub {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 td a {
@@ -723,7 +736,7 @@ textarea:focus {
   gap: 6px;
   color: var(--muted);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .check {
@@ -758,7 +771,7 @@ textarea:focus {
 }
 
 .field label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--ink-2);
 }
@@ -828,7 +841,7 @@ textarea {
 .btn.sm {
   height: 30px;
   padding: 0 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .btn-row {
@@ -848,7 +861,7 @@ textarea {
   color: var(--accent);
   cursor: pointer;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 0.8125rem;
   text-decoration: none;
 }
 
@@ -892,7 +905,7 @@ textarea {
   display: inline-block;
   padding: 1px 8px;
   border-radius: var(--radius);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   background: var(--subtle);
   color: var(--ink-2);
@@ -959,7 +972,7 @@ textarea {
   padding: 10px 16px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -1047,7 +1060,7 @@ textarea {
 }
 
 .login-box h1 {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
@@ -1067,7 +1080,6 @@ textarea {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgb(19 27 46 / 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1079,12 +1091,12 @@ textarea {
   width: 100%;
   max-width: 440px;
   background: var(--surface);
-  border-radius: var(--radius);
-  padding: 22px;
+  border-radius: var(--radius-lg);
+  padding: 24px;
 }
 
 .dialog h2 {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 800;
   margin-bottom: 6px;
 }
@@ -1114,7 +1126,7 @@ textarea {
   *::before,
   *::after {
     animation: none !important;
-    transition: none !important;
+    transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
 }
@@ -1154,7 +1166,7 @@ textarea {
 }
 
 .ind-value {
-  font-size: 44px;
+  font-size: 2.75rem;
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -1162,7 +1174,7 @@ textarea {
 
 .ind-prev {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 a.ind:hover .ind-value {
@@ -1183,7 +1195,7 @@ a.ind:hover .ind-value {
 }
 
 .section-head h2 {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -1194,7 +1206,7 @@ a.ind:hover .ind-value {
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   vertical-align: 2px;
 }
@@ -1253,12 +1265,12 @@ a.ind:hover .ind-value {
 
 .row-main .status {
   margin-top: 2px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .row-sub {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .row-side {
@@ -1334,7 +1346,7 @@ a.ind:hover .ind-value {
     grid-column: 2;
     grid-row: 1 / span 2;
     align-self: center;
-    font-size: 34px;
+    font-size: 2.125rem;
   }
 
   .rows a {
@@ -1383,11 +1395,11 @@ a.tile:hover {
 .tile-label {
   color: var(--muted);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .tile-value {
-  font-size: clamp(20px, 2.1vw, 28px);
+  font-size: clamp(1.25rem, 2.1vw, 1.75rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -1396,12 +1408,12 @@ a.tile:hover {
 }
 
 .tile.big .tile-value {
-  font-size: clamp(28px, 3.4vw, 40px);
+  font-size: clamp(1.75rem, 3.4vw, 2.5rem);
 }
 
 .tile-sub {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .mini-bars {
@@ -1432,7 +1444,7 @@ a.tile:hover {
   padding-top: 6px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -1544,7 +1556,7 @@ a.tile:hover {
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
   text-transform: capitalize;
@@ -1693,7 +1705,7 @@ a.tile:hover {
   border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   display: inline-grid;
   place-items: center;
@@ -1764,7 +1776,7 @@ a.tile:hover {
     content: attr(data-label);
     flex: none;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     text-align: left;
   }
@@ -1912,7 +1924,7 @@ a.tile:hover {
 
 .dossier-hint {
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .dossier-history {
@@ -1923,7 +1935,7 @@ a.tile:hover {
 
 .dossier-history h3 {
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -1967,7 +1979,7 @@ a.tile:hover {
 
 .all-done strong {
   color: var(--ink);
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 
 .only-narrow {
@@ -2016,7 +2028,7 @@ a.tile:hover {
 
 .queue-tools label {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -2037,7 +2049,7 @@ a.tile:hover {
 
 .toolbar-label {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -2049,7 +2061,6 @@ a.tile:hover {
   z-index: 50;
   display: flex;
   justify-content: flex-end;
-  background: rgb(20 24 31 / 0.35);
 }
 
 .side-panel {
@@ -2071,7 +2082,7 @@ a.tile:hover {
 }
 
 .side-panel-head h2 {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
 }
 
@@ -2083,7 +2094,7 @@ a.tile:hover {
 
 .panel-amount {
   margin: 0;
-  font-size: 34px;
+  font-size: 2.125rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -2114,7 +2125,7 @@ a.tile:hover {
 .panel-kicker {
   margin: 0 0 2px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -2138,7 +2149,7 @@ a.tile:hover {
 
 .panel-sections h3 {
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -2166,13 +2177,13 @@ a.tile:hover {
   min-width: 52px;
   text-align: left;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .field-error {
   margin-top: 12px;
   color: var(--down);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .save-bar {
@@ -2186,7 +2197,7 @@ a.tile:hover {
   margin: 14px 0 18px;
   padding: 0;
   list-style: none;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .change-list li {
@@ -2199,5 +2210,210 @@ a.tile:hover {
 
 .change-list s {
   color: var(--muted);
+}
+
+/* --- Réponse immédiate ------------------------------------------------------------
+   Le retour se produit à l'appui, pas au relâchement : un contrôle qu'on touche s'enfonce tout de
+   suite (70 ms) et revient en douceur. Un survol, lui, ne fait que changer une couleur. */
+
+.btn,
+.icon-btn,
+.tabs button,
+.pager button,
+.bottomnav a,
+.bottomnav button,
+.more-sheet a,
+.more-sheet button,
+.nav a,
+a.tile {
+  transition: transform var(--settle), background-color var(--ease), color var(--ease), border-color var(--ease), opacity var(--ease);
+}
+
+.btn:active:not(:disabled),
+.icon-btn:active,
+.tabs button:active,
+.pager button:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 70ms;
+}
+
+.bottomnav a:active,
+.bottomnav button:active {
+  transform: scale(0.94);
+  transition-duration: 70ms;
+}
+
+.nav a:active,
+.more-sheet a:active,
+.more-sheet button:active,
+tbody tr.clickable:active {
+  background: var(--subtle);
+  transition-duration: 70ms;
+}
+
+a.tile:active {
+  transform: scale(0.985);
+  transition-duration: 70ms;
+}
+
+/* Les surfaces qui bougent (panneau, dialogue, feuille) sont pilotées par lib/presenter.js. */
+.side-panel,
+.dialog,
+.more-sheet {
+  backface-visibility: hidden;
+}
+
+/* Les zones de saisie du geste : le geste horizontal (ou vertical, pour la feuille) leur appartient, le
+   défilement transversal reste au navigateur. Pas de sélection de texte : saisir un titre déjà sélectionné
+   lancerait le glisser-déposer natif, qui annule le geste. */
+.side-panel-head {
+  touch-action: pan-y;
+}
+
+.side-panel-head,
+.more-sheet {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.more-sheet {
+  touch-action: pan-x;
+}
+
+/* Un lien se laisse glisser par défaut ; ici, ce serait un glisser-déposer natif qui annulerait le geste. */
+.more-sheet a {
+  -webkit-user-drag: none;
+}
+
+/* --- Typographie : l'interlettrage et l'interligne dépendent de la taille ----------------
+   Les grands corps se resserrent (les lettres paraissent trop espacées en grandissant), les petits
+   s'aèrent un peu ; le texte courant reste à 0. */
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+.page-head h1 {
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+}
+
+.panel-amount {
+  line-height: 1.1;
+  letter-spacing: -0.026em;
+}
+
+.tile-value {
+  line-height: 1.12;
+  letter-spacing: -0.024em;
+}
+
+.tile.big .tile-value {
+  letter-spacing: -0.03em;
+}
+
+.dialog h2,
+.side-panel-head h2 {
+  letter-spacing: -0.014em;
+}
+
+th,
+.tile-label,
+.tile-sub,
+.cell-sub,
+.me-role,
+.back {
+  letter-spacing: 0.006em;
+}
+
+/* --- Matière ------------------------------------------------------------------------------
+   Deux surfaces translucides, là où du contenu passe réellement dessous : la barre du bas et la feuille
+   « Plus ». Le voile des fenêtres floute ce qui reste derrière, en proportion de leur avancement.
+   Jamais une surface claire translucide sur une autre. */
+
+/* Le voile est un calque à part : seule son opacité suit l'avancement (--p), le flou, lui, est fixe.
+   Faire varier le rayon du flou obligerait à le recalculer à chaque image. */
+.overlay::before,
+.panel-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: var(--p, 1);
+}
+
+.overlay::before {
+  background: rgb(19 27 46 / 0.42);
+}
+
+.panel-overlay::before {
+  background: rgb(20 24 31 / 0.3);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .overlay::before,
+  .panel-overlay::before {
+    backdrop-filter: blur(6px);
+  }
+
+  @media (max-width: 899px) {
+    .bottomnav {
+      background: color-mix(in srgb, var(--surface) 78%, transparent);
+      backdrop-filter: blur(22px) saturate(180%);
+    }
+
+    .more-sheet {
+      background: color-mix(in srgb, var(--surface) 82%, transparent);
+      backdrop-filter: blur(26px) saturate(180%);
+    }
+  }
+}
+
+@media (max-width: 899px) {
+  /* La feuille remonte de la barre et y redescend : elle passe derrière elle. */
+  .more-sheet {
+    z-index: 35;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .overlay::before,
+  .panel-overlay::before {
+    backdrop-filter: none;
+  }
+
+  .bottomnav,
+  .more-sheet {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --line: #6b7380;
+    --muted: #3d4553;
+    --faint: #3d4553;
+  }
+
+  .bottomnav,
+  .more-sheet {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled),
+  .icon-btn:active,
+  .tabs button:active,
+  .pager button:active:not(:disabled),
+  .bottomnav a:active,
+  .bottomnav button:active,
+  a.tile:active {
+    transform: none;
+  }
 }
 

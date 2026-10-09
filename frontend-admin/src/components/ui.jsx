@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { initials, label, tone } from '../lib/format';
 import { activePreset, PRESETS } from '../lib/period';
+import { usePresentation } from '../lib/usePresentation';
 import DatePicker from './DatePicker';
 import { IconClose, IconFilter, IconSearch } from './icons';
 
@@ -239,7 +240,7 @@ export function SearchInput({ value, onChange, placeholder, label: text }) {
     // Rien à signaler tant que la saisie n'a pas changé la valeur : sinon la recherche réécrirait l'adresse
     // à son premier rendu (et effacerait au passage ce qu'elle ne connaît pas).
     if (draft.trim() === value) return undefined;
-    const timer = setTimeout(() => onChange(draft.trim()), 300);
+    const timer = setTimeout(() => onChange(draft.trim()), 200);
     return () => clearTimeout(timer);
     // `onChange` change d'identité à chaque rendu du parent ; seule la saisie compte.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -299,13 +300,15 @@ function useDialogFocus(ref, onClose) {
 
 export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, danger, pending, error, onConfirm, onCancel, children }) {
   const [reason, setReason] = useState('');
-  const dialog = useRef(null);
-  useDialogFocus(dialog, onCancel);
+  // Annuler, Échap et le clic à côté jouent la sortie avant de rendre la main ; confirmer, lui, laisse
+  // le parent décider (il remplace souvent l'écran derrière).
+  const { overlay, sheet: dialog, close } = usePresentation({ kind: 'scale', onClosed: onCancel });
+  useDialogFocus(dialog, close);
 
   const blocked = pending || (reasonLabel && !reason.trim());
 
   return (
-    <div className="overlay" onClick={onCancel}>
+    <div className="overlay" ref={overlay} onClick={close}>
       <div className="dialog" ref={dialog} role="dialog" aria-modal="true" aria-labelledby="dialog-title"
         aria-describedby={message ? 'dialog-message' : undefined} onClick={(e) => e.stopPropagation()}>
         <h2 id="dialog-title">{title}</h2>
@@ -319,7 +322,7 @@ export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, dange
         )}
         <ErrorNotice message={error} title="L'opération n'a pas abouti." />
         <div className="btn-row">
-          <button type="button" className="btn secondary" onClick={onCancel}>Annuler</button>
+          <button type="button" className="btn secondary" onClick={close}>Annuler</button>
           <button
             type="button"
             className={danger ? 'btn danger' : 'btn'}
@@ -339,16 +342,17 @@ export function ConfirmDialog({ title, message, confirmLabel, reasonLabel, dange
  * sur mobile ; cliquer à côté, Échap ou « Fermer » le referme.
  */
 export function SidePanel({ title, onClose, children }) {
-  const panel = useRef(null);
-  useDialogFocus(panel, onClose);
+  // Entre par la droite, repart par la droite ; on peut aussi le pousser vers la droite par l'en-tête.
+  const { overlay, sheet: panel, close, drag } = usePresentation({ kind: 'x', onClosed: onClose });
+  useDialogFocus(panel, close);
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
+    <div className="panel-overlay" ref={overlay} onClick={close}>
       <aside className="side-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="panel-title"
         onClick={(e) => e.stopPropagation()}>
-        <div className="side-panel-head">
+        <div className="side-panel-head" {...drag}>
           <h2 id="panel-title">{title}</h2>
-          <button type="button" className="icon-btn" aria-label="Fermer" onClick={onClose}><IconClose /></button>
+          <button type="button" className="icon-btn" aria-label="Fermer" onClick={close}><IconClose /></button>
         </div>
         <div className="side-panel-body">{children}</div>
       </aside>
