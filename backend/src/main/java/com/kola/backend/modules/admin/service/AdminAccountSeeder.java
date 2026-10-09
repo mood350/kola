@@ -65,6 +65,10 @@ public class AdminAccountSeeder implements ApplicationRunner {
             // Someone already manages these accounts; never touch them again.
             return;
         }
+        if (properties.getPassword() == null || properties.getPassword().isBlank()) {
+            log.warn("app.admin.seed.password is empty: the demo back-office accounts are not created.");
+            return;
+        }
 
         ACCOUNTS.forEach(seed -> adminAccountRepository.save(AdminAccount.builder()
                 .email(seed.email())
@@ -106,6 +110,10 @@ public class AdminAccountSeeder implements ApplicationRunner {
         String password = owner.getPassword() == null || owner.getPassword().isBlank()
                 ? properties.getPassword()
                 : owner.getPassword();
+        if (password == null || password.isBlank()) {
+            log.warn("No password for the owner account {}: set app.admin.seed.owner.password.", email);
+            return;
+        }
 
         adminAccountRepository.save(AdminAccount.builder()
                 .email(email)

@@ -50,9 +50,10 @@ app.security.otp.resend-cooldown=60s
 app.security.otp.verification-token-ttl=15m
 
 # --- Back-office admin ---
-# Cree les 4 comptes de reference si la table est vide. A DESACTIVER EN PRODUCTION.
-app.admin.seed.enabled=true
-app.admin.seed.password=KolaAdmin2026!
+# Cree les 4 comptes de reference si la table est vide. Desactive par defaut, sans mot de passe
+# par defaut : en local, passer a true ET choisir un mot de passe. Jamais en production.
+app.admin.seed.enabled=false
+app.admin.seed.password=CHANGE_ME
 # Session back-office : le front admin ne gere pas de refresh token.
 app.security.jwt.admin-token-ttl=8h
 
@@ -207,7 +208,8 @@ app.admin.seed.owner.password=
 # n'existe pas encore, pour eviter de repasser par le flux OTP en local.
 # Le PIN est ecrit directement, sans passer par PinPolicy : "1234" serait refuse
 # a un vrai utilisateur, mais ce compte n'en est pas un. A DESACTIVER EN PRODUCTION.
-app.dev.seed.enabled=true
+# Desactive par defaut : passer a true en local seulement.
+app.dev.seed.enabled=false
 app.dev.seed.phone=90000000
 app.dev.seed.pin=1234
 app.dev.seed.first-name=Kola
@@ -224,3 +226,8 @@ app.dev.seed.credit-ready=true
 app.dev.seed.savings-balance=50000
 app.dev.seed.credit-score=75
 # app.dev.seed.enabled=false
+
+# --- Depot en libre-service (dev uniquement) ---------------------------------
+# POST /api/v1/wallets/{currency}/deposit credite n'importe quel montant sans passer par un
+# operateur de paiement. Ferme par defaut (503) ; ne l'ouvrir qu'en local.
+app.dev.deposit.enabled=false

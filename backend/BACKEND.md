@@ -92,7 +92,7 @@ Un mot de passe actuel incorrect est un **400**.
 
 Ces 4 comptes doivent probablement devenir les premières lignes d'une table `admin_account` réelle (avec mot de passe haché — le mock ne vérifie **aucun** mot de passe, ce n'est évidemment pas acceptable en prod).
 
-✅ **Fait** : `AdminAccountSeeder` crée ces 4 lignes au premier démarrage si la table est vide, mot de passe BCrypt commun `KolaAdmin2026!`. Désactiver avec `app.admin.seed.enabled=false` avant la prod.
+✅ **Fait** : `AdminAccountSeeder` crée ces 4 lignes au premier démarrage si la table est vide, mot de passe BCrypt commun fourni par `app.admin.seed.password` (vide par défaut : rien n'est créé). Le seeder est désactivé par défaut (`app.admin.seed.enabled=false`) ; ne l'activer qu'en local.
 
 ### 4.3 Matrice de permissions par rôle — ✅ appliquée côté serveur
 

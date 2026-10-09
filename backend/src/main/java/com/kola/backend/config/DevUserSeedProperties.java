@@ -7,13 +7,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** Bootstrap of a single test client account for local development. Must be disabled in production. */
+/**
+ * Bootstrap of a single test client account for local development.
+ *
+ * <p>Off by default: it writes a known PIN and, with {@code creditReady}, cashes in savings at every
+ * start. Enable it explicitly in a local {@code application.properties} only.
+ */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.dev.seed")
 public class DevUserSeedProperties {
 
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     /** Local-format phone number, read with {@code app.security.auth.default-calling-code}. */
     private String phone = "90000000";

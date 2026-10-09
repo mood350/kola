@@ -256,7 +256,7 @@ Chaque utilisateur a **deux comptes XOF** créés à l'inscription : `CURRENT` (
 | `GET` | `/wallets` | — |
 | `POST` | `/wallets` | `{ currency }` |
 | `GET` | `/wallets/{currency}` | — |
-| `POST` | `/wallets/{currency}/deposit` | `{ amount }` |
+| `POST` | `/wallets/{currency}/deposit` | `{ amount }` — **503 tant que `app.dev.deposit.enabled` n'est pas à `true`** (aucun opérateur de paiement branché) |
 
 **`WalletResponse`** :
 
@@ -789,7 +789,7 @@ Comptes séparés des utilisateurs de l'application : **email + mot de passe**, 
 
 **Comptes de démarrage** (créés au premier lancement si la table est vide) :
 `sena.ametepe@kola.io`, `koffi.messan@kola.io`, `aya.djobo@kola.io`, `prisca.lawson@kola.io` —
-mot de passe commun `KolaAdmin2026!`, à changer et à désactiver (`app.admin.seed.enabled=false`) avant la prod.
+mot de passe commun défini par `app.admin.seed.password` ; le seeder est désactivé par défaut (`app.admin.seed.enabled=false`) et ne doit servir qu'en local.
 
 ### Matrice de permissions — appliquée côté serveur
 

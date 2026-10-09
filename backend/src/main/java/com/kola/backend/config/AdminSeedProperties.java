@@ -4,16 +4,22 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/** Bootstrap of the first back-office accounts. Must be disabled in production. */
+/**
+ * Bootstrap of the first back-office accounts.
+ *
+ * <p>Off by default and with no default password: a start that nobody configured must not create
+ * administrators whose credentials are readable in the repository. Turn it on locally in
+ * {@code application.properties} and give it a password of your own.
+ */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.admin.seed")
 public class AdminSeedProperties {
 
-    private boolean enabled = true;
+    private boolean enabled = false;
 
-    /** Shared password given to every seeded demo account. Change it, then disable the seeder. */
-    private String password = "KolaAdmin2026!";
+    /** Shared password given to every seeded demo account. Blank = the demo accounts are not created. */
+    private String password = "";
 
     /**
      * A personal super-admin, created in addition to the demo accounts.

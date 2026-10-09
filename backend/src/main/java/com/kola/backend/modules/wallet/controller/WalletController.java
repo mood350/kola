@@ -2,6 +2,7 @@ package com.kola.backend.modules.wallet.controller;
 
 import com.kola.backend.common.dto.ApiResponse;
 import com.kola.backend.common.enums.Currency;
+import com.kola.backend.exception.ServiceUnavailableException;
 import com.kola.backend.modules.auth.security.CurrentUser;
 import com.kola.backend.modules.wallet.dto.CreateWalletRequest;
 import com.kola.backend.modules.wallet.dto.DepositRequest;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,6 +39,13 @@ public class WalletController {
     private final WalletService walletService;
     private final WalletMapper walletMapper;
     private final TransactionService transactionService;
+
+    /**
+     * Self-service cash-in has no payment provider behind it: it credits whatever amount is sent.
+     * Closed unless a developer opens it in their local configuration.
+     */
+    @Value("${app.dev.deposit.enabled:false}")
+    private boolean selfServiceDepositEnabled;
 
     @GetMapping
     @Operation(summary = "List my wallets")
@@ -73,6 +82,10 @@ public class WalletController {
             @AuthenticationPrincipal CurrentUser currentUser,
             @PathVariable Currency currency,
             @Valid @RequestBody DepositRequest request) {
+        if (!selfServiceDepositEnabled) {
+            throw new ServiceUnavailableException(
+                    "Le dépôt n'est pas disponible : aucun moyen de paiement n'est encore branché.");
+        }
         // Routed through TransactionService (not WalletService.deposit directly) so the
         // cash-in leaves a CASH_IN trace in the transaction history, same as every other
         // money movement.
