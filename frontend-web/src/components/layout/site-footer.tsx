@@ -6,6 +6,7 @@ import {
   FOOTER_DISCOVER,
   FOOTER_EXPLORE,
   FOOTER_LEGAL,
+  CONTACT_EMAIL,
 } from "@/lib/content";
 import { COVERAGE } from "@/lib/business";
 
@@ -30,13 +31,13 @@ import { COVERAGE } from "@/lib/business";
  */
 export function SiteFooter() {
   return (
-    <footer className="hairline-t bg-canvas pt-14 pb-32 lg:pb-14">
+    <footer className="border-t border-hairline bg-surface pt-16 pb-32 lg:pb-12">
       <Container>
         <div className="flex flex-col gap-12 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-xs">
             <div className="flex items-center gap-2.5">
               <KolaLogo className="h-7 w-7" />
-              <span className="font-display text-lg font-semibold tracking-tight text-ink-950">
+              <span className="font-headline text-xl font-semibold tracking-tight text-ink-950">
                 Kola
               </span>
             </div>
@@ -45,12 +46,23 @@ export function SiteFooter() {
               l&apos;Afrique de l&apos;Ouest. Montants en francs CFA (XOF).
             </p>
 
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="mt-6 inline-flex items-center gap-2 rounded-full border border-hairline bg-mist px-4 py-2 text-sm font-medium text-ink-800 transition-colors hover:border-kola-200 hover:text-kola-700"
+            >
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="h-4 w-4 text-kola-600">
+                <rect x="2" y="3.5" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.4" />
+                <path d="m2.5 4.5 5.5 4 5.5-4" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+              </svg>
+              {CONTACT_EMAIL}
+            </a>
+
             <ResponseTime className="mt-6" />
           </div>
 
           <div className="grid gap-10 sm:grid-cols-3 sm:gap-12 lg:gap-16">
             <nav aria-label="Sections du site">
-              <h2 className="text-[0.8125rem] font-medium tracking-[0.12em] text-ink-400 uppercase">
+              <h2 className="text-[0.8125rem] font-semibold text-ink-950">
                 Découvrir
               </h2>
               <ul className="mt-4 space-y-2.5">
@@ -58,7 +70,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-ink-600 transition-colors hover:text-kola-600"
+                      className="text-sm text-ink-500 transition-colors hover:text-ink-950"
                     >
                       {link.label}
                     </Link>
@@ -68,7 +80,7 @@ export function SiteFooter() {
             </nav>
 
             <nav aria-label="Pages du site">
-              <h2 className="text-[0.8125rem] font-medium tracking-[0.12em] text-ink-400 uppercase">
+              <h2 className="text-[0.8125rem] font-semibold text-ink-950">
                 Explorer
               </h2>
               <ul className="mt-4 space-y-2.5">
@@ -76,7 +88,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-ink-600 transition-colors hover:text-kola-600"
+                      className="text-sm text-ink-500 transition-colors hover:text-ink-950"
                     >
                       {link.label}
                     </Link>
@@ -86,7 +98,7 @@ export function SiteFooter() {
             </nav>
 
             <nav aria-label="Informations légales">
-              <h2 className="text-[0.8125rem] font-medium tracking-[0.12em] text-ink-400 uppercase">
+              <h2 className="text-[0.8125rem] font-semibold text-ink-950">
                 Légal
               </h2>
               <ul className="mt-4 space-y-2.5">
@@ -94,7 +106,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-ink-600 transition-colors hover:text-kola-600"
+                      className="text-sm text-ink-500 transition-colors hover:text-ink-950"
                     >
                       {link.label}
                     </Link>
@@ -109,7 +121,7 @@ export function SiteFooter() {
             visiteur se pose avant toute autre — « est-ce que ça marche chez
             moi ? » — et elle dit la même chose que le champ `areaServed` des
             données structurées, les deux venant de la même constante. */}
-        <p className="mt-12 border-t border-ink-200 pt-8 text-xs leading-relaxed text-ink-400">
+        <p className="mt-12 border-t border-hairline pt-8 text-xs leading-relaxed text-ink-400">
           Service disponible dans les huit États de l&apos;UEMOA :{" "}
           {COVERAGE.map((country) => country.name).join(", ")}.
         </p>

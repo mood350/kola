@@ -46,12 +46,12 @@ export default function ContactPage() {
                     key={channel.id}
                     href={channel.href}
                     data-animate
-                    className="group rounded-card bg-surface p-7 shadow-soft transition-transform duration-200 ease-[var(--ease-editorial)] hover:-translate-y-0.5"
+                    className="group rounded-card bg-surface p-7 border border-hairline shadow-card transition-transform duration-200 ease-[var(--ease-editorial)] hover:-translate-y-0.5"
                   >
                     <p className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                       {channel.label}
                     </p>
-                    <p className="font-display mt-2.5 flex items-center gap-2 text-lg font-semibold text-kola-700">
+                    <p className="font-headline mt-2.5 flex items-center gap-2 text-lg font-semibold text-kola-700">
                       {channel.value}
                       <svg
                         viewBox="0 0 16 16"
@@ -68,7 +68,7 @@ export default function ContactPage() {
                         />
                       </svg>
                     </p>
-                    <p className="mt-2 text-[0.875rem] leading-relaxed text-ink-600">
+                    <p className="mt-2 text-[0.875rem] leading-relaxed text-ink-500">
                       {channel.note}
                     </p>
                   </a>
@@ -76,7 +76,7 @@ export default function ContactPage() {
               </RevealGroup>
 
               <Reveal delay={0.1}>
-                <div className="rounded-card bg-sunken p-7">
+                <div className="rounded-card bg-surface/50 p-7">
                   <h2 className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                     Avant d&apos;écrire
                   </h2>
@@ -86,13 +86,13 @@ export default function ContactPage() {
                         <dt className="text-[0.9375rem] font-semibold text-ink-950">
                           {item.q}
                         </dt>
-                        <dd className="mt-1.5 text-[0.875rem] leading-relaxed text-ink-600">
+                        <dd className="mt-1.5 text-[0.875rem] leading-relaxed text-ink-500">
                           {item.a}
                         </dd>
                       </div>
                     ))}
                   </dl>
-                  <p className="mt-6 border-t border-ink-200 pt-5 text-[0.875rem] leading-relaxed text-ink-600">
+                  <p className="mt-6 border-t border-hairline pt-5 text-[0.875rem] leading-relaxed text-ink-500">
                     Les questions sur le fonctionnement du score, les montants
                     empruntables et la sécurité du compte sont traitées dans{" "}
                     <Link

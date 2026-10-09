@@ -59,7 +59,10 @@ export function Reveal({
           duration: MOTION.base,
           ease: MOTION.ease,
           delay,
-          scrollTrigger: { trigger: root, start: "top 85%" },
+          // « top 95% » : le bloc s'anime dès qu'il entre à l'écran. À 85 %, un
+          // défilement rapide laissait voir de grandes zones vides le temps
+          // que le contenu arrive.
+          scrollTrigger: { trigger: root, start: "top 95%" },
         }
       );
     },
@@ -117,7 +120,10 @@ export function RevealGroup({
           delay,
           // Au-delà de ~0.08s par élément, les derniers de la liste traînent.
           stagger: MOTION.stagger,
-          scrollTrigger: { trigger: root, start: "top 85%" },
+          // « top 95% » : le bloc s'anime dès qu'il entre à l'écran. À 85 %, un
+          // défilement rapide laissait voir de grandes zones vides le temps
+          // que le contenu arrive.
+          scrollTrigger: { trigger: root, start: "top 95%" },
         }
       );
     },

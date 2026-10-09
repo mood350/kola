@@ -108,13 +108,13 @@ export function ContactForm() {
       ref={root}
       onSubmit={handleSubmit}
       noValidate
-      className="rounded-panel bg-surface p-7 shadow-soft sm:p-9"
+      className="rounded-panel bg-surface p-7 border border-hairline shadow-card sm:p-9"
     >
       <h2 className="text-xl font-semibold">Écrivez-nous</h2>
       {/* La promesse de délai vient de la constante partagée : l'engagement
           affiché ici, sur la page de remerciement et dans les données
           structurées est le même texte, pas trois formulations voisines. */}
-      <p className="mt-2 text-[0.9375rem] text-ink-600">
+      <p className="mt-2 text-[0.9375rem] text-ink-500">
         {RESPONSE_PROMISE.headline}.
       </p>
 
@@ -175,7 +175,7 @@ export function ContactForm() {
         disabled={status === "sending"}
         className={cn(
           "mt-7 inline-flex h-13 w-full cursor-pointer items-center justify-center rounded-full",
-          "bg-kola-600 px-7 font-medium text-white shadow-soft",
+          "bg-kola-600 px-7 font-medium text-white border border-hairline shadow-card",
           "transition-[background-color,transform] duration-200 ease-[var(--ease-editorial)]",
           "hover:-translate-y-0.5 hover:bg-kola-700 active:translate-y-0",
           "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"

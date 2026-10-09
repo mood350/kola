@@ -50,12 +50,12 @@ export function CoverageMap() {
       };
 
   return (
-    <div className="rounded-card bg-surface p-7 shadow-soft sm:p-9">
-      <h2 className="font-display text-lg font-semibold text-ink-950">
+    <div className="rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9">
+      <h2 className="font-headline text-lg font-semibold text-ink-950">
         {OFFICE ? "Nous trouver" : "Où Kola fonctionne"}
       </h2>
 
-      <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-600">
+      <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-500">
         {OFFICE ? (
           <>
             {OFFICE.street}, {OFFICE.postalCode} {OFFICE.city}. Ouvert{" "}
@@ -74,7 +74,7 @@ export function CoverageMap() {
 
       {/* Cadre de la carte. Ratio fixe des deux côtés du chargement : sans lui,
           l'insertion de l'iframe déplacerait tout le contenu situé en dessous. */}
-      <div className="relative mt-6 aspect-[16/10] overflow-hidden rounded-2xl bg-sunken">
+      <div className="relative mt-6 aspect-[16/10] overflow-hidden rounded-2xl bg-surface/50">
         {loaded ? (
           <iframe
             src={src}
@@ -105,7 +105,7 @@ export function CoverageMap() {
       </div>
 
       {OFFICE ? (
-        <div className="mt-6 border-t border-ink-200 pt-6">
+        <div className="mt-6 border-t border-hairline pt-6">
           <h3 className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
             Itinéraire
           </h3>
@@ -142,7 +142,7 @@ export function CoverageMap() {
           </ul>
         </div>
       ) : (
-        <div className="mt-6 border-t border-ink-200 pt-6">
+        <div className="mt-6 border-t border-hairline pt-6">
           <h3 className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
             Pays couverts
           </h3>
@@ -150,7 +150,7 @@ export function CoverageMap() {
             {COVERAGE.map((country) => (
               <li
                 key={country.code}
-                className="inline-flex h-9 items-center rounded-full bg-sunken px-3.5 text-[0.8125rem] font-medium text-ink-700"
+                className="inline-flex h-9 items-center rounded-full bg-surface/50 px-3.5 text-[0.8125rem] font-medium text-ink-700"
               >
                 {country.name}
               </li>

@@ -16,18 +16,18 @@ export function SiteHeader() {
        haut : elle flotte au-dessus du contenu, ce qui laisse le fond quadrillé
        respirer et signale immédiatement un produit, pas un site vitrine. */
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-5">
-      {/* Pilule blanche en permanence : le fond lavande de la page est trop
-          proche du blanc pour qu'une barre transparente se distingue, et la
-          faire apparaître au scroll donnait une navigation qui semblait
-          absente au chargement. */}
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between rounded-full bg-surface px-4 shadow-soft sm:px-6">
+      {/* Pilule présente dès le chargement — la faire apparaître au scroll
+          donnait une navigation qui semblait absente. Blanc translucide et
+          flou d'arrière-plan : le contenu qui défile dessous reste perceptible
+          sans jamais gêner la lecture des liens. */}
+      <div className="mx-auto flex h-15 w-full max-w-6xl items-center justify-between rounded-full border border-white/70 bg-white/75 pr-2 pl-4 shadow-card backdrop-blur-xl backdrop-saturate-150 sm:pl-5">
         <Link
           href="/"
           className="flex items-center gap-2.5 rounded-lg"
           aria-label="Kola, retour à l'accueil"
         >
           <KolaLogo className="h-7 w-7" />
-          <span className="font-display text-lg font-semibold tracking-tight text-ink-950">
+          <span className="font-headline text-xl font-semibold tracking-tight text-ink-950">
             Kola
           </span>
         </Link>
@@ -38,7 +38,7 @@ export function SiteHeader() {
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="inline-flex h-10 items-center rounded-xl px-3.5 text-sm font-medium text-ink-600 transition-colors duration-200 hover:bg-ink-100 hover:text-ink-950"
+                  className="inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-ink-600 transition-colors duration-200 hover:bg-mist hover:text-ink-950"
                 >
                   {link.label}
                 </Link>
@@ -52,7 +52,7 @@ export function SiteHeader() {
             cherche une adresse qu'il ne connaît pas. « Se connecter » reste
             discret — l'appel à l'action de la page vise l'inscription. */}
         <div className="hidden items-center gap-2 lg:flex">
-          <Button href="/connexion" variant="secondary">
+          <Button href="/connexion" variant="ghost">
             Se connecter
           </Button>
           <Button href="/inscription">Ouvrir un compte</Button>
@@ -88,7 +88,7 @@ export function SiteHeader() {
       <div
         id="menu-mobile"
         className={cn(
-          "mx-auto mt-2 grid w-full max-w-6xl overflow-hidden rounded-3xl bg-surface shadow-lifted transition-[grid-template-rows] duration-300 ease-[var(--ease-editorial)] lg:hidden",
+          "mx-auto mt-2 grid w-full max-w-6xl overflow-hidden rounded-3xl border border-hairline bg-surface shadow-card transition-[grid-template-rows] duration-300 ease-[var(--ease-editorial)] lg:hidden",
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
       >
@@ -100,7 +100,7 @@ export function SiteHeader() {
                   <Link
                     href={link.href}
                     onClick={() => setOpen(false)}
-                    className="flex h-13 items-center border-b border-ink-200 text-base font-medium text-ink-700"
+                    className="flex h-13 items-center border-b border-hairline text-base font-medium text-ink-700"
                   >
                     {link.label}
                   </Link>

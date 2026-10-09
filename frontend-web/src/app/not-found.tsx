@@ -99,11 +99,11 @@ export default function NotFound() {
                 data-animate
                 className="group bg-surface p-7 transition-colors duration-200 hover:bg-kola-50"
               >
-                <p className="font-display flex items-center gap-2 text-lg font-semibold text-ink-950">
+                <p className="font-headline flex items-center gap-2 text-lg font-semibold text-ink-950">
                   {destination.label}
                   <ArrowRight className="text-kola-600" />
                 </p>
-                <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-ink-600">
+                <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-ink-500">
                   {destination.description}
                 </p>
               </Link>
@@ -111,7 +111,7 @@ export default function NotFound() {
           </RevealGroup>
 
           <Reveal delay={0.1}>
-            <div className="mt-4 rounded-card bg-sunken p-7 sm:p-9">
+            <div className="mt-4 rounded-card bg-surface/50 p-7 sm:p-9">
               <h2 className="text-lg font-semibold">
                 Vous cherchiez peut-être une étude de cas
               </h2>

@@ -86,7 +86,7 @@ export function StickyMobileCta() {
       inert={!visible}
       className="fixed inset-x-0 bottom-0 z-40 invisible opacity-0 lg:hidden"
     >
-      <div className="border-t border-line bg-surface/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lifted backdrop-blur-md">
+      <div className="border-t border-hairline bg-surface/90 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lifted backdrop-blur-md">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[0.9375rem] font-semibold text-ink-950">
@@ -103,7 +103,7 @@ export function StickyMobileCta() {
 
           <Link
             href={pathname === "/contact" ? "#formulaire" : "/#cta"}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-kola-600 px-5 text-[0.875rem] font-medium text-white transition-colors duration-200 hover:bg-kola-700 active:bg-kola-800"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-kola-600 px-5 text-[0.875rem] font-medium text-white shadow-gloss transition-colors duration-200 hover:bg-kola-500 active:bg-kola-700"
           >
             {pathname === "/contact" ? "Écrire" : "Commencer"}
           </Link>

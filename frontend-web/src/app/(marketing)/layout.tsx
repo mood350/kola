@@ -46,9 +46,13 @@ export default function MarketingLayout({
           `StickyMobileCta` s'efface tant que le bandeau est ouvert, pour ne pas
           recouvrir le bouton « Refuser ». */}
       <CookieConsent>
-        <SiteHeader />
-        <RouteTransition>{children}</RouteTransition>
-        <SiteFooter />
+        {/* Le site public a son propre fond, gris bleuté froid ; l'espace
+            client garde la toile lavande du corps de page. */}
+        <div className="site-public min-h-dvh bg-mist">
+          <SiteHeader />
+          <RouteTransition>{children}</RouteTransition>
+          <SiteFooter />
+        </div>
         <StickyMobileCta />
         <GoogleAnalytics />
       </CookieConsent>

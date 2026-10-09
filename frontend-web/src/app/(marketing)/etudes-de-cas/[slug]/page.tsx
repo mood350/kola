@@ -112,7 +112,7 @@ export default async function CaseStudyPage({
                 <p className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                   {metric.label}
                 </p>
-                <p className="font-display mt-2.5 text-2xl font-semibold text-ink-950 tabular-nums">
+                <p className="font-headline mt-2.5 text-2xl font-semibold text-ink-950 tabular-nums">
                   {metric.value}
                 </p>
                 {metric.note ? (
@@ -143,9 +143,9 @@ export default async function CaseStudyPage({
           </div>
 
           <Reveal delay={0.08}>
-            <figure className="mt-4 rounded-panel bg-surface p-8 shadow-soft sm:p-12 hairline">
+            <figure className="mt-4 rounded-panel bg-surface p-8 border border-hairline shadow-card sm:p-12 hairline">
               <blockquote>
-                <p className="font-display text-h2 font-medium text-ink-950">
+                <p className="font-headline text-h2 font-medium text-ink-950">
                   &ldquo;{study.quote.text}&rdquo;
                 </p>
               </blockquote>
@@ -164,12 +164,12 @@ export default async function CaseStudyPage({
             <div className="mt-12 grid gap-4 lg:grid-cols-2">
               <Link
                 href={`/etudes-de-cas/${next.slug}`}
-                className="group rounded-card bg-sunken p-7 transition-colors duration-200 hover:bg-kola-100 sm:p-9"
+                className="group rounded-card bg-surface/50 p-7 transition-colors duration-200 hover:bg-kola-100 sm:p-9"
               >
                 <p className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                   Étude suivante · {next.sector}
                 </p>
-                <p className="font-display mt-3 text-xl leading-snug font-semibold text-ink-950">
+                <p className="font-headline mt-3 text-xl leading-snug font-semibold text-ink-950">
                   {next.headline}
                 </p>
                 <p className="mt-4 flex items-center gap-2 text-[0.9375rem] font-medium text-kola-700">
@@ -182,7 +182,7 @@ export default async function CaseStudyPage({
                 <p className="text-[0.6875rem] font-medium tracking-[0.16em] text-kola-200 uppercase">
                   Votre tour
                 </p>
-                <p className="font-display mt-3 text-xl leading-snug font-semibold text-white">
+                <p className="font-headline mt-3 text-xl leading-snug font-semibold text-white">
                   Votre historique commence à votre premier dépôt.
                 </p>
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -223,8 +223,8 @@ function Chapter({
 }) {
   return (
     <Reveal>
-      <section className="rounded-card bg-surface p-7 shadow-soft sm:p-9">
-        <p className="font-display text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
+      <section className="rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9">
+        <p className="font-headline text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
           {number}
         </p>
         <h2 className="mt-2 text-xl font-semibold">{title}</h2>
@@ -232,7 +232,7 @@ function Chapter({
           {paragraphs.map((paragraph) => (
             <p
               key={paragraph.slice(0, 40)}
-              className="text-[0.9375rem] leading-relaxed text-ink-600"
+              className="text-[0.9375rem] leading-relaxed text-ink-500"
             >
               {paragraph}
             </p>

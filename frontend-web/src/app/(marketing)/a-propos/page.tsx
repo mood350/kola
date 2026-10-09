@@ -61,7 +61,7 @@ export default function AboutPage() {
           <Reveal>
             <div className="max-w-3xl">
               <h2 className="text-h2 font-semibold">Pourquoi Kola existe</h2>
-              <div className="mt-6 flex flex-col gap-4 text-[1.0625rem] leading-relaxed text-ink-600">
+              <div className="mt-6 flex flex-col gap-4 text-[1.0625rem] leading-relaxed text-ink-500">
                 <p>
                   Le blocage n&apos;est pas l&apos;absence de revenus : des
                   millions de personnes gagnent leur vie, régulièrement, depuis
@@ -91,10 +91,10 @@ export default function AboutPage() {
           <div className="mt-14 grid gap-px overflow-hidden rounded-card bg-ink-200 sm:grid-cols-2">
             {PRINCIPLES.map((principle) => (
               <Reveal key={principle.title} className="bg-surface p-7 sm:p-9">
-                <h3 className="font-display text-lg font-semibold text-ink-950">
+                <h3 className="font-headline text-lg font-semibold text-ink-950">
                   {principle.title}
                 </h3>
-                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-600">
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-500">
                   {principle.body}
                 </p>
               </Reveal>
@@ -105,7 +105,7 @@ export default function AboutPage() {
 
       <Team />
 
-      <Section className="bg-sunken">
+      <Section className="bg-surface/50">
         <Container>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <Reveal>
@@ -113,8 +113,8 @@ export default function AboutPage() {
             </Reveal>
 
             <Reveal delay={0.05}>
-              <div className="rounded-card bg-surface p-7 shadow-soft sm:p-9">
-                <h2 className="font-display text-lg font-semibold text-ink-950">
+              <div className="rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9">
+                <h2 className="font-headline text-lg font-semibold text-ink-950">
                   Aller plus loin
                 </h2>
                 <ul className="mt-5 flex flex-col gap-3.5">

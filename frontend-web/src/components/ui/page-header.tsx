@@ -36,11 +36,11 @@ export function PageHeader({
     <header className="relative overflow-hidden pt-32 pb-14 sm:pt-36 lg:pt-40 lg:pb-18">
       <div
         aria-hidden="true"
-        className="tech-grid pointer-events-none absolute inset-0"
+        className="dot-grid pointer-events-none absolute inset-0"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-40 h-[30rem] bg-[radial-gradient(ellipse_55%_50%_at_50%_0%,rgb(158_161_246/0.4)_0%,transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 -top-40 h-[30rem] bg-[radial-gradient(ellipse_55%_50%_at_50%_0%,rgb(123_127_236/0.3)_0%,transparent_70%)]"
       />
 
       <Container className="relative">
@@ -50,16 +50,16 @@ export function PageHeader({
             <Eyebrow>{eyebrow}</Eyebrow>
           </Reveal>
           <Reveal delay={0.05}>
-            <h1 className="text-h1 mt-5 font-semibold">{title}</h1>
+            <h1 className="text-title mt-6 font-semibold">{title}</h1>
           </Reveal>
           {lead ? (
             <Reveal delay={0.1}>
-              <p className="text-lead mt-6 max-w-2xl text-ink-600">{lead}</p>
+              <p className="mt-6 max-w-2xl text-[1.0625rem] leading-relaxed text-ink-500 sm:text-lg">{lead}</p>
             </Reveal>
           ) : null}
           {meta ? (
             <Reveal delay={0.15}>
-              <p className="mt-8 border-t border-ink-200 pt-5 text-[0.8125rem] text-ink-400">
+              <p className="mt-8 border-t border-hairline pt-5 text-[0.8125rem] text-ink-400">
                 {meta}
               </p>
             </Reveal>

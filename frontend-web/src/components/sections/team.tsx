@@ -45,7 +45,7 @@ export function Team() {
                    Sans lui, le navigateur suppose la pleine largeur du viewport
                    et télécharge systématiquement la plus grande variante. */
                 sizes="(min-width: 1024px) 1024px, 100vw"
-                className="w-full rounded-panel object-cover shadow-soft"
+                className="w-full rounded-panel object-cover border border-hairline shadow-card"
               />
               <figcaption className="mt-4 text-[0.8125rem] text-ink-400">
                 {TEAM_PHOTO.alt}
@@ -62,10 +62,10 @@ export function Team() {
               <p className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                 {member.role}
               </p>
-              <p className="font-display mt-2.5 text-lg font-semibold text-ink-950">
+              <p className="font-headline mt-2.5 text-lg font-semibold text-ink-950">
                 {member.name}
               </p>
-              <p className="mt-3 text-[0.875rem] leading-relaxed text-ink-600">
+              <p className="mt-3 text-[0.875rem] leading-relaxed text-ink-500">
                 {member.focus}
               </p>
             </div>
@@ -94,7 +94,7 @@ function TeamPlaceholder() {
     <div
       role="img"
       aria-label="Emplacement réservé à la photo de l'équipe Kola — illustration provisoire, aucune personne réelle n'y est représentée."
-      className="relative aspect-[3/1.4] overflow-hidden rounded-panel bg-sunken"
+      className="relative aspect-[3/1.4] overflow-hidden rounded-panel bg-surface/50"
     >
       <div aria-hidden="true" className="tech-grid absolute inset-0" />
       <div

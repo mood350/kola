@@ -69,15 +69,15 @@ export default function CookiesPage() {
               <article
                 key={cookie.name}
                 data-animate
-                className="rounded-card bg-surface p-7 shadow-soft sm:p-9"
+                className="rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9"
               >
-                <p className="font-display text-lg font-semibold text-kola-700">
+                <p className="font-headline text-lg font-semibold text-kola-700">
                   {cookie.name}
                 </p>
-                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-600">
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-500">
                   {cookie.purpose}
                 </p>
-                <dl className="mt-5 grid gap-x-8 gap-y-4 border-t border-ink-200 pt-5 sm:grid-cols-3">
+                <dl className="mt-5 grid gap-x-8 gap-y-4 border-t border-hairline pt-5 sm:grid-cols-3">
                   {[
                     ["Catégorie", cookie.kind],
                     ["Conservation", cookie.duration],
@@ -98,7 +98,7 @@ export default function CookiesPage() {
           </RevealGroup>
 
           <Reveal delay={0.08}>
-            <div className="mt-4 rounded-card bg-sunken p-7 sm:p-9">
+            <div className="mt-4 rounded-card bg-surface/50 p-7 sm:p-9">
               <h2 className="text-lg font-semibold">Ce que nous n&apos;utilisons pas</h2>
               <ul className="mt-4 flex flex-col gap-2.5">
                 {[
@@ -110,7 +110,7 @@ export default function CookiesPage() {
                 ].map((item) => (
                   <li
                     key={item}
-                    className="flex gap-3 text-[0.9375rem] leading-relaxed text-ink-600"
+                    className="flex gap-3 text-[0.9375rem] leading-relaxed text-ink-500"
                   >
                     <span
                       aria-hidden="true"

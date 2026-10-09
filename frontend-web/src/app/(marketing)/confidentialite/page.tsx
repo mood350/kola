@@ -54,7 +54,7 @@ export default function PrivacyPage() {
                   <li key={section.id}>
                     <a
                       href={`#${section.id}`}
-                      className="flex gap-3 text-[0.875rem] leading-snug text-ink-600 transition-colors hover:text-kola-600"
+                      className="flex gap-3 text-[0.875rem] leading-snug text-ink-500 transition-colors hover:text-kola-600"
                     >
                       <span className="shrink-0 tabular-nums text-ink-400">
                         {String(index + 1).padStart(2, "0")}
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
                 ))}
               </ol>
 
-              <div className="mt-8 border-t border-ink-200 pt-6">
+              <div className="mt-8 border-t border-hairline pt-6">
                 <h2 className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                   Documents liés
                 </h2>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className="text-[0.875rem] text-ink-600 transition-colors hover:text-kola-600"
+                        className="text-[0.875rem] text-ink-500 transition-colors hover:text-kola-600"
                       >
                         {item.label}
                       </Link>
@@ -95,9 +95,9 @@ export default function PrivacyPage() {
                     key={section.id}
                     id={section.id}
                     data-animate
-                    className="scroll-mt-28 rounded-card bg-surface p-7 shadow-soft sm:p-9"
+                    className="scroll-mt-28 rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9"
                   >
-                    <p className="font-display text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
+                    <p className="font-headline text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
                       {String(index + 1).padStart(2, "0")}
                     </p>
                     <h2 className="mt-2 text-xl font-semibold">
@@ -108,7 +108,7 @@ export default function PrivacyPage() {
                       {section.body.map((paragraph) => (
                         <p
                           key={paragraph.slice(0, 40)}
-                          className="text-[0.9375rem] leading-relaxed text-ink-600"
+                          className="text-[0.9375rem] leading-relaxed text-ink-500"
                         >
                           {paragraph}
                         </p>
@@ -116,11 +116,11 @@ export default function PrivacyPage() {
                     </div>
 
                     {section.list ? (
-                      <ul className="mt-4 flex flex-col gap-2.5 border-t border-ink-200 pt-4">
+                      <ul className="mt-4 flex flex-col gap-2.5 border-t border-hairline pt-4">
                         {section.list.map((item) => (
                           <li
                             key={item.slice(0, 40)}
-                            className="flex gap-3 text-[0.9375rem] leading-relaxed text-ink-600"
+                            className="flex gap-3 text-[0.9375rem] leading-relaxed text-ink-500"
                           >
                             <span
                               aria-hidden="true"
@@ -136,11 +136,11 @@ export default function PrivacyPage() {
               </RevealGroup>
 
               <Reveal delay={0.1}>
-                <div className="mt-4 rounded-card bg-sunken p-7 sm:p-9">
+                <div className="mt-4 rounded-card bg-surface/50 p-7 sm:p-9">
                   <h2 className="text-lg font-semibold">
                     Exercer vos droits
                   </h2>
-                  <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-600">
+                  <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-500">
                     Une seule adresse pour toutes les demandes relatives à vos
                     données — accès, rectification, effacement, portabilité,
                     réexamen humain d&apos;une décision de crédit.

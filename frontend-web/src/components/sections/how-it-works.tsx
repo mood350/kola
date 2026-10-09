@@ -1,18 +1,17 @@
 import { Container, Section, SectionHeading } from "@/components/ui/section";
 import { RevealGroup } from "@/components/motion/reveal";
-import { STEPS, PROBLEM_LEAD } from "@/lib/content";
+import { STEPS } from "@/lib/content";
 import { STEP_ILLUSTRATIONS } from "@/components/ui/illustrations";
 
 /**
  * Le mécanisme du produit, en trois panneaux illustrés.
  *
- * Remplace l'ancienne section problème/solution, qui exposait le sujet en
- * deux blocs de prose : il fallait lire une centaine de mots avant de
- * comprendre ce que fait Kola. Ici l'illustration porte le mécanisme et le
- * texte se contente de le nommer.
- *
- * La numérotation est explicite (01, 02, 03) : sur mobile les panneaux
+ * L'illustration porte le mécanisme et le texte se contente de le nommer. La
+ * numérotation est explicite (« Étape 1 ») : sur mobile les panneaux
  * s'empilent, et rien d'autre n'indiquerait qu'il s'agit d'une séquence.
+ *
+ * L'ancre reste `#probleme` : c'est celle que visent la navigation et le pied
+ * de page, et des liens extérieurs peuvent déjà y pointer.
  */
 export function HowItWorks() {
   return (
@@ -20,8 +19,13 @@ export function HowItWorks() {
       <Container>
         <SectionHeading
           eyebrow="Comment ça marche"
-          title="Trois étapes, aucune paperasse."
-          lead={PROBLEM_LEAD}
+          title={
+            <>
+              Kola en <span className="text-gradient-accent">trois étapes</span>,
+              aucune paperasse.
+            </>
+          }
+          lead="Pas de formulaire à remplir pour prouver votre sérieux : c'est votre usage quotidien qui constitue le dossier."
           align="center"
         />
 
@@ -29,22 +33,22 @@ export function HowItWorks() {
           {STEPS.map((step, index) => {
             const Illustration = STEP_ILLUSTRATIONS[index];
             return (
-              <article
-                key={step.title}
-                data-animate
-                className="flex flex-col rounded-card bg-surface p-7 shadow-soft"
-              >
-                <div className="rounded-2xl bg-canvas px-6 py-5">
+              <article key={step.title} data-animate className="card flex flex-col p-3">
+                <div className="rounded-[14px] border border-hairline bg-mist px-8 py-6">
                   <Illustration />
                 </div>
 
-                <p className="font-display mt-7 text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
-                  {String(index + 1).padStart(2, "0")}
-                </p>
-                <h3 className="mt-2 text-xl font-semibold">{step.title}</h3>
-                <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-ink-600">
-                  {step.body}
-                </p>
+                <div className="px-4 pt-6 pb-5">
+                  <span className="inline-flex rounded-full bg-kola-50 px-2.5 py-1 text-[0.75rem] font-semibold text-kola-700">
+                    Étape {index + 1}
+                  </span>
+                  <h3 className="mt-4 text-xl font-semibold tracking-tight">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-500">
+                    {step.body}
+                  </p>
+                </div>
               </article>
             );
           })}

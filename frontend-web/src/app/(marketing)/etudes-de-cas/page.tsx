@@ -51,7 +51,7 @@ export default function CaseStudiesPage() {
               <article
                 key={study.slug}
                 data-animate
-                className="rounded-card bg-surface p-7 shadow-soft sm:p-9"
+                className="rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9"
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                   <span>{study.sector}</span>
@@ -65,7 +65,7 @@ export default function CaseStudiesPage() {
                   <span>{study.duration}</span>
                 </div>
 
-                <h2 className="font-display mt-3 text-h2 font-semibold">
+                <h2 className="font-headline mt-3 text-h2 font-semibold">
                   {/* Le lien est posé sur le titre et couvre toute la carte via
                       `after:absolute` : la zone cliquable est la carte entière,
                       mais le lecteur d'écran n'annonce qu'un seul lien, dont
@@ -78,17 +78,17 @@ export default function CaseStudiesPage() {
                   </Link>
                 </h2>
 
-                <p className="mt-4 max-w-3xl text-[0.9375rem] leading-relaxed text-ink-600">
+                <p className="mt-4 max-w-3xl text-[0.9375rem] leading-relaxed text-ink-500">
                   {study.summary}
                 </p>
 
-                <dl className="mt-7 grid gap-x-8 gap-y-5 border-t border-ink-200 pt-6 sm:grid-cols-4">
+                <dl className="mt-7 grid gap-x-8 gap-y-5 border-t border-hairline pt-6 sm:grid-cols-4">
                   {study.metrics.map((metric) => (
                     <div key={metric.label}>
                       <dt className="text-[0.6875rem] font-medium tracking-[0.14em] text-ink-400 uppercase">
                         {metric.label}
                       </dt>
-                      <dd className="font-display mt-1.5 text-[1.0625rem] font-semibold text-ink-950">
+                      <dd className="font-headline mt-1.5 text-[1.0625rem] font-semibold text-ink-950">
                         {metric.value}
                       </dd>
                       {metric.note ? (
@@ -109,11 +109,11 @@ export default function CaseStudiesPage() {
           </RevealGroup>
 
           <Reveal delay={0.1}>
-            <div className="mt-12 rounded-card bg-sunken p-7 sm:p-9">
+            <div className="mt-12 rounded-card bg-surface/50 p-7 sm:p-9">
               <h2 className="text-lg font-semibold">
                 Le mécanisme, sans le récit
               </h2>
-              <p className="mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-ink-600">
+              <p className="mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-ink-500">
                 Les huit critères du score, leur pondération exacte et les quatre
                 paliers de crédit sont détaillés sur la page d&apos;accueil. Les
                 questions les plus fréquentes y répondent également.

@@ -43,39 +43,35 @@ export function FinalCta() {
       <Container>
         <div
           ref={root}
-          className="noise relative overflow-hidden rounded-[2rem] bg-kola-600 px-6 py-20 text-center sm:px-12 sm:py-28"
+          className="noise relative overflow-hidden rounded-[1.75rem] bg-night px-6 py-20 text-center sm:px-12 sm:py-28"
         >
+          <div aria-hidden="true" className="dot-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_20%,transparent_100%)]" />
           <div
             data-cta-halo
             aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-1/2 h-[38rem] w-[38rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,var(--color-kola-400)_0%,transparent_62%)]"
+            className="pointer-events-none absolute top-1/2 left-1/2 h-[38rem] w-[38rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(73_79_223/0.55)_0%,transparent_62%)]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-24 -bottom-32 h-80 w-80 rounded-full bg-ochre-400/15 blur-3xl"
           />
 
-          <div className="relative mx-auto max-w-2xl">
+          <div className="relative mx-auto max-w-3xl">
             <Reveal>
-              <h2 className="text-h1 font-semibold text-white">
+              <h2 className="text-title font-semibold text-white">
                 {FINAL_CTA.title}
               </h2>
             </Reveal>
 
             <Reveal delay={0.08}>
-              <p className="text-lead mx-auto mt-6 max-w-xl text-kola-100">
+              <p className="mx-auto mt-6 max-w-xl text-[1.0625rem] leading-relaxed text-kola-100/80">
                 {FINAL_CTA.body}
               </p>
             </Reveal>
 
             <Reveal delay={0.16}>
               <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                {/* Ce bouton pointait sur « # » : le site vitrine et
-                    l'application vivaient sur deux ports distincts, il n'y
-                    avait littéralement nulle part où l'envoyer. Depuis la
-                    fusion, ouvrir un compte est une route du même site. */}
-                <Button
-                  href="/inscription"
-                  size="lg"
-                  variant="inverse"
-                  className="w-full sm:w-auto"
-                >
+                <Button href="/inscription" size="lg" className="w-full sm:w-auto">
                   Ouvrir un compte
                   <ArrowRight />
                 </Button>
@@ -91,7 +87,7 @@ export function FinalCta() {
             </Reveal>
 
             <Reveal delay={0.22}>
-              <p className="mt-8 text-sm text-kola-200">
+              <p className="mt-8 text-sm text-kola-200/70">
                 Vérification d&apos;identité en deux minutes · Aucun frais
                 d&apos;ouverture
               </p>

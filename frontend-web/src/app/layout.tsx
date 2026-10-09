@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Sora, Inter } from "next/font/google";
+import { Sora, Inter, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { JsonLd } from "@/components/ui/json-ld";
 import { organizationSchema, webSiteSchema } from "@/lib/schema";
@@ -36,6 +36,17 @@ const sora = Sora({
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+/* Titres du site public. Une grotesque à caractère, réservée aux grands titres
+   marketing : dans l'espace client, un solde ou un intitulé d'écran reste en
+   Sora, plus neutre. Chargée ici avec les autres pour ne pas dédoubler le
+   préchargement, mais seul le groupe `(marketing)` l'utilise. */
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-bricolage",
   display: "swap",
 });
 
@@ -94,7 +105,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" className={`${sora.variable} ${inter.variable}`}>
+    <html lang="fr" className={`${sora.variable} ${inter.variable} ${bricolage.variable}`}>
       <body className="min-h-dvh bg-canvas font-sans text-ink-900 antialiased">
         {/* Données structurées de l'entité, posées une fois pour tout le site.
             `WebSite` renvoie à `Organization` par son identifiant plutôt que de

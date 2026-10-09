@@ -98,6 +98,56 @@ export const PROBLEM_LEAD =
   "En Afrique de l'Ouest, un adulte sur deux n'a pas de compte bancaire. Sans historique, pas de crédit — et sans crédit, jamais d'historique. Kola casse cette boucle.";
 
 
+/**
+ * Le constat, en trois cartes, avant le mécanisme.
+ *
+ * Chaque carte nomme une impasse que le visiteur connaît déjà ; aucune ne cite
+ * de chiffre que Kola ne pourrait pas sourcer. Le seul chiffre de la section
+ * est dans `PROBLEM_LEAD`.
+ */
+export const PROBLEM = {
+  title: "Vous gérez de l'argent tous les jours. Sur le papier, vous n'existez pas.",
+  points: [
+    {
+      title: "Des années d'activité, aucune trace",
+      body: "Vos ventes, vos tontines, vos transferts passent en espèces ou en mobile money. Aucun prêteur ne les voit.",
+    },
+    {
+      title: "Pas d'historique, pas de crédit",
+      body: "Et sans crédit, jamais d'historique. La boucle se referme sur ceux qui en auraient le plus besoin.",
+    },
+    {
+      title: "Un dossier que vous ne pouvez pas monter",
+      body: "Bulletins de salaire, garant, justificatifs : ce que la banque demande, la plupart des indépendants ne l'ont pas.",
+    },
+  ],
+} as const;
+
+/**
+ * Comparatif « compte ordinaire / Kola ».
+ *
+ * Deux colonnes de même longueur, ligne à ligne : chaque avantage de droite
+ * répond à la limite d'en face. Rien ici qui ne soit déjà vrai dans le produit —
+ * le score, ses critères, le plafond et le taux affichés avant l'emprunt.
+ */
+export const COMPARISON = {
+  title: "Un compte ordinaire vous montre un solde. Kola vous montre ce qu'il vaut.",
+  without: [
+    "Un solde, et rien d'autre",
+    "Des dépôts réguliers qui ne comptent pour rien",
+    "Un dossier de prêt à monter de zéro",
+    "Un refus sans explication",
+    "Un taux découvert au moment de signer",
+  ],
+  with: [
+    "Un score de 0 à 100, mis à jour avec votre activité",
+    "Chaque dépôt régulier compte pour votre score",
+    "Aucun dossier : votre usage fait foi",
+    "Huit critères pondérés, tous consultables",
+    "Un plafond et un taux connus avant d'emprunter",
+  ],
+} as const;
+
 /* ---------------------------------------------------------------------------
    Fonctionnalités
    ------------------------------------------------------------------------ */

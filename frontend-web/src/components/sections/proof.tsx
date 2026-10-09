@@ -45,21 +45,21 @@ export function Proof() {
   );
 
   return (
-    <Section className="bg-sunken">
+    <Section>
       <Container>
         <div ref={root}>
           <Reveal>
             <Eyebrow>En chiffres</Eyebrow>
           </Reveal>
 
-          <div className="mt-10 grid gap-px overflow-hidden rounded-card bg-ink-200 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-px overflow-hidden rounded-card border border-hairline bg-hairline shadow-card sm:grid-cols-2 lg:grid-cols-4">
             {STATS.map((stat) => (
               <Reveal key={stat.label} className="bg-surface p-7">
-                <p className="font-display text-4xl font-semibold text-ink-950 tabular-nums">
+                <p className="font-headline text-5xl font-semibold tracking-tight text-ink-950 tabular-nums">
                   <span data-stat-value={stat.value}>{stat.value}</span>
-                  <span className="text-kola-600">{stat.suffix}</span>
+                  <span className="text-gradient-accent">{stat.suffix}</span>
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-ink-600">
+                <p className="mt-3 text-sm leading-relaxed text-ink-500">
                   {stat.label}
                 </p>
               </Reveal>
@@ -67,17 +67,17 @@ export function Proof() {
           </div>
 
           <Reveal delay={0.1}>
-            <figure className="mt-14 grid gap-8 rounded-panel bg-surface p-8 shadow-soft sm:p-12 lg:grid-cols-[auto_1fr] lg:items-center hairline">
+            <figure className="mt-14 grid gap-8 rounded-panel bg-surface p-8 border border-hairline shadow-card sm:p-12 lg:grid-cols-[auto_1fr] lg:items-center">
               {/* Guillemet typographique, purement ornemental */}
               <span
                 aria-hidden="true"
-                className="font-display text-6xl leading-none text-kola-300"
+                className="font-headline text-6xl leading-none text-kola-300"
               >
                 &ldquo;
               </span>
               <div>
                 <blockquote>
-                  <p className="text-h2 font-display font-medium text-ink-950">
+                  <p className="text-h2 font-headline font-medium text-ink-950">
                     {TESTIMONIAL.quote}
                   </p>
                 </blockquote>

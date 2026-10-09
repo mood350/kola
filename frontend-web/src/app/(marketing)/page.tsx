@@ -1,5 +1,7 @@
 import { Hero } from "@/components/sections/hero";
+import { Problem } from "@/components/sections/problem";
 import { HowItWorks } from "@/components/sections/how-it-works";
+import { Comparison } from "@/components/sections/comparison";
 import { Features } from "@/components/sections/features";
 import { CreditScore } from "@/components/sections/credit-score";
 import { Security } from "@/components/sections/security";
@@ -15,7 +17,9 @@ import { FinalCta } from "@/components/sections/final-cta";
  * n'envoient aucun JavaScript au navigateur.
  *
  * ORDRE DES SECTIONS. Il suit une objection après l'autre, dans celui où elles
- * viennent : à quoi ça sert (hero), comment ça marche (parcours, fonctions),
+ * viennent : à quoi ça sert (hero), pourquoi c'est nécessaire (constat),
+ * comment ça marche (parcours), en quoi c'est différent (comparatif), ce qu'on
+ * peut faire (fonctions),
  * sur quoi repose la promesse (score), est-ce que c'est sûr (sécurité),
  * qu'est-ce qui le prouve (chiffres, avis), et enfin ce qui reste en travers
  * (questions fréquentes) — juste avant l'appel à l'action final.
@@ -33,7 +37,9 @@ export default function Home() {
   return (
     <main id="contenu">
       <Hero />
+      <Problem />
       <HowItWorks />
+      <Comparison />
       <Features />
       <CreditScore />
       <Security />

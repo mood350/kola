@@ -18,10 +18,10 @@ export function ConsentControls() {
   const { choice, reopen } = useConsent();
 
   return (
-    <div className="mt-4 flex flex-col gap-5 rounded-card bg-surface p-7 shadow-soft sm:flex-row sm:items-center sm:justify-between sm:p-9">
+    <div className="mt-4 flex flex-col gap-5 rounded-card bg-surface p-7 border border-hairline shadow-card sm:flex-row sm:items-center sm:justify-between sm:p-9">
       <div>
         <h2 className="text-lg font-semibold">Votre choix</h2>
-        <p className="mt-1.5 text-[0.9375rem] text-ink-600">
+        <p className="mt-1.5 text-[0.9375rem] text-ink-500">
           {choice
             ? `Vous avez ${LABELS[choice].toLowerCase()} le dépôt de cookies.`
             : "Vous n'avez pas encore fait de choix."}

@@ -23,11 +23,11 @@ export function Security() {
             <div
               key={item.title}
               data-animate
-              className="flex gap-4 rounded-card bg-surface p-7 shadow-soft"
+              className="card flex gap-4 p-7"
             >
               <span
                 aria-hidden="true"
-                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-kola-100"
+                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-kola-50"
               >
                 <svg viewBox="0 0 12 12" fill="none" className="h-3.5 w-3.5">
                   <path
@@ -41,7 +41,7 @@ export function Security() {
               </span>
               <div>
                 <h3 className="text-base font-semibold">{item.title}</h3>
-                <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-600">
+                <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-500">
                   {item.body}
                 </p>
               </div>

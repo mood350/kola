@@ -59,11 +59,11 @@ export default function MerciPage() {
             </Reveal>
 
             <Reveal delay={0.05}>
-              <div className="rounded-card bg-sunken p-7 sm:p-9">
+              <div className="rounded-card bg-surface/50 p-7 sm:p-9">
                 <h2 className="text-lg font-semibold">
                   Si c&apos;est urgent
                 </h2>
-                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-600">
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-500">
                   Un compte verrouillé se débloque seul au bout de trente
                   minutes, sans intervention de notre part. Pour une opération
                   contestée, écrivez directement au support en indiquant la
@@ -75,7 +75,7 @@ export default function MerciPage() {
                 >
                   {CONTACT.support}
                 </a>
-                <p className="mt-5 border-t border-ink-200 pt-4 text-[0.8125rem] text-ink-400">
+                <p className="mt-5 border-t border-hairline pt-4 text-[0.8125rem] text-ink-400">
                   {RESPONSE_PROMISE.hours}
                 </p>
               </div>
@@ -85,7 +85,7 @@ export default function MerciPage() {
           {/* En attendant la réponse — le moment le plus propice pour montrer
               le produit à quelqu'un qui vient de manifester son intérêt. */}
           <Reveal delay={0.1}>
-            <h2 className="font-display mt-16 text-h2 font-semibold">
+            <h2 className="font-headline mt-16 text-h2 font-semibold">
               En attendant notre réponse
             </h2>
           </Reveal>
@@ -101,7 +101,7 @@ export default function MerciPage() {
                 <p className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-400 uppercase">
                   {study.sector}
                 </p>
-                <p className="font-display mt-2.5 text-[1.0625rem] leading-snug font-semibold text-ink-950">
+                <p className="font-headline mt-2.5 text-[1.0625rem] leading-snug font-semibold text-ink-950">
                   {study.headline}
                 </p>
                 <p className="mt-3 flex items-center gap-2 text-[0.875rem] font-medium text-kola-700">

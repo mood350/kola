@@ -42,7 +42,7 @@ export default function CguPage() {
                   <li key={article.id}>
                     <a
                       href={`#${article.id}`}
-                      className="flex gap-3 text-[0.875rem] leading-snug text-ink-600 transition-colors hover:text-kola-600"
+                      className="flex gap-3 text-[0.875rem] leading-snug text-ink-500 transition-colors hover:text-kola-600"
                     >
                       <span className="shrink-0 tabular-nums text-ink-400">
                         {String(index + 1).padStart(2, "0")}
@@ -61,9 +61,9 @@ export default function CguPage() {
                     key={article.id}
                     id={article.id}
                     data-animate
-                    className="scroll-mt-28 rounded-card bg-surface p-7 shadow-soft sm:p-9"
+                    className="scroll-mt-28 rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-9"
                   >
-                    <p className="font-display text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
+                    <p className="font-headline text-[0.8125rem] font-semibold text-kola-500 tabular-nums">
                       {String(index + 1).padStart(2, "0")}
                     </p>
                     <h2 className="mt-2 text-xl font-semibold">{article.title}</h2>
@@ -72,7 +72,7 @@ export default function CguPage() {
                       {article.body.map((paragraph) => (
                         <p
                           key={paragraph.slice(0, 40)}
-                          className="text-[0.9375rem] leading-relaxed text-ink-600"
+                          className="text-[0.9375rem] leading-relaxed text-ink-500"
                         >
                           {paragraph}
                         </p>
@@ -80,11 +80,11 @@ export default function CguPage() {
                     </div>
 
                     {article.list ? (
-                      <ul className="mt-4 flex flex-col gap-2.5 border-t border-ink-200 pt-4">
+                      <ul className="mt-4 flex flex-col gap-2.5 border-t border-hairline pt-4">
                         {article.list.map((item) => (
                           <li
                             key={item}
-                            className="flex gap-3 text-[0.9375rem] leading-relaxed text-ink-600"
+                            className="flex gap-3 text-[0.9375rem] leading-relaxed text-ink-500"
                           >
                             <span
                               aria-hidden="true"

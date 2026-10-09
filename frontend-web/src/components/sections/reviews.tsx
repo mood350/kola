@@ -51,25 +51,25 @@ export function Reviews() {
             <article
               key={review.id}
               data-animate
-              className="flex flex-col rounded-card bg-surface p-7 shadow-soft sm:p-8"
+              className="flex flex-col rounded-card bg-surface p-7 border border-hairline shadow-card sm:p-8"
             >
               <Stars rating={review.rating} />
 
-              <h3 className="font-display mt-5 text-lg font-semibold text-ink-950">
+              <h3 className="font-headline mt-5 text-lg font-semibold text-ink-950">
                 {review.headline}
               </h3>
 
-              <p className="mt-3 flex-1 text-[0.9375rem] leading-relaxed text-ink-600">
+              <p className="mt-3 flex-1 text-[0.9375rem] leading-relaxed text-ink-500">
                 {review.body}
               </p>
 
-              <footer className="mt-6 flex items-center gap-3 border-t border-ink-200 pt-5">
+              <footer className="mt-6 flex items-center gap-3 border-t border-hairline pt-5">
                 {/* Initiale en pastille plutôt qu'une photo : nous n'avons pas
                     de portrait de ces personnes, et un visage tiré d'une banque
                     d'images transformerait un scénario assumé en imposture. */}
                 <span
                   aria-hidden="true"
-                  className="font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-kola-100 text-[0.9375rem] font-semibold text-kola-700"
+                  className="font-headline flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-kola-100 text-[0.9375rem] font-semibold text-kola-700"
                 >
                   {review.author.charAt(0)}
                 </span>

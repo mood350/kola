@@ -18,10 +18,12 @@ export function Container({
 }
 
 /**
- * Micro-titre de section.
+ * Micro-titre de section, en pastille.
  *
- * Le point coloré porte du sens visuel mais aucune information : il est masqué
- * aux lecteurs d'écran, qui n'ont que le texte à annoncer.
+ * Une étiquette posée sur la page plutôt qu'un texte en capitales : sur le
+ * fond gris bleuté, la pastille blanche cernée se repère d'un coup d'œil et
+ * annonce le sujet avant le titre. Le point coloré est décoratif, masqué aux
+ * lecteurs d'écran.
  */
 export function Eyebrow({
   children,
@@ -35,17 +37,16 @@ export function Eyebrow({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2.5 text-[0.8125rem] font-medium tracking-[0.14em] uppercase",
-        tone === "brand" ? "text-kola-600" : "text-kola-200",
+        "inline-flex w-fit items-center gap-2 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium",
+        tone === "brand"
+          ? "border border-hairline bg-surface text-ink-700 shadow-card"
+          : "border border-white/12 bg-white/5 text-kola-100",
         className
       )}
     >
       <span
         aria-hidden="true"
-        className={cn(
-          "h-1.5 w-1.5 rounded-full",
-          tone === "brand" ? "bg-ochre-400" : "bg-ochre-300"
-        )}
+        className="h-1.5 w-1.5 rounded-full bg-linear-to-r from-kola-500 to-ochre-400"
       />
       {children}
     </span>
@@ -72,6 +73,7 @@ export function SectionHeading({
     <Reveal
       className={cn(
         "flex flex-col gap-5",
+        align === "center" && "mx-auto",
         align === "center" && "items-center text-center",
         className
       )}
@@ -79,7 +81,7 @@ export function SectionHeading({
       {eyebrow ? <Eyebrow tone={tone}>{eyebrow}</Eyebrow> : null}
       <h2
         className={cn(
-          "text-h2 max-w-3xl font-semibold",
+          "text-title font-headline max-w-3xl font-semibold",
           tone === "invert" && "text-white"
         )}
       >
@@ -88,8 +90,8 @@ export function SectionHeading({
       {lead ? (
         <p
           className={cn(
-            "text-lead max-w-2xl",
-            tone === "invert" ? "text-kola-100" : "text-ink-600"
+            "max-w-2xl text-[1.0625rem] leading-relaxed",
+            tone === "invert" ? "text-kola-100/80" : "text-ink-500"
           )}
         >
           {lead}
@@ -114,7 +116,7 @@ export function Section({
       id={id}
       // scroll-mt compense l'en-tête fixe : sans ça, une ancre place le titre
       // de section sous la barre de navigation.
-      className={cn("scroll-mt-24 py-20 sm:py-28 lg:py-36", className)}
+      className={cn("scroll-mt-24 py-12 sm:py-16 lg:py-20", className)}
     >
       {children}
     </section>

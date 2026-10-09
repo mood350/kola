@@ -108,6 +108,18 @@
      fintech), Inter pour le texte courant (lisibilité à petite taille). */
   --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* Grands titres du site public uniquement (cf. layout racine). */
+  --font-headline: var(--font-bricolage), var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+
+  /* --- Site public ----------------------------------------------------------
+     Langage « produit SaaS » : fond gris bleuté froid, cartes blanches cernées
+     d'un filet net plutôt que portées par une ombre, et une seule section
+     nocturne pour la démonstration et l'appel final. Le fond reste teinté vers
+     l'indigo — un gris neutre à côté de la marque paraît sale. */
+  --color-mist: #eef0f6;
+  --color-hairline: #dde2ee;
+  --color-night: #0e0f22;
+  --color-night-raised: #17192f;
 
   /* --- Échelle typographique fluide --------------------------------------
      clamp() plutôt que des paliers par breakpoint : le titre respire de façon
@@ -127,6 +139,15 @@
   --text-lead: clamp(1.0625rem, 1rem + 0.4vw, 1.3125rem);
   --text-lead--line-height: 1.6;
 
+  /* Échelle du site public, calée sur la grotesque : elle se resserre plus
+     que Sora, d'où un interlettrage négatif plus franc. */
+  --text-hero: clamp(2.625rem, 1.35rem + 4.6vw, 4.875rem);
+  --text-hero--line-height: 1;
+  --text-hero--letter-spacing: -0.035em;
+  --text-title: clamp(2rem, 1.35rem + 2.5vw, 3.25rem);
+  --text-title--line-height: 1.06;
+  --text-title--letter-spacing: -0.03em;
+
   /* --- Courbe -------------------------------------------------------------
      Une seule courbe « maison », partagée entre CSS et GSAP, pour que les
      micro-interactions et les animations de scroll aient le même caractère. */
@@ -137,8 +158,11 @@
      paraît grise et sale. */
   /* Rayons généreux : c'est ce qui distingue un « panneau » d'une simple
      boîte, et ce que le référentiel pousse le plus loin. */
-  --radius-card: 1.75rem;
-  --radius-panel: 2.25rem;
+  /* Resserrés depuis la refonte du site public (1.75/2.25rem auparavant) :
+     cartes cernées d'un filet, un rayon plus sec se lit « outil » plutôt que
+     « brochure ». Ils restent distincts des rayons produit ci-dessous. */
+  --radius-card: 1.25rem;
+  --radius-panel: 1.75rem;
 
   /* Rayons de l'ESPACE CLIENT, volontairement distincts.
      Une carte de solde n'est pas une section éditoriale : à 28px, une liste de
@@ -156,6 +180,13 @@
   --shadow-soft: 0 1px 2px rgb(46 50 199 / 0.04), 0 8px 24px -8px rgb(46 50 199 / 0.1);
   --shadow-lifted: 0 2px 4px rgb(46 50 199 / 0.06), 0 24px 48px -12px rgb(46 50 199 / 0.16);
   --shadow-glow: 0 0 0 1px rgb(46 50 199 / 0.06), 0 32px 64px -16px rgb(46 50 199 / 0.22);
+
+  /* Carte du site public : le filet dessine la forme, l'ombre ne fait que
+     la décoller d'un demi-millimètre. */
+  --shadow-card: 0 1px 2px rgb(16 17 56 / 0.04), 0 12px 32px -18px rgb(16 17 56 / 0.14);
+  /* Bouton « verre » : deux reflets intérieurs opposés donnent le volume, la
+     lueur colorée dessous le pose sur la page. */
+  --shadow-gloss: inset 3px 3px 8px rgb(255 255 255 / 0.28), inset -3px -3px 8px rgb(255 255 255 / 0.16), 0 10px 22px -6px rgb(46 50 199 / 0.55);
 }
 
 /* ============================================================================
@@ -190,6 +221,19 @@
 
   p {
     text-wrap: pretty;
+  }
+
+  /* Site public : grotesque pour les grands titres, Inter pour les
+     intertitres. Posé en couche `base` pour qu'une classe utilitaire sur un
+     titre précis garde le dernier mot. */
+  .site-public :is(h1, h2) {
+    font-family: var(--font-headline);
+    letter-spacing: -0.025em;
+  }
+
+  .site-public :is(h3, h4) {
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
   }
 
   /* Anneau de focus unique et toujours visible. Jamais supprimé : c'est la
@@ -367,4 +411,60 @@
 
 @utility rise {
   animation: kola-rise 0.28s ease-out both;
+}
+
+/* ============================================================================
+   UTILITAIRES DU SITE PUBLIC
+   ========================================================================= */
+
+/* Mot-clé en dégradé : l'indigo de la marque glisse vers l'ocre en passant par
+   un magenta. Sans cet arrêt intermédiaire, le mélange direct indigo/ocre
+   traverse un gris-brun terne au milieu du mot. */
+@utility text-gradient-accent {
+  background-image: linear-gradient(
+    110deg,
+    var(--color-kola-500) 0%,
+    #b04fd2 48%,
+    var(--color-ochre-400) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  /* Les jambages (g, p) sortent de la boîte : sans marge, ils sont rognés. */
+  padding-bottom: 0.08em;
+}
+
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* Trame de points, plus discrète que le quadrillage : elle signale un plan de
+   travail sans dessiner de cases. */
+@utility dot-grid {
+  background-image: radial-gradient(rgb(46 50 199 / 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 100%);
+}
+
+/* Défilement continu (bandeau des pays). La piste contient la liste deux
+   fois : translater de -50 % ramène exactement au point de départ. Figé par la
+   règle `prefers-reduced-motion` plus haut. */
+@keyframes kola-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility marquee {
+  animation: kola-marquee 38s linear infinite;
+}
+
+@utility fade-x {
+  mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
 }

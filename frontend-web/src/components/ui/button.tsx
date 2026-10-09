@@ -17,34 +17,30 @@ type Size = "md" | "lg";
  * arbitrer au runtime.
  */
 const VARIANTS: Record<Variant, string> = {
-  /* L'ombre au survol est portée par un pseudo-élément dont on n'anime que
-     l'opacité. Transitionner `box-shadow` directement repeint à chaque frame
-     une large zone floutée — c'est la cause classique d'un survol qui accroche
-     sur une page chargée. Ici l'ombre est rasterisée une fois, et le survol ne
-     fait plus qu'un fondu géré par le compositeur. */
+  /* Bouton « verre » : deux reflets intérieurs et une lueur indigo dessous
+     (`shadow-gloss`). L'ombre est posée une fois pour toutes et n'est jamais
+     transitionnée — animer un `box-shadow` flouté repeint une large zone à
+     chaque frame. Le survol ne change que la teinte et la position. */
   primary:
-    "bg-kola-600 text-white shadow-soft hover:bg-kola-700 active:bg-kola-800 " +
-    "after:pointer-events-none after:absolute after:inset-0 after:rounded-full " +
-    "after:opacity-0 after:shadow-lifted after:transition-opacity after:duration-200 " +
-    "hover:after:opacity-100",
-  /* Pilule lavande sur fond lavande : le contraste vient de la saturation,
-     pas d'une bordure. C'est le bouton secondaire du référentiel. */
+    "bg-kola-600 text-white shadow-gloss hover:bg-kola-500 active:bg-kola-700",
+  /* Blanc cerné d'un filet : l'action secondaire du site public, lisible sur
+     le fond gris bleuté sans rivaliser avec le bouton plein. */
   secondary:
-    "bg-kola-100 text-kola-700 hover:bg-kola-200 active:bg-kola-200/80",
+    "border border-hairline bg-surface text-ink-900 shadow-card hover:border-ink-300 active:bg-mist",
   ghost: "bg-transparent text-ink-700 hover:bg-ink-100 active:bg-ink-200",
-  /** Sur aplat de marque saturé : inversion complète. */
+  /** Sur fond nocturne : inversion complète. */
   inverse:
-    "bg-white text-kola-700 shadow-soft hover:bg-kola-50 active:bg-kola-100",
-  /** Sur aplat de marque, action secondaire. */
+    "bg-white text-ink-950 shadow-[inset_0_-2px_0_rgb(16_17_56/0.08)] hover:bg-kola-50 active:bg-kola-100",
+  /** Sur fond nocturne, action secondaire. */
   outlineInverse:
-    "border border-white/30 bg-transparent text-white hover:bg-white/10 active:bg-white/15",
+    "border border-white/15 bg-white/5 text-white backdrop-blur-sm hover:bg-white/10 active:bg-white/15",
 };
 
 const SIZES: Record<Size, string> = {
   // 44px de haut minimum : la cible tactile recommandée. En dessous, le taux
   // d'erreur au pouce grimpe nettement sur mobile.
   md: "h-11 px-5 text-sm",
-  lg: "h-14 px-7 text-base",
+  lg: "h-13 px-7 text-[0.9375rem]",
 };
 
 type ButtonProps = {
@@ -73,7 +69,7 @@ export function Button({
         "group relative inline-flex cursor-pointer items-center justify-center gap-2 rounded-full font-medium",
         // `transform` et `background-color` uniquement : `box-shadow` est animé
         // via l'opacité d'un pseudo-élément (cf. variant primary).
-        "transition-[background-color,transform] duration-200 ease-[var(--ease-editorial)]",
+        "transition-[background-color,border-color,transform] duration-200 ease-[var(--ease-editorial)]",
         "hover:-translate-y-0.5 active:translate-y-0",
         VARIANTS[variant],
     SIZES[size],

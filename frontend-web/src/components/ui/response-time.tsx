@@ -42,7 +42,7 @@ export function ResponseTime({
     return (
       <p
         className={cn(
-          "inline-flex items-center gap-2.5 rounded-full bg-surface px-4 py-2 text-[0.8125rem] font-medium text-ink-700 shadow-soft",
+          "inline-flex items-center gap-2.5 rounded-full bg-surface px-4 py-2 text-[0.8125rem] font-medium text-ink-700 border border-hairline shadow-card",
           className
         )}
       >
@@ -53,17 +53,17 @@ export function ResponseTime({
   }
 
   return (
-    <div className={cn("rounded-card bg-surface p-7 shadow-soft", className)}>
+    <div className={cn("rounded-card bg-surface p-7 border border-hairline shadow-card", className)}>
       <div className="flex items-center gap-3">
         {dot}
-        <h2 className="font-display text-lg font-semibold text-ink-950">
+        <h2 className="font-headline text-lg font-semibold text-ink-950">
           {RESPONSE_PROMISE.headline}
         </h2>
       </div>
-      <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-600">
+      <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-500">
         {RESPONSE_PROMISE.detail}
       </p>
-      <p className="mt-4 border-t border-ink-200 pt-4 text-[0.8125rem] text-ink-400">
+      <p className="mt-4 border-t border-hairline pt-4 text-[0.8125rem] text-ink-400">
         {RESPONSE_PROMISE.hours}
       </p>
     </div>
