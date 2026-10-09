@@ -92,20 +92,25 @@ public class AdminUserService {
     public ClientUserResponse unblock(CurrentAdmin admin, UUID userId) {
         User user = userService.getById(userId);
         UserStatus previous = user.getStatus();
+        // A PIN lockout leaves the status ACTIVE and only sets lockedUntil — the most common
+        // reason a customer calls support. Refusing it as "already active" would leave the one
+        // blocked account the agent can see unable to be released.
+        boolean pinLocked = user.isLocked();
 
-        if (previous == UserStatus.ACTIVE) {
+        if (previous == UserStatus.ACTIVE && !pinLocked) {
             throw new ConflictException("Ce compte est déjà actif");
         }
 
         user.setStatus(UserStatus.ACTIVE);
-        // A blocked account is often one that ran out of PIN attempts; leaving the lock behind
-        // would let it re-lock on the next try.
+        // Clear the lockout either way: a suspended account is often one that also ran out of PIN
+        // attempts, and leaving the lock behind would let it re-lock on the next try.
         user.setFailedPinAttempts(0);
         user.setLockedUntil(null);
         userService.save(user);
 
         auditService.record(admin, MODULE, "Déblocage du compte de " + user.getFullName(),
-                AuditService.diff(state(previous), state(UserStatus.ACTIVE)),
+                AuditService.diff(pinLocked && previous == UserStatus.ACTIVE ? "Verrouillé (PIN)" : state(previous),
+                        state(UserStatus.ACTIVE)),
                 "User", userId.toString());
 
         log.info("Admin {} unblocked user {}", admin.email(), userId);

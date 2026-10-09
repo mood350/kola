@@ -1,4 +1,4 @@
-# BACKEND.md — Contrat API attendu par le back-office admin (FrontendWeb)
+# BACKEND.md — Contrat API attendu par le back-office admin (`frontend-admin/`, ex-FrontendWeb de Dogaa)
 
 > Ce document est la source de vérité pour brancher un vrai backend derrière le
 > back-office admin React. Il est généré à partir d'une lecture complète du
@@ -415,3 +415,54 @@ après coup aurait voulu dire repasser dans chacun d'eux.
 | Granularité des permissions « Support » | **Non tranché** : la matrice reste par module, sans distinction lecture/écriture. Les écritures sensibles (barème de prêt, grille de frais) sont en revanche réservées au Super-admin. |
 | Motif de rejet KYC | **Tranché** : `/admin/users/kyc-queue/{id}/reject` exige désormais `{ reason }` (300 caractères max, non vide, 400 sinon) et le notifie au client, comme `/admin/kyc/documents/{id}/review` le faisait déjà. |
 | Filtrage serveur | **Non tranché** : filtrage client conservé, à revisiter quand le volume l'imposera. |
+
+## 17. Console minimaliste — `/api/v1/admin/console/**` (contrat actuel de `frontend-admin`)
+
+La console a été refaite (2026-09) sur deux règles : **rien que l'application mobile ne propose**,
+et **des données brutes**. Les sections 4 à 13 décrivent l'ancien back-office (`FrontendWeb` de
+Dogaa) ; leurs routes restent servies mais ne sont plus appelées par la console, sauf
+`/auth/*` (§4.1) et le téléchargement de pièce `GET /kyc/documents/{id}/file`.
+
+**Données brutes** : montants en nombres JSON, instants en ISO-8601, états en noms d'enum
+(`ACTIVE`, `OVERDUE`, `TIER_2`…). La console met en forme ; le serveur ne produit plus de
+chaînes d'affichage (« 709 k XOF », « 1 prêts en cours ») sur ces routes.
+
+| Méthode | Chemin | Module | Réponse |
+|---|---|---|---|
+| GET | `/console/overview` | dashboard | `ConsoleOverview` — compteurs, encours, `today` / `yesterday` (`ConsoleDayStats` : transactions, volume, nouveaux clients, prêts accordés et montant, frais perçus, remboursements reçus) pour la comparaison jour contre jour, `volumeByDay` (14 jours, chaque jour présent) |
+| GET | `/console/users?q=&kycTier=&kycPending=&from=&to=&page=&size=` | users | `ConsolePage<ConsoleUserRow>` — avec `kycTier` et `pendingDocuments` par ligne ; `from`/`to` = jour d'inscription |
+| GET | `/console/users/{id}` | users | `ConsoleUserDetail` — profil, comptes, coffres, prêts, paiements programmés, pièces KYC (l'historique est paginé à part) |
+| POST | `/console/users/{id}/unblock` | users | `ConsoleUserDetail` — lève une suspension **ou un verrouillage PIN** |
+| GET | `/console/kyc` | users | `ConsoleKycDocument[]` — pièces en attente, plus anciennes d'abord |
+| POST | `/console/kyc/{id}/approve` · `/reject` | users | 204 — rejet : `{ reason }` obligatoire (≤ 300), envoyé au client |
+| GET | `/console/loans?status=&from=&to=&page=&size=` | credit | `ConsolePage<ConsoleLoan>` — `from`/`to` = jour de versement |
+| GET | `/console/loans/summary?status=&from=&to=` | credit | `ConsoleLoanSummary` — nombre, montant prêté, reste dû, en retard |
+| GET | `/console/transactions?q=&userId=&type=&status=&from=&to=&page=&size=` | users | `ConsolePage<ConsoleTransaction>` |
+| GET | `/console/transactions/summary` (mêmes filtres) | users | `ConsoleTransactionSummary` — nombre, volume, frais perçus, ventilation par type |
+| GET | `/console/transactions/export?format=csv\|xlsx` (mêmes filtres) | users | fichier en pièce jointe, 50 000 lignes max. (400 au-delà) |
+
+**Périodes** : `from` et `to` sont des jours `AAAA-MM-JJ` en UTC (heure de Lomé), **bornes incluses** —
+`from=to` couvre une journée. `to` avant `from` → 400. `size` vaut 15 par défaut, 100 au plus.
+
+**Export** : CSV pour Excel en français (BOM UTF-8, `;`, virgule décimale, CRLF, cellules
+commençant par `= + - @` neutralisées contre l'injection de formule) ; XLSX écrit sans
+bibliothèque (`SpreadsheetWriter`), cellules typées (montants en nombres, dates en dates Excel)
+et une feuille « Synthèse » par type. Libellés français (`ExportLabels`).
+
+`ConsolePage<T>` = `{ items, page (à partir de 0), size, total, totalPages }` — une forme à nous,
+pas la sérialisation d'un `Page` Spring. `size` est plafonné à 100.
+
+**Recherche de transactions** : `q` composé uniquement de chiffres, d'espaces et d'un `+` initial
+est lu comme un **téléphone**, normalisé comme à l'inscription (`90 12 34 56` = `+22890123456`) ;
+tout autre texte est une **référence** exacte, insensible à la casse. Un numéro qui ne correspond
+à aucun compte renvoie une page **vide**, jamais la liste complète.
+
+**Déblocage** : un verrouillage PIN laisse le statut à `ACTIVE` et pose seulement `lockedUntil`.
+`unblock` le lève désormais (il répondait 409 « déjà actif » — le cas le plus fréquent d'un client
+qui appelle le support restait sans issue). L'audit note « Verrouillé (PIN) → Actif ».
+
+**Hors console, faute d'équivalent sur mobile** : litiges et chargebacks, support/tickets, suivi
+financier et réconciliation, frais et marchands, barème de crédit, journal d'audit, rôles admin,
+relances de défaut. Leurs routes existent toujours côté serveur.
+
+Tests : `AdminConsoleIntegrationTest`.

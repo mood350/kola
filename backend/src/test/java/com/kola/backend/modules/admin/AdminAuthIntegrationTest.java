@@ -186,7 +186,9 @@ class AdminAuthIntegrationTest {
                                 "currentPassword", "wrong-password",
                                 "newPassword", "AnotherSecret2026!")))
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isUnauthorized());
+                // 400, never 401: the session is valid, only the typed field is wrong — and the
+                // console signs out on any 401 (BACKEND.md 4.1).
+                .andExpect(status().isBadRequest());
 
         mockMvc.perform(post("/api/v1/admin/auth/change-password")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -6,8 +6,11 @@ import com.kola.backend.modules.kyc.entity.KycDocumentType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,4 +32,13 @@ public interface KycDocumentRepository extends JpaRepository<KycDocument, UUID> 
     List<KycDocument> findByStatusOrderByCreatedAtAsc(KycDocumentStatus status);
 
     long countByStatus(KycDocumentStatus status);
+
+    /** Pending documents per user, for one page of the back-office user list. */
+    @Query("""
+            select d.userId, count(d) from KycDocument d
+            where d.status = :status and d.userId in :userIds
+            group by d.userId
+            """)
+    List<Object[]> countByUserIds(@Param("status") KycDocumentStatus status,
+                                  @Param("userIds") Collection<UUID> userIds);
 }

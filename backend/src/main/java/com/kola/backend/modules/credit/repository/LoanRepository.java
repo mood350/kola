@@ -2,7 +2,10 @@ package com.kola.backend.modules.credit.repository;
 
 import com.kola.backend.common.enums.LoanStatus;
 import com.kola.backend.modules.credit.entity.Loan;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,7 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface LoanRepository extends JpaRepository<Loan, UUID> {
+public interface LoanRepository extends JpaRepository<Loan, UUID>, JpaSpecificationExecutor<Loan> {
 
     List<Loan> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
@@ -48,4 +51,11 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
     /** Loans past their due date, oldest first: the recovery queue. */
     List<Loan> findByStatusInAndDueAtBeforeOrderByDueAtAsc(
             Collection<LoanStatus> statuses, Instant cutoff);
+
+    /** One status of the book, newest first — the back-office loan list. */
+    Page<Loan> findByStatusOrderByCreatedAtDesc(LoanStatus status, Pageable pageable);
+
+    Page<Loan> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    long countByDisbursedAtGreaterThanEqualAndDisbursedAtLessThan(Instant from, Instant to);
 }

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,6 +51,53 @@ public final class TransactionSpecifications {
             }
             if (to != null) {
                 predicates.add(builder.lessThanOrEqualTo(root.get("createdAt"), to));
+            }
+
+            return builder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    /**
+     * The back-office search: every transaction, narrowed by whichever filters are present.
+     *
+     * @param reference      exact reference, case-insensitive — what a customer reads out on the phone
+     * @param participantIds users on either side; {@code null} means "anyone", an empty list means
+     *                       "nobody" (a phone search that matched no account must return nothing,
+     *                       not everything)
+     * @param from           inclusive lower bound on the creation instant, or {@code null}
+     * @param to             exclusive upper bound, or {@code null}
+     */
+    public static Specification<Transaction> forAdmin(String reference,
+                                                      Collection<UUID> participantIds,
+                                                      TransactionType type,
+                                                      TransactionStatus status,
+                                                      Instant from,
+                                                      Instant to) {
+        return (root, query, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (reference != null) {
+                predicates.add(builder.equal(builder.upper(root.get("reference")), reference.toUpperCase()));
+            }
+            if (participantIds != null) {
+                if (participantIds.isEmpty()) {
+                    return builder.disjunction();
+                }
+                predicates.add(builder.or(
+                        root.get("senderId").in(participantIds),
+                        root.get("recipientId").in(participantIds)));
+            }
+            if (type != null) {
+                predicates.add(builder.equal(root.get("type"), type));
+            }
+            if (status != null) {
+                predicates.add(builder.equal(root.get("status"), status));
+            }
+            if (from != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.get("createdAt"), from));
+            }
+            if (to != null) {
+                predicates.add(builder.lessThan(root.get("createdAt"), to));
             }
 
             return builder.and(predicates.toArray(Predicate[]::new));

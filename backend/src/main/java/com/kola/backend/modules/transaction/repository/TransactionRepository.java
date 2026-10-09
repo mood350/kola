@@ -91,4 +91,36 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
             having coalesce(sum(t.fee), 0) > 0
             """)
     List<FeeAggregate> aggregateFeesByType(@Param("status") TransactionStatus status);
+
+    long countByStatusAndCreatedAtGreaterThanEqual(TransactionStatus status, Instant since);
+
+    long countByStatusAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(TransactionStatus status, Instant from, Instant to);
+
+    /** Completed volume inside {@code [from, to)} — the dashboard's day-against-day comparison. */
+    @Query("""
+            select coalesce(sum(t.amount), 0) from Transaction t
+            where t.status = :status and t.createdAt >= :from and t.createdAt < :to
+            """)
+    BigDecimal sumAmountBetween(@Param("status") TransactionStatus status,
+                                @Param("from") Instant from,
+                                @Param("to") Instant to);
+
+    /** Fees earned inside {@code [from, to)} — what Kola made that day. */
+    @Query("""
+            select coalesce(sum(t.fee), 0) from Transaction t
+            where t.status = :status and t.createdAt >= :from and t.createdAt < :to
+            """)
+    BigDecimal sumFeeBetween(@Param("status") TransactionStatus status,
+                             @Param("from") Instant from,
+                             @Param("to") Instant to);
+
+    /** Volume of one transaction type inside {@code [from, to)} — e.g. the day's loan repayments. */
+    @Query("""
+            select coalesce(sum(t.amount), 0) from Transaction t
+            where t.status = :status and t.type = :type and t.createdAt >= :from and t.createdAt < :to
+            """)
+    BigDecimal sumAmountOfTypeBetween(@Param("status") TransactionStatus status,
+                                      @Param("type") TransactionType type,
+                                      @Param("from") Instant from,
+                                      @Param("to") Instant to);
 }

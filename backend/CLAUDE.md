@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Kola backend — a mobile-money wallet / programmed-savings / algorithmic-microcredit platform targeting the UEMOA zone (Togo, Senegal, Côte d'Ivoire, Ghana). The functional spec lives in `../KOLA.md` (French); read it before implementing any domain feature — it is the source of truth for business rules (fee percentages, KYC tiers, scoring signals, scheduler semantics).
 
-Current state: the fifteen domain modules listed under *Package layout* are all implemented — registration/auth, KYC, wallets, vaults, transactions, scheduling, scoring, credit, notifications, audit, disputes, the conversational assistant, payment QR codes and the admin back-office. `../FrontendWeb/BACKEND.md` is the contract the React back-office expects (sections 4-13, all served today) and `API.md` is the reference handed to the mobile and web clients; both are kept in step with the code, so update them in the same change as the endpoint.
+Current state: the fifteen domain modules listed under *Package layout* are all implemented — registration/auth, KYC, wallets, vaults, transactions, scheduling, scoring, credit, notifications, audit, disputes, the conversational assistant, payment QR codes and the admin back-office. `BACKEND.md` (this folder) is the contract the React back-office in `../frontend-admin` expects (sections 4-13, all served today) and `API.md` is the reference handed to the mobile and web clients; both are kept in step with the code, so update them in the same change as the endpoint.
 
 ## Commands
 
@@ -153,7 +153,7 @@ depend on which job won the race.
 ## Admin back-office
 
 A second, separate authentication realm (`modules/admin`) plus a transverse journal
-(`modules/audit`). The contract it serves is `../FrontendWeb/BACKEND.md`; the invariants below are
+(`modules/audit`). The contract it serves is `BACKEND.md` (consumed by `../frontend-admin`); the invariants below are
 the ones a plausible-looking change breaks.
 
 - **Admin accounts are not users.** `AdminAccount` has an email and a password (BCrypt), where a
@@ -197,6 +197,11 @@ the ones a plausible-looking change breaks.
 - **Enums that reach the console serialise to lowercase wire codes** via `@JsonValue`
   (`fraud`, `chargeback_pending`, `reconciled`, `in_progress`). The React side styles on those
   strings, so renaming a constant is a breaking API change even though Java sees only a rename.
+- **The console routes (`/api/v1/admin/console/**`, `AdminConsoleService`) are the opposite of
+  the rule above: raw values only** — numbers, ISO instants, enum names — because the rewritten
+  console formats on its side and needs to sort and filter. `BackOfficeFormat` serves the older
+  `/admin/**` routes, which the console no longer calls. Scope is what the mobile app offers
+  (BACKEND.md §17); a PIN lockout (`lockedUntil`, status still `ACTIVE`) is unblockable there.
 - **Aggregations return zeros, never invented numbers.** An empty database is a valid state for the
   dashboard and finance screens, and an empty `alerts` list means nothing is wrong — not an error.
 ## Assistant
