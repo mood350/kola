@@ -46,7 +46,7 @@ void main() {
         () => storage.getRefreshToken(),
       ).thenAnswer((_) async => refreshValide);
       when(() => auth.refreshToken(any())).thenAnswer(
-        (_) async => AuthTokenResult.ok(
+        (_) async => AuthResult.ok(
           accessToken: 'access-neuf',
           refreshToken: 'refresh-neuf',
         ),
@@ -69,7 +69,7 @@ void main() {
       ).thenAnswer((_) async => refreshValide);
       when(
         () => auth.refreshToken(any()),
-      ).thenAnswer((_) async => AuthTokenResult.fail('Session expiree'));
+      ).thenAnswer((_) async => AuthResult.fail('Session expiree'));
 
       final outcome = await session.refreshAccessToken();
 
@@ -86,7 +86,7 @@ void main() {
       ).thenAnswer((_) async => refreshValide);
       when(
         () => auth.refreshToken(any()),
-      ).thenAnswer((_) async => AuthTokenResult.networkFailure());
+      ).thenAnswer((_) async => AuthResult.networkFailure());
 
       final outcome = await session.refreshAccessToken();
 
@@ -116,7 +116,7 @@ void main() {
       ).thenAnswer((_) async => refreshValide);
       when(() => auth.refreshToken(any())).thenAnswer((_) async {
         await Future<void>.delayed(const Duration(milliseconds: 20));
-        return AuthTokenResult.ok(
+        return AuthResult.ok(
           accessToken: 'access-neuf',
           refreshToken: 'refresh-neuf',
         );
@@ -139,12 +139,12 @@ void main() {
       ).thenAnswer((_) async => refreshValide);
       when(
         () => auth.refreshToken(any()),
-      ).thenAnswer((_) async => AuthTokenResult.networkFailure());
+      ).thenAnswer((_) async => AuthResult.networkFailure());
       await session.refreshAccessToken();
 
       when(
         () => auth.refreshToken(any()),
-      ).thenAnswer((_) async => AuthTokenResult.ok(accessToken: 'access-neuf'));
+      ).thenAnswer((_) async => AuthResult.ok(accessToken: 'access-neuf'));
 
       // Un verrou qui resterait pris apres un echec gelerait tout
       // renouvellement pour le reste de la session.
@@ -167,7 +167,7 @@ void main() {
       ).thenAnswer((_) async => refreshValide);
       when(
         () => auth.refreshToken(any()),
-      ).thenAnswer((_) async => AuthTokenResult.ok(accessToken: 'access-neuf'));
+      ).thenAnswer((_) async => AuthResult.ok(accessToken: 'access-neuf'));
 
       // Avant, le splash renvoyait sur l'onboarding des que l'access token
       // avait plus de 24 h — alors que le refresh token en vaut 7 jours.

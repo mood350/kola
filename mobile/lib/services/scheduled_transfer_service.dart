@@ -1,62 +1,70 @@
+import '../models/json.dart';
 import '../models/scheduled_transfer.dart';
 import 'api_client.dart';
 
-/// Service des virements programmés (cf. ScheduledTransferController backend).
-class ScheduledTransferService {
-  ScheduledTransferService({ApiClient? apiClient})
-    : _api = apiClient ?? ApiClient();
+class SchedulingService {
+  SchedulingService({ApiClient? client}) : _client = client ?? ApiClient();
 
-  final ApiClient _api;
+  final ApiClient _client;
 
-  Future<ApiResult<List<ScheduledTransfer>>> getMine() {
-    return _api.get<List<ScheduledTransfer>>(
-      '/scheduled-transfers',
-      decode: (json) => (json as List<dynamic>)
-          .map((e) => ScheduledTransfer.fromJson(e as Map<String, dynamic>))
-          .toList(),
+  Future<ApiResult<List<ScheduledTask>>> list() {
+    return _client.get(
+      '/api/v1/scheduling/tasks/me',
+      decode: (json) => asList(json, ScheduledTask.fromJson),
     );
   }
 
-  Future<ApiResult<ScheduledTransfer>> create({
-    required int walletId,
-    int? targetVaultId,
-    required ScheduleFrequency frequency,
-    required int executionDay,
+  Future<ApiResult<List<Biller>>> billers() {
+    return _client.get(
+      '/api/v1/scheduling/tasks/billers',
+      decode: (json) => asList(json, Biller.fromJson),
+    );
+  }
+
+  Future<ApiResult<ScheduledTask>> create({
+    required String type,
+    required String frequency,
     required double amount,
+    required String beneficiaryReference,
+    required String firstRunAt,
     String? description,
+    String? endDate,
+    int? maxOccurrences,
+    String? fundingVaultId,
+    String? biller,
+    int? dayOfMonth,
   }) {
-    return _api.post<ScheduledTransfer>(
-      '/scheduled-transfers',
+    return _client.post(
+      '/api/v1/scheduling/tasks',
       body: {
-        'walletId': walletId,
-        'targetVaultId': ?targetVaultId,
-        'frequency': frequency.toBackend(),
-        'executionDay': executionDay,
+        'type': type,
+        'frequency': frequency,
         'amount': amount,
-        'description': ?description,
+        'currency': 'XOF',
+        'beneficiaryReference': beneficiaryReference,
+        'firstRunAt': firstRunAt,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        'endDate': ?endDate,
+        'maxOccurrences': ?maxOccurrences,
+        'fundingVaultId': ?fundingVaultId,
+        'biller': ?biller,
+        'dayOfMonth': ?dayOfMonth,
       },
       decode: (json) =>
-          ScheduledTransfer.fromJson(json as Map<String, dynamic>),
+          ScheduledTask.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
-  Future<ApiResult<ScheduledTransfer>> pause(int id) {
-    return _api.post<ScheduledTransfer>(
-      '/scheduled-transfers/$id/pause',
+  Future<ApiResult<ScheduledTask>> pause(String id) => _patch(id, 'pause');
+  Future<ApiResult<ScheduledTask>> resume(String id) => _patch(id, 'resume');
+  Future<ApiResult<ScheduledTask>> cancel(String id) => _patch(id, 'cancel');
+
+  Future<ApiResult<ScheduledTask>> _patch(String id, String action) {
+    return _client.patch(
+      '/api/v1/scheduling/tasks/$id/$action',
       decode: (json) =>
-          ScheduledTransfer.fromJson(json as Map<String, dynamic>),
+          ScheduledTask.fromJson((json as Map).cast<String, dynamic>()),
     );
-  }
-
-  Future<ApiResult<ScheduledTransfer>> resume(int id) {
-    return _api.post<ScheduledTransfer>(
-      '/scheduled-transfers/$id/resume',
-      decode: (json) =>
-          ScheduledTransfer.fromJson(json as Map<String, dynamic>),
-    );
-  }
-
-  Future<ApiResult<void>> delete(int id) {
-    return _api.deleteEmpty('/scheduled-transfers/$id');
   }
 }

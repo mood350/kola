@@ -1,28 +1,143 @@
 import Link from "next/link";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { Container, Section } from "@/components/ui/section";
+import { PageHeader } from "@/components/ui/page-header";
+import { Reveal, RevealGroup } from "@/components/motion/reveal";
+import { Button, ArrowRight } from "@/components/ui/button";
+import { CASE_STUDIES } from "@/lib/case-studies";
 
 /**
- * Page introuvable.
+ * Page 404.
  *
- * Volontairement sobre et sans détail : cette page est atteignable sans être
- * connecté, et une adresse mal tapée ne doit rien apprendre sur ce qui existe
- * derrière l'authentification.
+ * CE QU'ELLE ÉVITE : la sortie du site. Une 404 par défaut annonce l'échec et
+ * n'offre rien — le visiteur revient au moteur de recherche, c'est-à-dire chez
+ * un concurrent. Celle-ci traite l'erreur comme un carrefour : elle nomme le
+ * problème en une phrase, puis propose les destinations réellement utiles.
+ *
+ * ELLE EST AUSSI UNE PAGE DE MAILLAGE INTERNE. Les moteurs l'explorent comme
+ * les autres, et les liens qui la traversent redistribuent l'autorité vers les
+ * pages qui comptent. C'est la raison pour laquelle elle liste les études de
+ * cas — dérivées de `CASE_STUDIES`, donc jamais périmées — plutôt qu'un unique
+ * « retour à l'accueil ».
+ *
+ * ELLE PORTE SON PROPRE EN-TÊTE. Depuis la fusion du site et de l'espace
+ * client, la coque publique vit dans `(marketing)/layout.tsx` ; une URL qui ne
+ * correspond à aucune route ne traverse aucun groupe et rend directement dans
+ * le layout racine. Sans ces deux composants, la 404 s'afficherait nue — sans
+ * navigation, donc sans la sortie qu'elle est précisément censée offrir.
+ *
+ * PAS D'EXPORT `metadata` ICI : Next l'ignore sur `not-found.tsx`, qui rend à
+ * l'intérieur du layout racine et hérite donc de son titre. Le moteur injecte
+ * en revanche `noindex` automatiquement dès que la réponse porte un statut 404,
+ * ce qui est le comportement recherché — cette page ne doit jamais apparaître
+ * dans les résultats de recherche.
  */
+
+const DESTINATIONS = [
+  {
+    href: "/",
+    label: "Page d'accueil",
+    description:
+      "Le fonctionnement du portefeuille, du score de confiance et du micro-crédit, en une page.",
+  },
+  {
+    href: "/#score",
+    label: "Comprendre le score",
+    description:
+      "Les huit critères, leur poids, et les quatre paliers de crédit qu'ils débloquent.",
+  },
+  {
+    href: "/#faq",
+    label: "Questions fréquentes",
+    description:
+      "Cinq réponses sur le calcul du score, les montants empruntables et la sécurité du compte.",
+  },
+  {
+    href: "/contact",
+    label: "Nous écrire",
+    description:
+      "Support, presse, partenariats. Réponse sous deux jours ouvrés.",
+  },
+];
+
 export default function NotFound() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-      <p className="font-display text-6xl font-semibold text-kola-600">404</p>
-      <h1 className="mt-4 font-display text-2xl font-semibold text-ink-950">
-        Page introuvable
-      </h1>
-      <p className="mt-2 max-w-sm text-ink-500">
-        Cette adresse ne correspond à aucune page de votre espace Kola.
-      </p>
-      <Link
-        href="/"
-        className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-kola-600 px-6 text-sm font-semibold text-white transition-colors hover:bg-kola-700"
-      >
-        Retour à l&apos;accueil
-      </Link>
-    </div>
+    <>
+      <SiteHeader />
+    <main id="contenu">
+      <PageHeader
+        eyebrow="Erreur 404"
+        title="Cette page n'existe pas."
+        lead="L'adresse est peut-être incomplète, ou la page a été déplacée depuis que le lien a été créé. Voici où aller à la place."
+      />
+
+      <Section className="pt-0">
+        <Container>
+          <Reveal>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button href="/" size="lg" className="w-full sm:w-auto">
+                Retour à l&apos;accueil
+                <ArrowRight />
+              </Button>
+              <Button
+                href="/inscription"
+                variant="secondary"
+                size="lg"
+                className="w-full sm:w-auto"
+              >
+                Ouvrir un compte
+              </Button>
+            </div>
+          </Reveal>
+
+          <RevealGroup className="mt-12 grid gap-px overflow-hidden rounded-card bg-ink-200 sm:grid-cols-2">
+            {DESTINATIONS.map((destination) => (
+              <Link
+                key={destination.href}
+                href={destination.href}
+                data-animate
+                className="group bg-surface p-7 transition-colors duration-200 hover:bg-kola-50"
+              >
+                <p className="font-headline flex items-center gap-2 text-lg font-semibold text-ink-950">
+                  {destination.label}
+                  <ArrowRight className="text-kola-600" />
+                </p>
+                <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-ink-500">
+                  {destination.description}
+                </p>
+              </Link>
+            ))}
+          </RevealGroup>
+
+          <Reveal delay={0.1}>
+            <div className="mt-4 rounded-card bg-surface/50 p-7 sm:p-9">
+              <h2 className="text-lg font-semibold">
+                Vous cherchiez peut-être une étude de cas
+              </h2>
+              <ul className="mt-5 flex flex-col gap-3">
+                {CASE_STUDIES.map((study) => (
+                  <li key={study.slug}>
+                    <Link
+                      href={`/etudes-de-cas/${study.slug}`}
+                      className="group flex flex-col gap-1 text-[0.9375rem] leading-relaxed"
+                    >
+                      <span className="font-medium text-kola-700 underline underline-offset-2 transition-colors group-hover:text-kola-600">
+                        {study.headline}
+                      </span>
+                      <span className="text-ink-500">
+                        {study.sector} · {study.city}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        </Container>
+      </Section>
+    </main>
+      <SiteFooter />
+    </>
   );
 }

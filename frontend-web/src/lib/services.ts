@@ -9,6 +9,7 @@ import type {
   Merchant,
   MobileNetwork,
   Page,
+  PaymentMethods,
   ScheduleFrequency,
   ScheduledTransfer,
   ScoreBreakdown,
@@ -175,6 +176,46 @@ export const transactionApi = {
     });
   },
 
+  /**
+   * POST /transactions/deposit/mobile-money → 202, écriture EN ATTENTE.
+   *
+   * Le wallet n'est PAS crédité : la demande part sur le téléphone du client,
+   * qui la valide par son code Mobile Money, et c'est le webhook du prestataire
+   * qui créditera.
+   */
+  depositByMobileMoney(input: {
+    walletId: number;
+    amount: number;
+    mode: string;
+    phoneNumber: string;
+    idempotencyKey: string;
+  }) {
+    return apiFetch<Transaction>("/transactions/deposit/mobile-money", {
+      method: "POST",
+      body: input,
+    });
+  },
+
+  /**
+   * POST /transactions/withdraw/mobile-money → 202, écriture EN ATTENTE.
+   *
+   * Le wallet EST débité immédiatement — sinon la somme resterait dépensable
+   * pendant le traitement — mais l'argent n'est pas encore arrivé. Un échec
+   * recrédite le montant et les frais.
+   */
+  withdrawByMobileMoney(input: {
+    walletId: number;
+    amount: number;
+    mode: string;
+    phoneNumber: string;
+    idempotencyKey: string;
+  }) {
+    return apiFetch<Transaction>("/transactions/withdraw/mobile-money", {
+      method: "POST",
+      body: input,
+    });
+  },
+
   withdraw(input: {
     walletId: number;
     amount: number;
@@ -227,6 +268,19 @@ export const transactionApi = {
   /** GET /transactions/{reference} — la référence, jamais l'identifiant technique. */
   byReference(reference: string, signal?: AbortSignal) {
     return apiFetch<Transaction>(`/transactions/${reference}`, { signal });
+  },
+};
+
+/* ---------------------------------------------------------------------------
+   Moyens de paiement — /api/payments/**
+   ------------------------------------------------------------------------ */
+
+export const paymentApi = {
+  /** Opérateurs disponibles. Sans `country`, ceux du pays de l'utilisateur. */
+  methods(country?: string, signal?: AbortSignal) {
+    return apiFetch<PaymentMethods>(`/payments/methods${queryString({ country })}`, {
+      signal,
+    });
   },
 };
 
@@ -327,10 +381,6 @@ export const creditApi = {
   /** GET /credit/score — recalculé paresseusement par le backend si le cache a expiré. */
   score(signal?: AbortSignal) {
     return apiFetch<ScoreBreakdown>("/credit/score", { signal });
-  },
-
-  refreshScore() {
-    return apiFetch<ScoreBreakdown>("/credit/score/refresh", { method: "POST" });
   },
 
   scoreHistory(signal?: AbortSignal) {

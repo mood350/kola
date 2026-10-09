@@ -4,15 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository overview
 
-Kola is a fintech app (mobile money / savings / micro-credit, currency XOF) with five active codebases in this monorepo:
+Kola is a fintech app (mobile money / savings / micro-credit, currency XOF) with four active codebases in this monorepo:
 
 - `backend/` — Spring Boot 3.5 (Java 17) REST API
 - `mobile/` — Flutter app (the client)
-- `frontend-web/` — Next.js 16 **web version of the mobile app** (authenticated end-user space, same API surface as `mobile/`)
-- `landing/` — Next.js 16 marketing site (public-facing, no auth, no backend calls except its own contact route)
-- `frontend-admin/` — Next.js 16 internal admin console (authenticated, ADMIN-only, talks to `/api/admin/**`)
+- `frontend-web/` — Next.js 16, **the public site and the client space in one application**: marketing pages at `/`, `/a-propos`, `/etudes-de-cas`… and the authenticated space at `/mon-compte`, `/coffres`, `/credit`… One build, one port, one domain.
+- `frontend-admin/` — minimal React 19 + Vite admin console, its own admin login, talks to `/api/v1/admin/console/**`
 
-There is currently **no CI workflow for `landing/`**; `frontend-admin/` and `frontend-web/` are covered by `.github/workflows/frontend-admin-ci.yml` and `.github/workflows/frontend-web-ci.yml` (both Node 20, `npm ci` → `npm run lint` → `npm run build`).
+**`landing/` no longer runs on its own.** Its pages, components and content modules were merged into `frontend-web/`; the folder is kept only until the merge is validated, and nothing should be added to it. Both web apps are covered by `.github/workflows/frontend-admin-ci.yml` (Node 22 — Vite 8 needs ≥ 20.19) and `frontend-web-ci.yml` (Node 20), each `npm ci` → `npm run lint` → `npm run build`.
 
 ### Dev ports — they are not interchangeable
 
@@ -20,10 +19,11 @@ There is currently **no CI workflow for `landing/`**; `frontend-admin/` and `fro
 
 | App | Port | Why |
 |---|---|---|
-| `frontend-admin/` | **3000** | a browser origin the API accepts; pinned in its `dev`/`start` scripts |
-| `landing/` | **3001** | pinned in its `dev`/`start` scripts — it calls no backend, so CORS doesn't apply |
-| `frontend-web/` | **3002** | the other accepted browser origin; pinned in its `dev`/`start` scripts |
+| `frontend-admin/` | **3000** | a browser origin the API accepts; pinned with `strictPort` in `vite.config.js` (dev and preview) |
+| `frontend-web/` | **3002** | public site **and** client space, one server; the other accepted origin |
 | `backend/` | 8081 | `server.port` in `application.properties` |
+
+Port 3001 is now free: the marketing site is served by `frontend-web` on 3002. Running it separately again would put the public pages on an origin the API rejects, and split one domain in two.
 
 Running any of these apps on another port silently breaks every API request with a CORS failure. Adding a new browser origin means editing the Java CORS list (a wildcard is not an option — `setAllowCredentials(true)` forbids it).
 
@@ -69,12 +69,17 @@ Key flows to understand before making changes:
   - **Knock-out conditions** (`LoanNotEligibleException`, 422) sit outside the score because a weighted score always compensates: account ≥ 90 days, KYC ≥ TIER_1. No transaction volume buys those.
   - `GET /api/credit/capacity` is what a loan form must read. **Never bound the amount field on `ScoreBreakdown.maxLoanAmount`** — that is the tier ceiling, usually unreachable.
 - **Scheduling**: `scheduler/ScheduledTransferService` + `ScheduledTransferJob` handle recurring/future-dated transfers independent of the credit scoring scheduler.
-- **Mobile-money deposits** (`payment/`, sandbox-only for now): `POST /api/transactions/deposit/mobile-money` answers **202** and credits nothing. It opens a `PENDING` ledger entry, then calls FedaPay (create transaction -> generate token -> `POST /transactions/{mode}`); the wallet is credited only when `POST /api/webhooks/fedapay` receives `transaction.approved`. Four rules hold this together:
+- **Mobile-money deposits** (`payment/`, sandbox-only for now): `POST /api/transactions/deposit/mobile-money` answers **202** and credits nothing. It opens a `PENDING` ledger entry, then calls FedaPay (create transaction -> generate token -> `POST /{mode}` — the operator code sits at the API root, **not** under `/transactions`, which answers 404); the wallet is credited only when `POST /api/webhooks/fedapay` receives `transaction.approved`. Four rules hold this together:
   1. **The ledger entry is written before the provider is called.** The reverse order loses deposits: a crash after the operator accepted would leave money debited from the customer with no trace here. The worst case is now an orphan `PENDING` row — visible and repairable.
   2. **The provider call happens outside any DB transaction** (`MobileMoneyDepositService` is a separate bean on purpose). Holding a connection across a multi-second HTTP call exhausts the pool under load.
   3. **The webhook route is public and the HMAC signature is the only lock** (`WebhookSignatureVerifier`, `t=<ts>,s=<sig>` over `<ts>.<raw body>`, 300s tolerance). The body must be read as a raw `String` — re-serializing invalidates a genuine signature. With no `fedapay.webhook-secret` set, every notification is refused.
   4. **Settlement is idempotent twice over**: a pessimistic lock (`findByProviderTransactionIdForUpdate`) serializes concurrent retries, and a status guard ignores anything no longer `PENDING`. FedaPay retries up to 9 times. Non-matching events are acknowledged with 200 — returning an error would get the endpoint auto-disabled after 10 failures.
+  5. **Two collection paths, one settlement.** Direct charge (`POST /{mode}`, the request pushed to the phone) requires a commercial authorisation FedaPay grants per merchant account; without it every operator answers `400 Opération non autorisée`. `fedapay.direct-charge` (`FEDAPAY_DIRECT_CHARGE`) is therefore **false by default** and the fallback is the provider's hosted page, whose URL comes back with the created transaction and is stored on the ledger entry (`provider_payment_url`, V4). Storing it is what makes an idempotent replay usable — a customer who closes the tab gets the same link back instead of an unpayable pending row. Both paths end at the same `transaction.approved` webhook: nothing downstream distinguishes them, and nothing should. `GET /api/payments/methods` exposes `directCharge` so the UI announces the right gesture before the form is filled.
   **The old `POST /api/transactions/deposit` still credits instantly** and is dev/manual-only. Before going live it must be locked down to ADMIN or removed — it is a self-service money printer otherwise.
+- **Mobile-money withdrawals** (`payment/MobileMoneyWithdrawalService`, `PayoutReconciliationJob`): `POST /api/transactions/withdraw/mobile-money` answers **202**, debits the wallet **immediately** (otherwise the amount stays spendable while the operator processes it) and settles later. Three things hold it together:
+  1. **Payouts are a separate FedaPay authorisation from collection.** `POST /v1/payouts` answers `403 Opération non autorisée` until the merchant account is cleared for it, and **there is no fallback** — a payout leaves the merchant balance, there is no hosted page where a customer could pay themselves. Hence `fedapay.payouts-enabled` (`FEDAPAY_PAYOUTS_ENABLED`), false by default, surfaced as `PaymentProvider.payoutsAvailable()` and asked **before the ledger entry is opened**: a closed channel must not make a balance dip and come back. Refusal is `PaymentMethodUnavailableException` → 503 `PAYMENT_METHOD_UNAVAILABLE`, logged WARN — it is a configuration, not an incident (`PaymentProviderException` stays 502/ERROR for real failures).
+  2. **Every failure path refunds amount *and* fees.** Fees pay for a service that was not rendered. `abandonPendingWithdrawal` covers the provider refusing up front, `settleMobileMoneyWithdrawal(id, false)` covers a payout that failed later; both are guarded by status so a replayed reconciliation refunds once. `MobileMoneyWithdrawalTest` pins all of it.
+  3. **No webhook covers payouts** — FedaPay only emits events for transactions and customers — so `PayoutReconciliationJob` re-reads statuses every 5 min and never concludes from silence: only `sent`/`failed` are verdicts. Provider ids are stored with a `payout_` prefix, since transaction and payout ids are separate sequences sharing one unique column.
 - **Errors**: all exceptions funnel through `exception/GlobalExceptionHandler.java` into one `ErrorResponse` shape (`code`, `message`, `details`, `path`, `timestamp`). Custom domain exceptions (`InsufficientFundsException`, `VaultLockedException`, `WalletInactiveException`, `KycLimitExceededException`, `InsufficientCreditScoreException`, `ActiveLoanExistsException`, `InvalidTokenException` — a wrong/expired/already-used activation or reset code, 400 not 500; `InvalidRefreshTokenException` — a refresh token that no longer authenticates anyone, 401 not 500, etc.) map to specific HTTP statuses there — add new business-rule exceptions there rather than throwing generic ones.
 - Swagger/OpenAPI UI is available at `/swagger-ui.html` (springdoc), permitted without auth. Actuator exposes `health`, `info`, `mappings` only.
 
@@ -105,19 +110,38 @@ Two behaviors that are easy to get wrong because they diverge from typical auth 
 - `POST /api/auth/register` returns 202 and does **not** log the user in — the account stays disabled until the user clicks the emailed confirmation link. `AuthProvider.register()` intentionally leaves status as `unauthenticated` on success.
 - Login is email + password only; there is no OTP login route wired up currently (`otp_verification_screen.dart` exists but is unused/reserved for future 2FA).
 
-## Web app (`frontend-web/`)
+## Web app (`frontend-web/`) — public site + client space
 
-The **web version of the mobile app** — same users, same JWT, same endpoints as `mobile/`, minus the admin surface. When a behaviour differs between this app and `mobile/`, one of the two is wrong.
+One Next application serves two publics since the merge of `landing/`:
+
+| Group | Routes | Layout | Indexed |
+|---|---|---|---|
+| `(marketing)` | `/`, `/a-propos`, `/etudes-de-cas` (+ `[slug]`), `/contact`, `/merci`, `/cgu`, `/confidentialite`, `/cookies` | header, footer, Lenis smooth scroll, cookie banner, GA | yes |
+| `(private)/(app)` | `/mon-compte` (dashboard), `/operations/**`, `/transactions`, `/coffres`, `/credit`, `/virements-programmes`, `/beneficiaires`, `/notifications`, `/comptes`, `/profil` | app shell (sidebar + bottom nav), auth guard | **no** |
+| `(private)/(auth)` | `/connexion`, `/inscription`, `/confirmation`, `/mot-de-passe-oublie`, `/reinitialiser` | centered auth shell | **no** |
+
+**`/` belongs to the marketing site**; the dashboard lives at `/mon-compte`. Route groups add no path segment, so two groups cannot both define `/` — that is the one collision the merge had to resolve.
+
+Four rules the merge introduced, each easy to break:
+
+1. **The root layout carries only what both publics share** — language, fonts, entity JSON-LD, skip link. Header/footer/Lenis/consent live in `(marketing)/layout.tsx`; the session provider lives in `(private)/layout.tsx`. Hoisting the provider back to the root would make the public homepage call `/users/me` for every visitor still holding a token.
+2. **`(private)/layout.tsx` is a server component** so it can export `metadata: { robots: { index: false } }`. Private routes would otherwise inherit the marketing metadata — and its indexing. `robots.ts` disallows them as well: `noindex` stops indexing, `Disallow` stops crawling, and one without the other leaves a gap.
+3. **Google Analytics is mounted in `(marketing)/layout.tsx` and nowhere else.** Session tokens live in the `localStorage` of an origin now shared by both publics. Confining the tag keeps third-party scripts off authenticated pages — the residual risk (same origin) is documented there and only `HttpOnly` cookies would close it.
+4. **Two radius families on purpose**: `rounded-card`/`rounded-panel` (1.25/1.75rem) belong to the marketing sections; `rounded-surface`/`rounded-sheet`/`rounded-field` (20/24/12px) belong to the product UI and mirror Flutter's `AppRadius`. A dashboard built at editorial radii reads as a brochure.
+
+The client space remains the **web version of the mobile app** — same users, same JWT, same endpoints as `mobile/`, minus the admin surface. When a behaviour differs between this app and `mobile/`, one of the two is wrong.
 
 ### Commands
 
-Run from `frontend-web/`. Same stack as `landing/`/`frontend-admin/` (Next 16 App Router, React 19, Tailwind v4 with tokens in `@theme`), no component library, no charting library, **no third-party script at all**.
+Run from `frontend-web/`. Same stack as `landing/` (Next 16 App Router, React 19, Tailwind v4 with tokens in `@theme`), no component library, no charting library, **no third-party script at all**.
 
 ```
 npm run dev      # :3002 — must be this port, see CORS table above
 npm run build    # production build + TypeScript check
 npm run lint     # what CI runs
 ```
+
+Stack: Next 16 App Router, React 19, Tailwind v4 (tokens in `@theme`), plus GSAP + Lenis inherited from the marketing site — the animation libraries are imported by `(marketing)` components only, so client-space pages never load them.
 
 `landing/AGENTS.md`'s rule applies here too: consult `node_modules/next/dist/docs/` rather than older App Router memory. `params` is a `Promise` — in client components unwrap it with `use()`.
 
@@ -183,34 +207,30 @@ Next 16 App Router (Turbopack), React 19, Tailwind **v4** (no `tailwind.config.t
 
 ## Admin console (`frontend-admin/`)
 
+A deliberately small React 19 + Vite + react-router console, rewritten from scratch (2026-09) after the Dogaa `FrontendWeb` import. Contract: `backend/BACKEND.md` §17 (`/api/v1/admin/console/**`) plus `/auth/*` (§4.1) and the KYC file download.
+
 ### Commands
 
-Run from `frontend-admin/`. Same stack as `landing/` (Next 16 App Router, React 19, Tailwind v4 with tokens in `@theme`), minus GSAP/Lenis — no animation library.
+Run from `frontend-admin/`.
 
 ```
-npm run dev      # :3000 — must be this port, see CORS table above
-npm run build    # production build + TypeScript check
+npm run dev      # :3000 (strictPort) — must be this port, see CORS table above
+npm run build
 npm run lint     # what CI runs
 ```
 
-`landing/AGENTS.md`'s rule applies here too: consult `node_modules/next/dist/docs/` rather than older App Router memory. `params` is a `Promise` — in client components unwrap it with `use()`.
+### Two rules, and what breaks them
 
-### The one thing to understand before touching auth
+1. **Nothing the mobile app does not offer.** Sections: overview, users (detail = wallets, vaults, loans, scheduled payments, recent transactions, KYC documents; one action: unblock), KYC review, transactions, loans, and the admin's own account. Disputes, support tickets, finance, fees/merchants, credit ladder, audit log and admin roles were **removed on purpose** — their backend routes still exist, the console does not call them. Adding a section means checking `mobile/lib/services` first.
+2. **The API serves raw values; the console formats them**, in `src/lib/format.js` only (amounts, dates, enum labels, badge tones). Do not reintroduce server-side display strings.
 
-**The JWT carries no roles.** `AuthenticationService.authenticate()` calls `jwtService.generateToken(user)` — the overload with no extra claims — so the token holds only `sub`, `type`, `iat`, `exp`. `UserResponse` (`GET /api/users/me`) also excludes authorities, deliberately.
-
-The console therefore cannot *derive* admin status; it **asks**. `lib/session.tsx` calls `GET /api/admin/loans/overview` and reads the answer: 200 = ADMIN, 403 (`ACCESS_DENIED`) = not. Don't replace this with a JWT claim read without also changing the backend — and note the probe has a real advantage: a role revoked in the database takes effect on the next page load, where a claim baked into a token would stay valid until expiry.
-
-Tokens live in `localStorage` (what `AuthController.logout` documents). Consequence: XSS reads them. The console loads zero third-party scripts as mitigation; `HttpOnly` cookies would need backend work.
-
-### Layout
-
-- `src/app/(console)/` — authenticated screens (`/`, `/utilisateurs`, `/prets`, `/conformite`, plus `[id]` details). `/connexion` sits outside the group.
-- `src/lib/` — `api.ts` (fetch + single-flight token refresh + `ApiError`), `session.tsx`, `use-resource.ts`, `types.ts` (**mirrors the Java DTOs — each block names its source file**), `format.ts`.
-- `src/components/ui/primitives.tsx` — all base UI in one module; `status.tsx` maps domain enums to badge tones (one status = one color everywhere).
-- `src/components/charts/` — hand-rolled SVG/CSS charts, no charting library.
-
-`useResource` derives `loading` from "which request produced the shown result" rather than storing a boolean — that is what keeps previous data on screen during a reload and avoids the `setState`-in-effect the React compiler lint rejects.
+- **No mock mode.** Without `VITE_API_BASE_URL` (`.env.development` is versioned) the app shows an error instead of inventing data — the old mock login accepted any password.
+- **Auth**: e-mail + password on `/auth/login`, one 8 h JWT in `localStorage['kola_admin_token']`, no refresh. A 401 dispatches `kola:unauthorized` and signs out; a **403** (module not granted to the role) shows "Accès refusé" and keeps the session. `ROLE_MODULES` in `src/lib/session.jsx` mirrors `AdminRole` only to hide links.
+- **KYC files are downloaded, never opened in a tab** (`download()` in `src/lib/api.js`): a `blob:` URL inherits the console's origin.
+- **All styling lives in `src/styles.css`** as tokens (only computed chart heights are inline). Manrope is bundled via `@fontsource-variable/manrope` — no request to a third party.
+- **Form rules, kept on purpose** (the user rejected the usual "vibe-coded" tells): mobile-app colours only (navy `#002353`, blue `#0047BA`), flat — no gradient, no purple; 4 px corners; separation by hairlines — no drop shadow, no blur/glass, no dot grid, no blurred orb; no hover animation (a hover changes a colour, nothing moves); no emoji, no star, no check-mark bullets.
+- **Light visual load.** The dashboard is a small bento: the day's volume vs yesterday with the 14-day chart (the big tile), four day-vs-yesterday KPIs (new customers, loans granted, fees earned, repayments received), and an "À traiter" strip — the user wants few boxes, not no bento. Add a KPI only on request. List toolbars keep only the essentials (search, a single period `<select>`, export); every secondary filter (type, status, KYC tier, exact dates) sits behind a "Filtres" button that shows how many are active. Totals go on one line under the page title; the per-type breakdown lives in the Excel export, not on screen.
+- **Lists are paginated server-side** (15 rows by default, numbered pages, size 10/15/25) and filters live in the URL (`useFilters`), so a filtered view is a shareable link. Periods use `PeriodFilter` (presets + two dates, UTC days, both bounds inclusive).
 
 ## Admin API surface (`/api/admin/**`, ADMIN authority enforced in `SecurityConfig`)
 

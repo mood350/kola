@@ -5,10 +5,13 @@ import 'session_manager.dart';
 import 'storage_service.dart';
 
 /// Exception représentant la forme unique des erreurs backend
-/// (cf. GlobalExceptionHandler.ErrorResponse : code, message, details, path, timestamp).
+/// (cf. GlobalExceptionHandler : message + fieldErrors).
 class ApiException implements Exception {
   final String code;
   final String message;
+
+  /// Erreurs de validation champ par champ, à rattacher aux saisies du
+  /// formulaire plutôt qu'à afficher en bloc.
   final Map<String, String> details;
   final int? statusCode;
 
@@ -18,6 +21,8 @@ class ApiException implements Exception {
     this.details = const {},
     this.statusCode,
   });
+
+  bool get isNetworkFailure => code == 'NETWORK_ERROR';
 
   @override
   String toString() => message;
@@ -125,17 +130,64 @@ class ApiClient {
     );
   }
 
+  /// [idempotencyKey] est repris tel quel par la seconde tentative après un
+  /// 401 : c'est ce qui garantit que le rejeu ne débite pas deux fois.
   Future<ApiResult<T>> post<T>(
+    String path, {
+    Object? body,
+    String? idempotencyKey,
+    required T Function(dynamic json) decode,
+  }) {
+    final encoded = body != null ? jsonEncode(body) : null;
+    return _send(
+      (headers) => _http.post(
+        _uri(path),
+        headers: {...headers, 'Idempotency-Key': ?idempotencyKey},
+        body: encoded,
+      ),
+      decode: decode,
+      withBody: true,
+    );
+  }
+
+  Future<ApiResult<T>> patch<T>(
     String path, {
     Object? body,
     required T Function(dynamic json) decode,
   }) {
     final encoded = body != null ? jsonEncode(body) : null;
     return _send(
-      (headers) => _http.post(_uri(path), headers: headers, body: encoded),
+      (headers) => _http.patch(_uri(path), headers: headers, body: encoded),
       decode: decode,
       withBody: true,
     );
+  }
+
+  /// Envoi d'un fichier en `multipart/form-data` (pièces justificatives KYC).
+  ///
+  /// Ne passe pas par [_send] : un corps multipart est un flux à usage unique,
+  /// il ne survivrait pas au rejeu après 401. Le token est donc rafraîchi
+  /// avant l'envoi plutôt qu'après le refus.
+  Future<ApiResult<T>> upload<T>(
+    String path, {
+    required String field,
+    required String filePath,
+    Map<String, String> fields = const {},
+    required T Function(dynamic json) decode,
+  }) async {
+    try {
+      final request = http.MultipartRequest('POST', _uri(path))
+        ..headers.addAll(await _headers())
+        ..fields.addAll(fields)
+        ..files.add(await http.MultipartFile.fromPath(field, filePath));
+
+      final streamed = await _http
+          .send(request)
+          .timeout(AppConstants.apiTimeout);
+      return _handle(await http.Response.fromStream(streamed), decode);
+    } catch (_) {
+      return ApiResult.fail(_networkError());
+    }
   }
 
   Future<ApiResult<T>> put<T>(
@@ -179,20 +231,32 @@ class ApiClient {
       if (response.body.isEmpty) {
         return ApiResult.ok(decode(null));
       }
-      return ApiResult.ok(decode(jsonDecode(response.body)));
+      return ApiResult.ok(decode(_unwrap(jsonDecode(response.body))));
     }
     return ApiResult.fail(_parseError(response));
+  }
+
+  /// Les contrôleurs répondent le plus souvent dans une enveloppe
+  /// `{success, message, data}`, mais quelques-uns renvoient l'objet nu. La
+  /// présence de la clé `success` est le seul marqueur fiable : s'en remettre
+  /// au type du contrôleur appelant obligerait chaque service à savoir lequel
+  /// des deux il interroge.
+  dynamic _unwrap(dynamic body) {
+    if (body is Map<String, dynamic> && body.containsKey('success')) {
+      return body['data'];
+    }
+    return body;
   }
 
   ApiException _parseError(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final rawDetails = body['details'];
+      final fieldErrors = body['fieldErrors'] ?? body['details'];
       return ApiException(
         code: body['code'] as String? ?? 'UNKNOWN_ERROR',
         message: body['message'] as String? ?? 'Une erreur est survenue',
-        details: rawDetails is Map
-            ? rawDetails.map((k, v) => MapEntry(k.toString(), v.toString()))
+        details: fieldErrors is Map
+            ? fieldErrors.map((k, v) => MapEntry(k.toString(), v.toString()))
             : const {},
         statusCode: response.statusCode,
       );

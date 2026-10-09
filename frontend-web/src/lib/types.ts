@@ -91,6 +91,16 @@ export type Transaction = {
   receiverCountryCode: string | null;
   description: string | null;
   idempotencyKey: string | null;
+  /**
+   * Page où régler un dépôt encore en attente.
+   *
+   * Renseignée quand le prestataire ne pousse pas la demande sur le téléphone
+   * du client mais le fait payer sur sa propre page. Nulle partout ailleurs —
+   * y compris sur un dépôt déjà réglé. Elle survit au rechargement de l'écran
+   * parce qu'elle est stockée côté serveur : reprendre un dépôt interrompu
+   * consiste à relire l'opération, pas à en ouvrir une seconde.
+   */
+  paymentUrl: string | null;
   createdAt: string;
 };
 
@@ -102,6 +112,52 @@ export type Page<T> = {
   number: number;
   size: number;
   last: boolean;
+};
+
+/* --- Moyens de paiement (payment/PaymentMethodController) ----------------- */
+
+/**
+ * Un opérateur Mobile Money encaissable ou payable.
+ *
+ * `code` est le nom de l'enum Java (`MTN_BENIN`), pas le code FedaPay
+ * (`mtn_open`) : c'est ce que les endpoints attendent, et le code du
+ * prestataire ne sort jamais du backend.
+ */
+export type PaymentMethod = {
+  code: string;
+  label: string;
+  countryCode: string;
+};
+
+export type PaymentMethods = {
+  /** Opérateurs du pays retenu — ce que l'écran propose par défaut. */
+  available: PaymentMethod[];
+  /** Tous les opérateurs, pour un utilisateur qui retire dans un autre pays. */
+  all: PaymentMethod[];
+  countryCode: string;
+  /**
+   * Faux si le prestataire n'est pas configuré sur ce serveur : seul le mode
+   * de test est alors possible, et l'écran doit le dire avant de proposer un
+   * opérateur qu'il faudrait refuser ensuite.
+   */
+  providerEnabled: boolean;
+  /**
+   * Vrai si la demande de débit s'affiche sur le téléphone du client ; faux
+   * s'il règle sur une page hébergée par le prestataire.
+   *
+   * Le prélèvement sans redirection est une autorisation que tout compte
+   * marchand n'a pas — l'écran doit annoncer le bon geste AVANT la saisie.
+   */
+  directCharge: boolean;
+  /**
+   * Vrai si un retrait vers Mobile Money peut aboutir.
+   *
+   * Distinct de `providerEnabled` : chez FedaPay, l'encaissement et le
+   * versement s'ouvrent séparément sur un compte marchand. Un serveur peut
+   * donc encaisser sans pouvoir verser, et l'écran de retrait doit le dire
+   * plutôt que de laisser remplir un formulaire qui finira en 503.
+   */
+  withdrawalEnabled: boolean;
 };
 
 /* --- Coffres (vault/VaultResponse) ---------------------------------------- */

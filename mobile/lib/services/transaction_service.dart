@@ -1,117 +1,103 @@
-import '../models/page_response.dart';
+import '../models/json.dart';
 import '../models/transaction.dart';
 import 'api_client.dart';
 
-/// Service gérant les appels API liés aux transactions
-/// (cf. TransactionController backend).
 class TransactionService {
-  TransactionService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  TransactionService({ApiClient? client}) : _client = client ?? ApiClient();
 
-  final ApiClient _api;
+  final ApiClient _client;
 
-  Future<ApiResult<Transaction>> deposit({
-    required int walletId,
-    required double amount,
-    String? externalReference,
-    String? idempotencyKey,
-  }) {
-    return _api.post<Transaction>(
-      '/transactions/deposit',
-      body: {
-        'walletId': walletId,
-        'amount': amount,
-        'externalReference': ?externalReference,
-        'idempotencyKey': ?idempotencyKey,
+  /// Relevé du compte. La réponse est paginée (`Page<TransactionResponse>`) :
+  /// seule la page courante nous intéresse ici.
+  Future<ApiResult<List<KolaTransaction>>> history({int size = 100}) {
+    return _client.get(
+      '/api/v1/transactions',
+      query: {'size': '$size'},
+      decode: (json) {
+        final content = (json as Map?)?['content'];
+        return asList(content, KolaTransaction.fromJson);
       },
-      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
     );
   }
 
-  Future<ApiResult<Transaction>> withdraw({
-    required int walletId,
-    required double amount,
-    String? idempotencyKey,
-  }) {
-    return _api.post<Transaction>(
-      '/transactions/withdraw',
-      body: {
-        'walletId': walletId,
-        'amount': amount,
-        'idempotencyKey': ?idempotencyKey,
-      },
-      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
+  Future<ApiResult<KolaTransaction>> byReference(String reference) {
+    return _client.get(
+      '/api/v1/transactions/$reference',
+      decode: (json) =>
+          KolaTransaction.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
-  Future<ApiResult<Transaction>> transfer({
-    required int sourceWalletId,
-    required int beneficiaryId,
+  /// Frais applicables avant confirmation, pour les afficher plutôt que de
+  /// laisser l'utilisateur les découvrir sur son relevé.
+  Future<ApiResult<FeeQuote>> quote({
     required double amount,
+    String type = 'P2P_TRANSFER',
+  }) {
+    return _client.post(
+      '/api/v1/transactions/quote',
+      body: {'type': type, 'currency': 'XOF', 'amount': amount},
+      decode: (json) =>
+          FeeQuote.fromJson((json as Map).cast<String, dynamic>()),
+    );
+  }
+
+  /// [idempotencyKey] vient d'un [IdempotencyKeyHolder] tenu par l'écran : il
+  /// reste stable tant que l'intention de paiement ne change pas, pour qu'un
+  /// re-essai après timeout ne débite pas deux fois.
+  Future<ApiResult<KolaTransaction>> transfer({
+    required double amount,
+    required String recipientPhone,
+    required String idempotencyKey,
     String? description,
-    String? idempotencyKey,
   }) {
-    return _api.post<Transaction>(
-      '/transactions/transfer',
+    return _client.post(
+      '/api/v1/transactions/transfer',
+      idempotencyKey: idempotencyKey,
       body: {
-        'sourceWalletId': sourceWalletId,
-        'beneficiaryId': beneficiaryId,
         'amount': amount,
-        'description': ?description,
-        'idempotencyKey': ?idempotencyKey,
+        'currency': 'XOF',
+        'recipientPhone': recipientPhone,
+        if (description != null && description.isNotEmpty)
+          'description': description,
       },
-      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
+      decode: (json) =>
+          KolaTransaction.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
-  Future<ApiResult<Transaction>> payMerchant({
-    required int sourceWalletId,
-    required String merchantCode,
+  Future<ApiResult<KolaTransaction>> payBill({
     required double amount,
-    String? idempotencyKey,
+    required String billerReference,
+    required String idempotencyKey,
+    String? description,
   }) {
-    return _api.post<Transaction>(
-      '/transactions/pay-merchant',
+    return _client.post(
+      '/api/v1/transactions/bill-payment',
+      idempotencyKey: idempotencyKey,
       body: {
-        'sourceWalletId': sourceWalletId,
-        'merchantCode': merchantCode,
         'amount': amount,
-        'idempotencyKey': ?idempotencyKey,
+        'currency': 'XOF',
+        'billerReference': billerReference,
+        if (description != null && description.isNotEmpty)
+          'description': description,
       },
-      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
+      decode: (json) =>
+          KolaTransaction.fromJson((json as Map).cast<String, dynamic>()),
     );
   }
 
-  Future<ApiResult<PageResponse<Transaction>>> getWalletHistory({
-    required int walletId,
-    int page = 0,
-    int size = 20,
+  Future<ApiResult<KolaTransaction>> cashOut({
+    required double amount,
+    required String destination,
+    required String idempotencyKey,
   }) {
-    return _api.get<PageResponse<Transaction>>(
-      '/transactions/wallet/$walletId',
-      query: {'page': '$page', 'size': '$size'},
-      decode: (json) => PageResponse.fromJson(
-        json as Map<String, dynamic>,
-        Transaction.fromJson,
-      ),
+    return _client.post(
+      '/api/v1/transactions/cash-out',
+      idempotencyKey: idempotencyKey,
+      body: {'amount': amount, 'currency': 'XOF', 'destination': destination},
+      decode: (json) =>
+          KolaTransaction.fromJson((json as Map).cast<String, dynamic>()),
     );
-  }
-
-  Future<ApiResult<Transaction>> getByReference(String reference) {
-    return _api.get<Transaction>(
-      '/transactions/$reference',
-      decode: (json) => Transaction.fromJson(json as Map<String, dynamic>),
-    );
-  }
-
-  /// Raccourci pour le tableau de bord Home : dernières transactions du wallet.
-  Future<ApiResult<List<Transaction>>> getRecent({
-    required int walletId,
-    int limit = 3,
-  }) async {
-    final result = await getWalletHistory(walletId: walletId, size: limit);
-    if (result.success) {
-      return ApiResult.ok(result.data!.content);
-    }
-    return ApiResult.fail(result.error);
   }
 }

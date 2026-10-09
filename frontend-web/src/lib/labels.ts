@@ -220,6 +220,32 @@ export const NETWORK_COLOR: Partial<Record<MobileNetwork, string>> = {
   MIXX_BY_YAS: "#2E32C7",
 };
 
+/* --- Opérateurs Mobile Money (payment/MobileMoneyMode) -------------------- */
+
+/**
+ * Couleur de marque des opérateurs encaissables.
+ *
+ * ═══ DISTINCTE DE `NETWORK_COLOR`, ET IL LE FAUT ═══
+ *
+ * `NETWORK_COLOR` décrit les réseaux d'un DESTINATAIRE de virement
+ * (`MobileNetwork`, qui inclut Western Union ou MoneyGram). Celle-ci décrit les
+ * canaux par lesquels FedaPay sait encaisser et verser (`MobileMoneyMode`). Les
+ * deux énumérations ne se recouvrent qu'à moitié : les indexer sur la même
+ * table laissait sept opérateurs sur neuf sans couleur.
+ *
+ * Seules les marques dont la couleur est établie figurent ici — MTN et son
+ * jaune, Moov et son bleu. Les autres retombent sur l'indigo de marque : mieux
+ * vaut une pastille neutre qu'une couleur inventée à la place de son
+ * propriétaire.
+ */
+export const OPERATOR_COLOR: Record<string, string> = {
+  MTN_BENIN: "#FFCC00",
+  MTN_CI: "#FFCC00",
+  MTN_GUINEE: "#FFCC00",
+  MOOV_BENIN: "#00539B",
+  MOOV_TOGO: "#00539B",
+};
+
 /* --- KYC ------------------------------------------------------------------ */
 
 export const KYC_LABEL: Record<KycLevel, string> = {

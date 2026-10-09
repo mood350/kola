@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "com.kola.mobile"
-    compileSdk = flutter.compileSdkVersion
+    // Fixé plutôt qu'hérité de `flutter.compileSdkVersion` : file_picker et
+    // flutter_plugin_android_lifecycle exigent l'API 36, que le SDK Flutter
+    // installé ne réclame pas encore.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

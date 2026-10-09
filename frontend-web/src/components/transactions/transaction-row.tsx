@@ -73,7 +73,7 @@ export function TransactionRow({
   return (
     <Link
       href={`/transactions/${encodeURIComponent(transaction.reference)}`}
-      className="flex items-center gap-3 rounded-card bg-surface p-4 ring-1 ring-line transition-colors hover:bg-ink-50"
+      className="flex items-center gap-3 rounded-surface bg-surface p-4 ring-1 ring-line transition-colors hover:bg-ink-50"
     >
       <span
         className={cn(

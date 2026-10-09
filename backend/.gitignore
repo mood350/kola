@@ -32,8 +32,11 @@ build/
 ### VS Code ###
 .vscode/
 
-### Application Configuration ###
-# application.properties EST versionné : il ne contient que des placeholders
-# ${VAR}, jamais de secret en dur. Les vraies valeurs vivent dans .env
-# (spring-dotenv les charge au démarrage) — voir .env.example.
 .env
+
+
+# Local runtime config (use application.properties.example as the template)
+src/main/resources/application.properties
+
+# KYC documents written by LocalDocumentStorage
+var/

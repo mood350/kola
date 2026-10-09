@@ -1,0 +1,151 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.5.2 Chrome/142.0.7444.265 Electron/39.6.1 Safari/537.36" version="29.5.2">
+  <diagram name="Page-1" id="lvF-MxY7liFYR1rx1z9q">
+    <mxGraphModel dx="1507" dy="736" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-1" parent="1" style="shape=internalStorage;whiteSpace=wrap;html=1;backgroundOutline=1;dx=240;dy=50;" value="" vertex="1">
+          <mxGeometry height="670" width="660" x="240" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;&lt;b&gt;Client&lt;/b&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="325" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;span style=&quot;font-size: 18px;&quot;&gt;&lt;b&gt;Sytème&lt;/b&gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="670" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Choisir retirer les fonds" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Valider le retrait" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-7" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-6" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-4" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="620" y="350" as="sourcePoint" />
+            <mxPoint x="670" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-8" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-4" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-5" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="630" y="390" as="sourcePoint" />
+            <mxPoint x="680" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-9" parent="1" style="ellipse;html=1;shape=startState;fillColor=#000000;strokeColor=#000000;" value="" vertex="1">
+          <mxGeometry height="30" width="30" x="325" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-10" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-6" style="edgeStyle=orthogonalEdgeStyle;html=1;verticalAlign=bottom;endArrow=open;endSize=8;strokeColor=#000000;rounded=0;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="340" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-11" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="50" width="55" x="687.5" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-12" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-13" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-11" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="360" y="520" as="sourcePoint" />
+            <mxPoint x="410" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-14" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-5" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-13" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="400" y="375" as="sourcePoint" />
+            <mxPoint x="900" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Véifier la date de déblocage" vertex="1">
+          <mxGeometry height="40" width="120" x="655" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-15" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-9" style="edgeStyle=orthogonalEdgeStyle;html=1;verticalAlign=bottom;endArrow=open;endSize=8;strokeColor=#000000;rounded=0;" target="IpyflN3C3PcxnuwRNpsG-6" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="340" y="160" as="sourcePoint" />
+            <mxPoint x="340" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Choisir le coffre" vertex="1">
+          <mxGeometry height="40" width="120" x="280" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-16" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Transférer les fonds du coffre au portefeuille" vertex="1">
+          <mxGeometry height="40" width="120" x="530" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-17" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-11" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-16" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="590" y="425" />
+            </Array>
+            <mxPoint x="560" y="410" as="sourcePoint" />
+            <mxPoint x="560" y="440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-18" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Afficher épargne encore bloquée" vertex="1">
+          <mxGeometry height="40" width="120" x="760" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-19" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-11" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-18" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="820" y="425" />
+            </Array>
+            <mxPoint x="918" y="425" as="sourcePoint" />
+            <mxPoint x="820" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-20" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Passer le statut du coffre à fermer" vertex="1">
+          <mxGeometry height="40" width="120" x="530" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-21" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-16" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-20" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="490" y="630" as="sourcePoint" />
+            <mxPoint x="490" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-23" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="50" width="55" x="687.5" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-24" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-26" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-23" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="590" y="635" />
+            </Array>
+            <mxPoint x="570" y="610" as="sourcePoint" />
+            <mxPoint x="570" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-25" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-18" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-23" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="820" y="635" />
+            </Array>
+            <mxPoint x="790" y="560" as="sourcePoint" />
+            <mxPoint x="790" y="590" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-27" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-20" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-26" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points" />
+            <mxPoint x="590" y="570" as="sourcePoint" />
+            <mxPoint x="688" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-26" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Enregitrer la tranaction" vertex="1">
+          <mxGeometry height="40" width="120" x="530" y="585" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-28" parent="1" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#000000;" value="" vertex="1">
+          <mxGeometry height="30" width="30" x="700" y="690" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-30" edge="1" parent="1" source="IpyflN3C3PcxnuwRNpsG-23" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="IpyflN3C3PcxnuwRNpsG-28" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="560" y="660" as="sourcePoint" />
+            <mxPoint x="560" y="690" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-32" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="date atteinte" vertex="1">
+          <mxGeometry height="30" width="60" x="600" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="IpyflN3C3PcxnuwRNpsG-33" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="date non atteinte" vertex="1">
+          <mxGeometry height="30" width="60" x="760" y="390" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
